@@ -83,6 +83,7 @@
      &     nka,
      &     nkt,
      &     nphrxn,
+     &     nmax_chem_aer,
      &     mbs
 
       implicit double precision (a-h,o-z)
@@ -200,7 +201,7 @@
       if (chem) call profc (dt,mic)
 ! allocate arrays and initialise vmean
       if (chem) call v_mean_init
-      if (chem) call v_mean (t(:nf))
+      if (chem) call v_mean (t(:nmax_chem_aer))
 
 
 ! Continue the initialisation, both cases
@@ -4949,6 +4950,7 @@ c update total liquid water [kg/m^3]
      &     n,
      &     nrlay,
      &     nkc,
+     &     nmax_chem_aer,
      &     mbs
 
       implicit double precision (a-h,o-z)
@@ -5013,7 +5015,7 @@ c update total liquid water [kg/m^3]
 !            enddo
 !         enddo
          stop 'jjb: box version has to be updated'
-         call v_mean (t(:nf))
+         call v_mean (t(:nmax_chem_aer))
 !        call henry_a (t,p,nf) ! jjb second argument (p) not used
          call henry_a (t,nf)   ! jjb removed
 !        call fast_k_mt_a(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
