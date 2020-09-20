@@ -495,7 +495,7 @@ c dry deposition velocities for gas phase
          enddo
       enddo
 
-
+! Compute the mean molecular speed (depends only on the temperature)
       call v_mean (t(:nmax_chem_aer))
 
 ! Call all subroutines needed for aerosols (bins 1 & 2) (aer mechanism)
@@ -879,6 +879,51 @@ c
 
       subroutine v_mean_init
 
+! Description :
+! -----------
+!     Compute the mean molecular speed from Maxwell-Boltzmann distribution:
+!     v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+
+! Interface :
+! ---------
+!    SR v_mean_init is called during initialisation:
+!      - by SR initc (no restart case)
+!      - by SR str=main (restart case)
+      
+! Input :
+! -----
+!    - chemical species molar masses have been imported from the user defined files ('gas_species.csv')
+
+! Output :
+! ------
+!    - v_mean_init computes the constant factor in vmean: vmean_init=sqrt(8*R_gas  /(M*pi))
+
+! Externals :
+! ---------
+!    none
+
+! Method :
+! ------
+!    Improve computing efficiency: split vmean calculation into a constant part, calculated here,
+!    and a variable term (sqrt(T)) computed only once in SR v_mean
+
+! Author :
+! ------
+!    Josue Bock
+
+
+! Modifications :
+! -------------
+!
+! 04-Jan-2017   Josue Bock   First version
+!
+      
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
       USE constants, ONLY :
 ! Imported Parameters:
      &     gas_const,
@@ -903,11 +948,15 @@ c
 
       implicit none
 
+! Local scalars:
       integer :: jtot
       integer :: jspec
       double precision :: const_fact
 
+! Local arrays:
       double precision :: sqrt_mass (j1 + j5 + j4)
+
+! == End of declarations =======================================================
 
       jtot = j1 + j5 + j4
 
@@ -938,6 +987,69 @@ c
 
       subroutine v_mean (temperature)
 
+! Description :
+! -----------
+!     Compute the mean molecular speed from Maxwell-Boltzmann distribution:
+!     v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+
+! Interface :
+! ---------
+!    SR v_mean is called:
+!      - during initialisation:
+!        - by SR initc (no restart case)
+!        - by SR str=main (restart case)
+!      - during the run
+!        - by SR liq_parm
+!        - by SR box_update (which is call during time integration, but actually calls v_mean only during initialisation)
+      
+! Input :
+! -----
+!    - vmean_init has been computed by SR v_mean_init during initialisation
+
+! Output :
+! ------
+!    - v_mean computes the mean molecular speed, using constant factor in vmean: vmean_init=sqrt(8*R_gas  /(M*pi))
+
+! Externals :
+! ---------
+!    none
+
+! Method :
+! ------
+!    Improve computing efficiency: split vmean calculation into a constant part, calculated here,
+!    and a variable term (sqrt(T)) computed only once in SR v_mean
+
+! Author :
+! ------
+!    Roland von Glasow
+
+
+! Modifications :
+! -------------
+! 17-Jul-2015   Josue Bock   Commented unused /cb40/ (found in the code that vmean had been computed only between
+!                               lcl and lct, but this had been changed, now from 1 to nmaxf
+!
+! 05-Mar-2016   Josue Bock   Forcheck errors 307E, 312E: commented lines related to CHBr2I, I2O, I2O3, I2O4, I2O5 and INO
+!                               (undefined indexes)
+!
+! 17-Mar-2016   Josue Bock   Reindexed vmean array for computing efficiency: innermost is leftmost
+!                               vmean(nf,NSPEC) -> vmean(NSPEC,nf)
+!
+! 22-Mar-2016   Josue Bock   Missing species added: SO3, H2SO2 and corrected values for HNO4 (63->79 g/mol), XOR (109->125 g/mol)
+!
+! 04-Jan-2017   Josue Bock   Major change to the code structure: split v_mean_init and v_mean (no longer v_mean_a and v_mean_t)
+!                               This is ready in my sub-version jjb6v1.0*
+!
+! 11-Feb-2017   Josue Bock   Changed double-specific math function (dsqrt) into generic one (sqrt) in the whole file
+!                               Also changed the exponent of hard-written mass values (e -> d) for a few species, for consistency
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
       USE gas_common, ONLY :
 ! Imported Parameters:
      &     j1,
@@ -954,10 +1066,16 @@ c
 
       implicit none
 
+! Subroutine arguments
+! Array arguments with intent(in):
       double precision, intent(in) :: temperature (nmax_chem_aer)
+! Local scalars:
       integer :: jtot
       integer :: j,k
+! Local arrays:
       double precision :: sqrtt(nmax_chem_aer)
+
+! == End of declarations =======================================================
 
       jtot = j1 + j5 + j4
 
