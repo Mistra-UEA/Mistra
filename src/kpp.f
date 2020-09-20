@@ -392,11 +392,9 @@ c            write (543,12) k,cm3(k,1),cm3(k,2)
 
 c Init calc of v_mean and henry
 c initialize all variables also for box run
-!      call v_mean_a  (t,nf)
 !     call henry_a (t,p,nf) ! jjb second argument (p) not used
       call henry_a (t,nf)   ! jjb removed
       call st_coeff_a
-!      call v_mean_t  (t,nf)
 !     call henry_t (t,p,nf) ! jjb second argument (p) not used
       call henry_t (t,nf)   ! jjb removed
       call st_coeff_t

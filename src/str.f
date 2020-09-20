@@ -5014,7 +5014,6 @@ c update total liquid water [kg/m^3]
 !         enddo
          stop 'jjb: box version has to be updated'
          call v_mean (t(:nf))
-         !call v_mean_a  (t,nf)  
 !        call henry_a (t,p,nf) ! jjb second argument (p) not used
          call henry_a (t,nf)   ! jjb removed
 !        call fast_k_mt_a(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
@@ -5030,7 +5029,6 @@ c update total liquid water [kg/m^3]
          if (cm(3,n_bl).gt.0.) xph3 = 1.
          if (cm(4,n_bl).gt.0.) xph4 = 1.
          if (xph3.eq.1..or.xph4.eq.1.) then
-            !call v_mean_t  (t,nf) 
 !           call henry_t (t,p,nf) ! jjb second argument (p) not used
             call henry_t (t,nf)   ! jjb removed
 !           call fast_k_mt_t(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
