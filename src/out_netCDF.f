@@ -3180,6 +3180,8 @@ c output of meteorological variables
 !     - corrected character length for fname to be consistent with SR ehandle
 !     - replaced idexes in CB lang, kurz for homogeneity
 
+! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     n,
@@ -3220,7 +3222,7 @@ c output of meteorological variables
 
       dimension ifield(1,1,1), idimcount(4), idimstart(4) 
 !      dimension field(1,1,n),field2(4,1,n),blowitup(n) ! jjb field2 not used
-      dimension field(1,1,n),blowitup(n)
+      dimension field(1,1,n_bln),blowitup(n)
       dimension fd_u(n),fd_v(n),fd_q(n),fd_t(n),fd_tke(n)
       fname="meteo.nc"
       icount=icount+1
@@ -3394,7 +3396,7 @@ c particle sum
 c$$$      field(1,1,:)=fsum(1:n_bln,0)
 c$$$      k=nf_put_vara_double(idfile,idvar(33),idimstart,idimcount,field)
 c$$$      if (k.ne.nf_noerr) call ehandle(k,fname)
-      field(1,1,:)=fsum(:)
+      field(1,1,:)=fsum(1:n_bln)
       k=nf_put_vara_double(idfile,idvar(33),idimstart,idimcount,field)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 c$$$      field(1,1,:)=fsum(1:n_bln,1)
@@ -3548,6 +3550,8 @@ c
 !     - unused declarations / variables / parameters removed
 !     - use module
 
+! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
+
       USE gas_common, ONLY :
 ! Imported Parameters:
      &     j1,
@@ -3584,7 +3588,7 @@ c
       integer jspec, k
 
 ! Local arrays:
-      dimension field(1,1,n),idimcount(4),idimstart(4),ifield(1,1,1)
+      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1)
       double precision field
       integer idimcount, idimstart, ifield
 
@@ -3665,6 +3669,8 @@ c----------------------------------------------------------------
 c
       subroutine write_chem_aq (n_bln,halo,iod,nuc)
 
+! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
+
       USE config, ONLY:
      &     nkc_l
 
@@ -3700,7 +3706,7 @@ c
       common /blck12/ cw(nkc,n),cm(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
 !      dimension field(nkc_l,1,n),jddim1(4),idimcount(4),idimstart(4), ! jjb jddim1 not used
-      dimension field(nkc_l,1,n),idimcount(4),idimstart(4),
+      dimension field(nkc_l,1,n_bln),idimcount(4),idimstart(4),
      &        ifield(1,1,1),mliq(nliq),mhalo(nhalo),miod(niod),
      &        mion(nion),mionh(nionh),mioni(nioni)
 
@@ -3914,6 +3920,8 @@ c
 
       subroutine write_jrate (n_bln)
 
+! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     n
@@ -3936,7 +3944,7 @@ c
       common /band_rat/ photol_j(47,n)
 !      dimension field(1,1,n),jddim1(4),idimcount(4),idimstart(4), ! jjb jddim not used
 !     &        ifield(1,1,1) 
-      dimension field(1,1,n),idimcount(4),idimstart(4),ifield(1,1,1) 
+      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1) 
       ijratcount=ijratcount+1
       fname="jrate.nc"
 
