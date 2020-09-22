@@ -994,9 +994,18 @@
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       subroutine ploutp (fogtype)
 ! output of particle distributions
+
+
+! 22-Sep-2020   Josue Bock   Remove remaining hard coded nf,n,nka, nkt parameter values
+
+       USE global_params, ONLY :
+! Imported Parameters:
+     &     n,
+     &     nka,
+     &     nkt
+
       double precision ff,fsum,xm1,xm2,feu,dfddt,xm1a,xm2a
 
-      parameter (nf=100,n=nf+50,nka=70,nkt=70)
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       double precision time
       integer lday, lst, lmin, it, lcl, lct
@@ -1184,8 +1193,16 @@
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       subroutine ploutt (fogtype,n_bln)
 ! output of turbulence data
+
+
+! 22-Sep-2020   Josue Bock   Remove remaining hard coded nf,n,nka, nkt parameter values
+
+      USE global_params, ONLY :
+! Imported Parameters:
+     &     n
+      
       implicit double precision (a-h,o-z)
-      parameter (nf=100,n=nf+50)
+
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       double precision time
       integer lday, lst, lmin, it, lcl, lct
