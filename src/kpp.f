@@ -2047,7 +2047,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
-!      parameter (nf=100,n=nf+50,nka=70,nkt=70,nkc=4,nx=50)
+
       parameter (nx=50)
       logical box
       common /blck06/ kw(nka),ka
@@ -2284,7 +2284,6 @@ c absolute values are chosen arbitrarily to ensure fast equilibration;
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h' !additional common blocks and other definitions          
-!      parameter (j6=55,nf=100,n=nf+50,nkc=4)
 
       common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
@@ -2485,7 +2484,6 @@ c absolute values are chosen arbitrarily to ensure fast equilibration;
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions          
-!      parameter (j6=55,nf=100,n=nf+50,nkc=4)
 
       common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
