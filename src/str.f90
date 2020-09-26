@@ -54,154 +54,156 @@
 !
 !       
 
-      USE config, ONLY :
+program mistra
+
+  USE config, ONLY : &
 ! External subroutine
-     &     read_config,
+       read_config,  &
 ! Config switches
-     &     binout,
-     &     BL_box,
-     &     box,
-     &     nlevbox,
-     &     z_box,
-     &     chem,
-     &     halo,
-     &     iod,
-     &     mic,
-     &     netCDF,
-     &     neula,
-     &     nuc,
-     &     rst,
-     &     iaertyp,
-     &     lstmax
+       binout,       &
+       BL_box,       &
+       box,          &
+       nlevbox,      &
+       z_box,        &
+       chem,         &
+       halo,         &
+       iod,          &
+       mic,          &
+       netCDF,       &
+       neula,        &
+       nuc,          &
+       rst,          &
+       iaertyp,      &
+       lstmax
 
-      USE global_params, ONLY :
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nm,
-     &     nrlay,
-     &     nka,
-     &     nkt,
-     &     nphrxn,
-     &     nmax_chem_aer,
-     &     mbs
+       nf,                  &
+       n,                   &
+       nm,                  &
+       nrlay,               &
+       nka,                 &
+       nkt,                 &
+       nphrxn,              &
+       nmax_chem_aer,       &
+       mbs
 
-      implicit double precision (a-h,o-z)
+  implicit double precision (a-h,o-z)
 
-      logical Napari, Lovejoy, both
-      logical :: llinit
+  logical Napari, Lovejoy, both
+  logical :: llinit
 
-      common /cb16/ u0,albedo(mbs),thk(nrlay)
-      double precision u0, albedo, thk
+  common /cb16/ u0,albedo(mbs),thk(nrlay)
+  double precision u0, albedo, thk
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  double precision detw, deta, eta, etw
 
-      common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
+  common /cb48/ sk,sl,dtrad(n),dtcon(n)
+  double precision sk, sl, dtrad, dtcon
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      common /band_rat/ photol_j(nphrxn,n)
-      common /kpp_eul/ xadv(10),nspec(10)
-      common /nucfeed/ ifeed
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  double precision theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  common /band_rat/ photol_j(nphrxn,n)
+  common /kpp_eul/ xadv(10),nspec(10)
+  common /nucfeed/ ifeed
 
 
-      dimension aer(n,nka)
-      character *1 fogtype
-      character *10 fname
+  dimension aer(n,nka)
+  character *1 fogtype
+  character *10 fname
 
-      ! initialisation switch
-      llinit = .true.
+  ! initialisation switch
+  llinit = .true.
 
-      call read_config
+  call read_config
 
-      fogtype='a'
-      ifeed = 1
-      if (neula.eq.0) then
-         open (12,file='euler_in.dat',status='old')
-         do i=1,10
-            read (12,5100) nspec(i),xadv(i)
-         enddo
-         close (12)
-      endif
+  fogtype='a'
+  ifeed = 1
+  if (neula.eq.0) then
+     open (12,file='euler_in.dat',status='old')
+     do i=1,10
+        read (12,5100) nspec(i),xadv(i)
+     enddo
+     close (12)
+  endif
  5100 format (i3,d8.2)
 
-      call mk_interface
+  call mk_interface
 
-      Napari = .true. ; Lovejoy = .true.
-      if (nuc) call nuc_init(Napari,Lovejoy,iod)
+  Napari = .true. ; Lovejoy = .true.
+  if (nuc) call nuc_init(Napari,Lovejoy,iod)
 
-      if (box) print *,'box model run'
+  if (box) print *,'box model run'
 ! it's important to keep this n_bl = 2 for box runs as loops are designed that way
 ! (especially output)
-      if (box) then
-         n_bl  = 2
-         n_bln = 2
-         n_bl8 = 1
-      else
-         n_bl  = nf
-         n_bln = n
-         n_bl8 = 15
-      endif
+  if (box) then
+     n_bl  = 2
+     n_bln = 2
+     n_bl8 = 1
+  else
+     n_bl  = nf
+     n_bln = n
+     n_bl8 = 15
+  endif
 ! open input/output files
-      call openm (fogtype)
-      call openc (fogtype,nuc)
+  call openm (fogtype)
+  call openc (fogtype,nuc)
 ! netCDF output
-      if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
 ! numerical gridpoints
-      call grid
-      nz_box = 0
-      if (box) call get_n_box (z_box,nz_box)
-      call write_grid ! writes information on grid that is not f(t)
-      dt = 60. ! jjb moved from below, was missing for restart case
-      if (rst) go to 2000
+  call grid
+  nz_box = 0
+  if (box) call get_n_box (z_box,nz_box)
+  call write_grid ! writes information on grid that is not f(t)
+  dt = 60. ! jjb moved from below, was missing for restart case
+  if (rst) go to 2000
 
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
 ! initial meteorological and chemical input
-      call initm (iaertyp,fogtype)
-      call initc(box,n_bl)
+  call initm (iaertyp,fogtype)
+  call initc(box,n_bl)
 ! number of iterations
-      it0=0
-      itmax=60*lstmax
+  it0=0
+  itmax=60*lstmax
 ! initial exchange coefficients and turbulent kinetic energy
-      call atk0
+  call atk0
 ! initial position of humidified aerosols
-      call vgleich
+  call vgleich
 ! output of meteorological and chemical constants of current run
-      call constm (chem,mic,rst)
-      if (chem) call constc
+  call constm (chem,mic,rst)
+  if (chem) call constc
 ! output of initial vertical profiles
-      call profm (0.d0)
-      if (chem) call profc (0.d0,mic)
-      go to 2010
+  call profm (0.d0)
+  if (chem) call profc (0.d0,mic)
+  go to 2010
 
 ! Continue the initialisation, restart case
 ! -----------------------------------------
 ! read meteorological and chemical input from output of previous run
  2000 call startm (fogtype)
 ! init some microphysical data that's not in SR startm
-      call mic_init (iaertyp,fogtype)
+  call mic_init (iaertyp,fogtype)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
-      it0=0
-      it=0
-      if (chem) call startc (fogtype)
+  it0=0
+  it=0
+  if (chem) call startc (fogtype)
 
 ! number of iterations
-      itmax=it0+60*lstmax
+  itmax=it0+60*lstmax
 ! output of meteorological and chemical constants of current run
-      call constm (chem,mic,rst)
+  call constm (chem,mic,rst)
 ! output of initial profiles of restart run
-      call profm (dt)
-      if (chem) call profc (dt,mic)
+  call profm (dt)
+  if (chem) call profc (dt,mic)
 ! allocate arrays and initialise vmean
-      if (chem) call v_mean_init
-      if (chem) call v_mean (t(:nmax_chem_aer))
+  if (chem) call v_mean_init
+  if (chem) call v_mean (t(:nmax_chem_aer))
 
 
 ! Continue the initialisation, both cases
@@ -211,285 +213,280 @@
  2010 call radiation (llinit)
 
 ! initial photolysis rates
-!      if (chem) call photol
-      if (chem) then
-         call photol_initialize
-         call photol
-      end if
+!  if (chem) call photol
+  if (chem) then
+     call photol_initialize
+     call photol
+  end if
 
 ! initial output for plotting
-      if (binout) then
-         call ploutm (fogtype,n_bln)
-         if (mic.and..not.box) call ploutp (fogtype)
-         call ploutr (fogtype,n_bln)
-         call ploutt (fogtype,n_bln)
-         if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
-         if (chem) call ploutj (fogtype,n_bln)
-      endif
-      if (chem) call out_mass
-      if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
-      time=60.*float(it0)
+  if (binout) then
+     call ploutm (fogtype,n_bln)
+     if (mic.and..not.box) call ploutp (fogtype)
+     call ploutr (fogtype,n_bln)
+     call ploutt (fogtype,n_bln)
+     if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
+     if (chem) call ploutj (fogtype,n_bln)
+  endif
+  if (chem) call out_mass
+  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+  time=60.*float(it0)
 ! local time: day (lday), hours (lst), minutes (lmin)
-      fname='tim .out'
-      fname(4:4)=fogtype
-      open (99, file=fname,status='unknown',err=2005)
-      atmax=0.
-      write (99,6000) lday,lst,lmin,atmax
-      close (99)
- 2005 continue
-      if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
-      if (box) box_switch=1.
+  fname='tim .out'
+  fname(4:4)=fogtype
+  open (99, file=fname,status='unknown',err=2005)
+  atmax=0.
+  write (99,6000) lday,lst,lmin,atmax
+  close (99)
+2005 continue
+  if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
+  if (box) box_switch=1.
 
-      ! initialisation switch
-      llinit = .false.
+  ! initialisation switch
+  llinit = .false.
 
-      print*,'end initialisation str.f'
+  print*,'end initialisation str.f'
 ! ====================integration in time=====================
 ! outer time loop: minutes
-      do 1000 it=it0+1,itmax                    
-         if (lct.gt.nf) stop 'lct.gt.nf'
+  do it=it0+1,itmax                    
+     if (lct.gt.nf) stop 'lct.gt.nf'
 !         time=time+dt
-         lmin=lmin+1
-         if (lmin.lt.60) go to 2030
-         lmin=lmin-60
-         lst=lst+1
-         if (lst.eq.24) then
-            lst=0
-            lday=lday+1
-         endif
- 2030    continue
+     lmin=lmin+1
+     if (lmin.lt.60) go to 2030
+     lmin=lmin-60
+     lst=lst+1
+     if (lst.eq.24) then
+        lst=0
+        lday=lday+1
+     endif
+2030 continue
 ! dry dep velocities
-!         print*,'call partdep'
-         call partdep (xra)
+!     print*,'call partdep'
+     call partdep (xra)
 ! dd: fractional timestep in sec
-         dd=10.
+     dd=10.
 ! inner time loop: 10 sec
-         do ij=1,6
-            time=time+dd
+     do ij=1,6
+        time=time+dd
 ! --------1D only start------------
 ! skip dynamics, microphysics and radiation for box model run
-            if (.not.box) then
+        if (.not.box) then
 ! if w-field variable in time call wfield
 !         call wfield
 ! turbulent exchange of thermodynamic variables, particles and
 ! chemical species
 !         print*,'call difm'
-               call difm (dd)
-               if (chem) call difc (dd)
+           call difm (dd)
+           if (chem) call difc (dd)
 ! microphysics
-               if (mic) then
-                  call difp (dd)
+           if (mic) then
+              call difp (dd)
 ! condensation/evaporation, update of chemical concentrations
-!         print*,'call kon'
-                  call kon (dd,chem)
+!              print*,'call kon'
+              call kon (dd,chem)
 ! gravitational settling of particles
-!         print*,'call sedp'
-                  call sedp (dd)
+!              print*,'call sedp'
+              call sedp (dd)
 ! put aerosol into equilibrium with current rel hum for k>nf
-!         print*,'call equil'
-                  call equil (2,k)
-               endif
+!              print*,'call equil'
+              call equil (2,k)
+           endif
 ! put aerosol into equilibrium with current rel hum 
-               if (.not.mic) call equil (1,n_bl)
+           if (.not.mic) call equil (1,n_bl)
 ! radiative heating
-               do k=2,nm
-                  t(k)=t(k)+dtrad(k)*dd
-               enddo
+           do k=2,nm
+              t(k)=t(k)+dtrad(k)*dd
+           enddo
 ! temperature and humidity within the soil
 ! water surface: no call to soil
 !         call soil (dd)
 ! flux balances at the earth's surface
 ! water surface: call surf0; else: call surf1
-               call surf0 (dd)
+           call surf0 (dd)
 !         call surf1 (dd)
 ! dry deposition and emission of chemical species
-               if (chem) then
-                  call sedc (dd)
+           if (chem) then
+              call sedc (dd)
 ! wet deposition of chemical species
 !         if (lct.gt.1) call sedl (dd)
-                  call sedl (dd)
+              call sedl (dd)
 ! chemical reactions
-!                 call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
-                  call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
-                  if (nuc) then
+!             call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
+              call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
+              if (nuc) then
 ! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
 !                                      Lovejoy: homogeneous OIO nucleation
 !                                      for further explanation see nuc.f
-                    !Napari = .true.
-                    !Lovejoy = .true.                 ! <jjb> defined previously
-                    if ((Napari) .and. (Lovejoy)) then
-                      both = .true.
-                    else
-                      both = .false.
-                    endif
-                    if ((.not.Napari) .and. (.not.Lovejoy)) 
-     $                STOP 'Napari or Lovejoy must be true'
-                    if (both) then
+                 !Napari = .true.
+                 !Lovejoy = .true.                 ! <jjb> defined previously
+                 if ((Napari) .and. (Lovejoy)) then
+                    both = .true.
+                 else
+                    both = .false.
+                 endif
+                 if ((.not.Napari) .and. (.not.Lovejoy)) then
+                    STOP 'Napari or Lovejoy must be true'
+                 end if
+                 if (both) then
 !         print*,'call appnucl2'
-                      call appnucl2 (dd,both)
-                    else
+                    call appnucl2 (dd,both)
+                 else
 !         print*,'call appnucl'
-                      call appnucl (dd,Napari,Lovejoy,both)
-                    endif
+                    call appnucl (dd,Napari,Lovejoy,both)
+                 endif
 !                   --- de-comment if .asc output for gnu-plotting is desired ---
 !                    call nucout1
-                  endif
-               endif
-            else                ! if .not.box
+              endif
+           endif
+        else                ! if .not.box
 ! --------1D only end------------
 ! --------box model version only start -------------------
 ! put aerosol into equilibrium with current rel hum 
 !               if (.not.mic) call equil (1,n_bl)
 ! call u0, T, rh, J-values  .. update
-               call box_update(box_switch,ij,nlevbox,nz_box,n_bl,
-!     &              chem,halo,iod,BL_box) ! jjb 3 unused arguments
-     &              BL_box)
+           !call box_update(box_switch,ij,nlevbox,nz_box,n_bl,chem,halo,iod,BL_box) ! jjb 3 unused arguments
+           call box_update(box_switch,ij,nlevbox,nz_box,n_bl,BL_box)
 ! gas phase emissions and deposition
-               call sedc_box (dd,z_box,n_bl)
+           call sedc_box (dd,z_box,n_bl)
 ! particle and aqueous phase deposition
-               call box_partdep (dd,z_box,n_bl)
+           call box_partdep (dd,z_box,n_bl)
 ! aerosol emission and chemical reactions
-               if (chem) then
-!                 call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
-                  call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
-               endif
-            endif               ! if .not.box
+           if (chem) then
+!             call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
+              call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
+           endif
+        endif               ! if .not.box
 ! --------box model version only end -------------------
-         enddo                  ! ij-loop : end of fractional timestep loop
+     enddo                  ! ij-loop : end of fractional timestep loop
 
 ! radiative fluxes and heating rates
-!         print*,'call str'
-         if (.not.box) call radiation (llinit)
+!     print*,'call str'
+     if (.not.box) call radiation (llinit)
 ! new photolysis rates
-         if (chem) then
-            if (u0.gt.3.48e-2) then
+     if (chem) then
+        if (u0.gt.3.48e-2) then
 ! optimize this!!
-               if (u0.gt.3.48e-2.and.u0.le.0.4.and.lmin/2*2.eq.lmin
-     &             .or.u0.gt.0.4.and.lmin/2*2.eq.lmin) call photol
-               if (box.and.BL_box) call ave_j (nz_box,n_bl)
-            else
-               do k=1,n
-                  do i=1,nphrxn ! jjb
-                     photol_j(i,k)=0.
-                  enddo
-               enddo
-            endif
-         endif
+           if (u0.gt.3.48e-2.and.u0.le.0.4.and.lmin/2*2.eq.lmin &
+                .or.u0.gt.0.4.and.lmin/2*2.eq.lmin) call photol
+           if (box.and.BL_box) call ave_j (nz_box,n_bl)
+        else
+           do k=1,n
+              do i=1,nphrxn ! jjb
+                 photol_j(i,k)=0.
+              enddo
+           enddo
+        endif
+     endif
 
 ! output of meteorological and chemical variables ----------------------
-         ilmin=15
-!         ilmin=1 !output every minute
-         if (lmin/ilmin*ilmin.eq.lmin) then
+     ilmin=15
+!    ilmin=1 !output every minute
+     if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-!         print*,'call oneD_dist'
-            call oneD_dist
+!       print*,'call oneD_dist'
+        call oneD_dist
 ! binary output
-            if (binout) then 
-               call ploutm (fogtype,n_bln)
-               if (lmin/30*30.eq.lmin.and.mic.and..not.box) 
-     &              call ploutp (fogtype)
-               call ploutr (fogtype,n_bln)
-               call ploutt (fogtype,n_bln)
-               if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
-            endif
+        if (binout) then 
+           call ploutm (fogtype,n_bln)
+           if (lmin/30*30.eq.lmin.and.mic.and..not.box) call ploutp (fogtype)
+           call ploutr (fogtype,n_bln)
+           call ploutt (fogtype,n_bln)
+           if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
+        endif
 ! netCDF output
-            if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,
-     &           box,nuc)
+        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
 ! output of data from nucleation
-           if (chem.and.nuc) call nucout2
+        if (chem.and.nuc) call nucout2
 ! output from mass balance
-            if (chem) call out_mass
+        if (chem) call out_mass
 !         if (chem.and.lmin/60*60.eq.lmin) call ploutj(fogtype,n_bln)
-         endif
+     endif
 ! hourly output of profiles in ascii files
-         if (lmin/60*60.eq.lmin) then 
-            call profm (dt)
-!           call profr
-            if (chem) call profc (dt,mic)
-         endif
+     if (lmin/60*60.eq.lmin) then 
+        call profm (dt)
+!       call profr
+        if (chem) call profc (dt,mic)
+     endif
 ! output for restart option
 !     comment these calls to save disk space for production runs:
-         if (lst/12*12.eq.lst.and..not.box.and.lmin.eq.0) then
-            call outm
-            if (chem) call outc
-         endif
+     if (lst/12*12.eq.lst.and..not.box.and.lmin.eq.0) then
+        call outm
+        if (chem) call outc
+     endif
 ! output of "tima.out"
-         atmax=0.
-         tkemax=0.
-         xm2max=0.
-         do k=lcl,nf
-            atmax=dmax1(atmax,atkh(k))
-            tkemax=dmax1(tkemax,tke(k))
-            xm2max=dmax1(xm2max,xm2(k)*1000./rho(k))
-         enddo
-         open (99, file=fname,status='unknown',err=1000)
-         write (99,6010) lday,lst,lmin,
-     &        tkemax,atmax,xm2max,eta(lcl),eta(lct)
-         write (*,6010) lday,lst,lmin,
-     &        tkemax,atmax,xm2max,eta(lcl),eta(lct)
- 6000    format (' time: ',i2,':',i2,':',i2,3x,' iteration: ',f10.3,3x,
-     &        'cloudy region: ',f7.1,' - ',f7.1)
- 6010    format (1x,i2,':',i2,':',i2,3f10.3,3x,
-     &        'cloudy region: ',f7.1,' - ',f7.1)
-         close (99)
- 1000 continue          
+     atmax=0.
+     tkemax=0.
+     xm2max=0.
+     do k=lcl,nf
+        atmax=dmax1(atmax,atkh(k))
+        tkemax=dmax1(tkemax,tke(k))
+        xm2max=dmax1(xm2max,xm2(k)*1000./rho(k))
+     enddo
+     open (99, file=fname,status='unknown',err=1000)
+     write (99,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
+     write (*,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
+6000 format (' time: ',i2,':',i2,':',i2,3x,' iteration: ',f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
+6010 format (1x,i2,':',i2,':',i2,3f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
+     close (99)
+1000 continue
+  end do
 ! =========================end of time integration=====================
 
 
 ! final output of restart files
-      call outm
-      if (chem) call outc
+  call outm
+  if (chem) call outc
 ! final output of aerosol size distribution
-      do k=1,n
-         do ia=1,nka
-            aer(k,ia)=0.
-            do jt=1,nkt
-               aer(k,ia)=aer(k,ia)+ff(jt,ia,k)
-            enddo
-         enddo
-      enddo
-      fname='ae .out'
-      fname(3:3)=fogtype
-      open (66, file=fname,status='unknown',form='unformatted')
-      write (66) aer
-      close (66)
+  do k=1,n
+     do ia=1,nka
+        aer(k,ia)=0.
+        do jt=1,nkt
+           aer(k,ia)=aer(k,ia)+ff(jt,ia,k)
+        enddo
+     enddo
+  enddo
+  fname='ae .out'
+  fname(3:3)=fogtype
+  open (66, file=fname,status='unknown',form='unformatted')
+  write (66) aer
+  close (66)
 
-      if (netCDF) call close_netcdf(mic,chem,nuc)
+  if (netCDF) call close_netcdf(mic,chem,nuc)
 
-      stop 'main program'
-      end
+  stop 'main program'
+end program mistra
 
 !
 !-----------------------------------------------------------------------
 !
 
-      block data
+block data
 ! defines parameters that are accessible to all subroutines
 
-      USE global_params, ONLY :
+   USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nka
+        nka
 
-      implicit double precision (a-h,o-z)
+   implicit double precision (a-h,o-z)
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+   double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,   &
+        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
 ! gravitational acceleration
-      data g /9.8065d0/
+   data g /9.8065d0/
 
 ! chose the water temperature and subsidence velocities depending on 
 ! what version of SR initm is used (see ./special_versions/SR_initm)
 ! water temperature
-!      data tw /288.15d0/ !cloud and aer sub run
-!      data tw /286.15d0/ !cloud and aer sub run
-!      data tw /287.4d0/ !cloud no sub run
-!      data tw /290.4d0/ !aerosol no sub run
-!      data tw /288.4d0/ !aerosol no sub run
-!      data tw /300.d0/ !INDOEX
-      data tw /299.5d0/
+!   data tw /288.15d0/ !cloud and aer sub run
+!   data tw /286.15d0/ !cloud and aer sub run
+!   data tw /287.4d0/ !cloud no sub run
+!   data tw /290.4d0/ !aerosol no sub run
+!   data tw /288.4d0/ !aerosol no sub run
+!   data tw /300.d0/ !INDOEX
+   data tw /299.5d0/
 
 ! geostrophic wind, large scale subsidence
 !      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.005d0/
@@ -507,15 +504,14 @@
 !       data ug,vg,wmin,wmax /8.0d0, 0.d0, 0.d0, 0.d0/
 !       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, 0.d0/
 !       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.0015d0/ !aerosol sub (value copied from above)
-       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
+   data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
 ! surface roughness
 !      data z0 /0.01d0/
-      data z0 /0.00001d0/ 
+   data z0 /0.00001d0/ 
 ! soil constants for sandy loam
-      data ebs,psis,aks,bs,rhoc /.435d0,-.218d0,3.41d-05,4.9d0,1.34d+06/
-      data rhocw,ebc,anu0,bs0
-     &     /4.186d+06,.0742724d0,43.415524d0,2.128043d0/
-      end block data
+   data ebs,psis,aks,bs,rhoc /.435d0,-.218d0,3.41d-05,4.9d0,1.34d+06/
+   data rhocw,ebc,anu0,bs0 /4.186d+06,.0742724d0,43.415524d0,2.128043d0/
+end block data
 
 !
 !-------------------------------------------------------------
@@ -659,11 +655,11 @@
       write (74,102)
       write (74,103)
       close (74)
- 101  format ('output of molecule burden/deposit/source; unit is',
+ 101  format ('output of molecule burden/deposit/source; unit is', &
      & ' [mol/m2]')
- 102  format ('to get balance: divide last output by first; to get',
+ 102  format ('to get balance: divide last output by first; to get', &
      & ' emitted salt mass (in [g/m2])')
- 103  format ('multiply xnass with 68.108 (=23 g(Na)/mol(Na) / 0.3377',
+ 103  format ('multiply xnass with 68.108 (=23 g(Na)/mol(Na) / 0.3377', &
      & ' g(Na)/g(seasalt))')
 
       end subroutine openc
@@ -674,19 +670,19 @@
 
       subroutine initm (iaertyp,fogtype) !change also SR surf0 !_aerosol_nosub
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
-!     &     pi,
-     &     r0,                   ! Specific gas constant of dry air, in J/(kg.K)
-     &     r1,                   ! Specific gas constant of water vapour, in J/(kg.K)
+!     &     pi,           &
+     &     r0,            &      ! Specific gas constant of dry air, in J/(kg.K)
+     &     r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nb,
-     &     nka,
+     &     nf, &
+     &     n, &
+     &     nb, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -699,16 +695,16 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
       common /cb46/ ustern,gclu,gclt
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -720,7 +716,7 @@
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb63/ fcs(nka),xmol3(nka)
       common /kinv_i/ kinv
-!     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka), ! jjb AER not used, removed
+!     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
 !    &          fnorm(n)
  !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),fnorm(n) ! jjb removed ! jjb fnorm unused
       dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)     ! jjb removed
@@ -732,37 +728,37 @@
 ! constants for aerosol distributions after jaenicke (1988)
 ! 3 modes j=1,2,3
 ! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
-!      data ((wn(i,j),i=1,4),j=1,3)/1.6169d+05,1.1791d+04,80.76,79.788,
+!      data ((wn(i,j),i=1,4),j=1,3)/1.6169d+05,1.1791d+04,80.76,79.788, &
 !     & 664.9,105.29,126.52,94.138,4.3091d+04,2.9846d+03,3.0827,0.0596/
-!      data ((wr(i,j),i=1,4),j=1,3)/6.51d-03,7.39d-03,3.9d-03,3.6d-03,
+!      data ((wr(i,j),i=1,4),j=1,3)/6.51d-03,7.39d-03,3.9d-03,3.6d-03, &
 !     & 7.14d-03,.0269,.133,.127,.0248,.0419,.29,.259/
-!      data ((ws(i,j),i=1,4),j=1,3)/8.3299,9.8765,1.1583,1.2019,
+!      data ((ws(i,j),i=1,4),j=1,3)/8.3299,9.8765,1.1583,1.2019, &
 !     & 1.1273,1.6116,11.338,7.8114,4.4026,7.0665,3.1885,2.7682/
 ! constants for aerosol distributions after jaenicke (1988)
 ! except constants for maritime aerosol distribution 
 ! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
-      data ((wn(i,j),i=1,4),j=1,3)
-     & /1.6169d+05,1.1791d+04,159.576,79.788,
-     & 664.9,105.29,427.438,94.138,
+      data ((wn(i,j),i=1,4),j=1,3) &
+     & /1.6169d+05,1.1791d+04,159.576,79.788, &
+     & 664.9,105.29,427.438,94.138, &
      & 4.3091d+04,2.9846d+03,5.322,0.0596/
-      data ((wr(i,j),i=1,4),j=1,3)
-     & /6.51d-03,7.39d-03,0.027,3.6d-03,
-     & 7.14d-03,.0269,.105,.127,
+      data ((wr(i,j),i=1,4),j=1,3) &
+     & /6.51d-03,7.39d-03,0.027,3.6d-03, &
+     & 7.14d-03,.0269,.105,.127, &
      & .0248,.0419,.12,.259/
-      data ((ws(i,j),i=1,4),j=1,3)
-     & /8.3299,9.8765,8.,1.2019,
-     & 1.1273,1.6116,39.86,7.8114,
+      data ((ws(i,j),i=1,4),j=1,3) &
+     & /8.3299,9.8765,8.,1.2019, &
+     & 1.1273,1.6116,39.86,7.8114, &
      & 4.4026,7.0665,2.469,2.7682/
 !c aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
-      dfdlogr(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+
-     &               wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)+
+      dfdlogr(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
+     &               wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)+ &
      &               wn(ka,3)*dexp(-ws(ka,3)*dlog10(rr/wr(ka,3))**2)
-      dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+
+      dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
      &                wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)
 ! after Jaenicke/Sander/Kim:
-!      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2)
-!     & **2/(2*0.1106**2))+
-!     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0)
+!      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2) &
+!     & **2/(2*0.1106**2))+ &
+!     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
       lcl=1
@@ -1004,7 +1000,7 @@
 !         de0p=de0+dep ! jjb variable unreferenced
          do ia=1,nka
             rk=rw(jt,ia)
-            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2))
+            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2)) &
      &                -b0m(ia)*en(ia)/ew(jt)))
          enddo
       enddo
@@ -1023,17 +1019,17 @@
 
       subroutine grid
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
-     &     pi,
+     &     pi, &
      &     rhow                  ! Water density [kg/m**3]
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nb,
-     &     nka,
+     &     nf, &
+     &     n, &
+     &     nb, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -1053,9 +1049,9 @@
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -1198,8 +1194,7 @@
       xfac=10. ! volume ratio is 1000
       do ia=1,nka
          do jt=1,nkt
-            if ((e(jt)*1.e-6/x1)**(1./3.)*1.e6.gt.xfac*rn(ia).and.
-     &           kw(ia).lt.0) kw(ia)=jt-1
+            if ((e(jt)*1.e-6/x1)**(1./3.)*1.e6.gt.xfac*rn(ia).and.kw(ia).lt.0) kw(ia)=jt-1
          enddo
          if (kw(ia).lt.0) kw(ia)=nkt
       enddo
@@ -1215,12 +1210,12 @@
 
       subroutine startm (fogtype)
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nb,
-     &     nka,
-     &     nkt,
+     &     n, &
+     &     nb, &
+     &     nka, &
+     &     nkt, &
      &     mb
 
       implicit double precision (a-h,o-z)
@@ -1238,14 +1233,14 @@
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
       common /cb46/ ustern,gclu,gclt
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
@@ -1262,15 +1257,15 @@
       fname(5:5)=fogtype
       open (15,file=fname,status='unknown',form='unformatted')
 ! double precision arrays
-      read (15) 
-     &     atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum,
-     &     gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a,
-     &     xm2,xmol3,
+      read (15)  &
+     &     atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum, &
+     &     gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a, &
+     &     xm2,xmol3, &
 ! double precision single vars
-     &     a0m,alat,declin,ds1,ds2,reif,sk,sl,tau,
-     &     trdep,
+     &     a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
+     &     trdep, &
 ! integer arrays
-     &     nar,
+     &     nar, &
 ! integer single vars
      &     it,lcl,lct,lday,lmin,lst
 
@@ -1302,22 +1297,22 @@
 
       subroutine startc (fogtype)
 
-      USE gas_common, ONLY :
-     &     s1,
-     &     es1,
+      USE gas_common, ONLY : &
+     &     s1, &
+     &     es1, &
      &     s3
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
-     &     nkc,
-     &     nlev,
-     &     nrxn,
+     &     j2, &
+     &     j6, &
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
+     &     nkc, &
+     &     nlev, &
+     &     nrxn, &
      &     nphrxn
 
       implicit double precision (a-h,o-z)
@@ -1353,12 +1348,12 @@
 ! anyways
 
 ! double precision arrays
-      read (16) am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1,
-     &     sac1,sl1,sion1,vd,vdm,vt,xgamma,
+      read (16) am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
+     &     sac1,sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
-     &     xcryssulf,xcrysss,xdelisulf,xdeliss,
+     &     xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
-     &     cloudt,
+     &     cloudt, &
 ! integers
      &     il,kinv,lday,lmin,lst
       close (16)
@@ -1394,14 +1389,14 @@
 
       subroutine vgleich
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      &     pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nka,
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -1409,12 +1404,12 @@
 ! of humidified aerosol particles at given relative humidity
 ! new distribution of the particles on their equilibrium positions
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -1495,13 +1490,13 @@
 ! gravitational settling of particles with terminal velocity w in m/s
 ! for further details on the determination of w see function vterm
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nb,
-     &     nka,
-     &     nkt,
+     &     nf, &
+     &     n, &
+     &     nb, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -1509,9 +1504,9 @@
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -1520,7 +1515,7 @@
       double precision theta, thetl, t, talt, p, rho
       common /cb58/ c(nf),psi(nf)
       common /blck06/ kw(nka),ka
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
+!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
@@ -1547,7 +1542,7 @@
  3000          dtmax=dmin1(dt0,x3/(ww))  
                do k=2,nf
 !                  c(k)=dtmax/deta(k)*(ww+w(k))
-                  c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k)
+                  c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k) &
      &                 ,p(k)))
 !     &                 ,p(k))+w(k))
                enddo
@@ -1574,12 +1569,12 @@
             x2=x0*e(jt)*detw(2)
             ajs=ajs+x2/dt
             trdep=trdep+x2
-c Droplet sedimentation has been evaluated at ground
-c trdep :  cumulative deposition [kg liquid water/m^2]
-c          being equivalent to [mm] precipitation
-c ajs   :  sedimentation rate [kg liquid water/m^2/sec]
-c          being equivalent to precip. rate of [mm/sec]
-c update total liquid water [kg/m^3]
+! Droplet sedimentation has been evaluated at ground
+! trdep :  cumulative deposition [kg liquid water/m^2]
+!          being equivalent to [mm] precipitation
+! ajs   :  sedimentation rate [kg liquid water/m^2/sec]
+!          being equivalent to precip. rate of [mm/sec]
+! update total liquid water [kg/m^3]
 
 !            if (jt.ge.kgp) then
 !               if (jt.lt.kdp) then
@@ -1607,21 +1602,21 @@ c update total liquid water [kg/m^3]
 
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      &     Avogadro
 
-      USE gas_common, ONLY:
+      USE gas_common, ONLY: &
 ! Imported Parameters:
-     &     j1,
+     &     j1, &
 ! Imported Array Variables with intent (in):
-     &     es1,
-     &     ind_gas_rev,
+     &     es1, &
+     &     ind_gas_rev, &
 ! Imported Array Variables with intent (inout):
-     &     s1,
+     &     s1, &
      &     vg
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     n
 
@@ -1683,35 +1678,35 @@ c update total liquid water [kg/m^3]
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-      if(ind_gas_rev(4) /= 0)
+      if(ind_gas_rev(4) /= 0) &
      & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
-      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
-      if(ind_gas_rev(37) /= 0)
+      if(ind_gas_rev(37) /= 0) &
      &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux 
-      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
-      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
-      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0)
+      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
      &  vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
-      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0)
+      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
      &  vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
-      if(ind_gas_rev(56) /= 0)
+      if(ind_gas_rev(56) /= 0) &
      &  vg(ind_gas_rev(56))=0.                  ! CH3I          emission is net flux
-      if(ind_gas_rev(57) /= 0)
+      if(ind_gas_rev(57) /= 0) &
      &  vg(ind_gas_rev(57))=0.                  ! CH2I2         emission is net flux
-      if(ind_gas_rev(58) /= 0)
+      if(ind_gas_rev(58) /= 0) &
      &  vg(ind_gas_rev(58))=0.                  ! CH2ClI        emission is net flux
-      if(ind_gas_rev(59) /= 0)
+      if(ind_gas_rev(59) /= 0) &
      &  vg(ind_gas_rev(59))=0.                  ! C3H7I         emission is net flux
-      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
-      if(ind_gas_rev(71) /= 0)
+      if(ind_gas_rev(71) /= 0) &
      &  vg(ind_gas_rev(71))=0.                  ! CH2BrI         emission is net flux
-      if(ind_gas_rev(72) /= 0)
+      if(ind_gas_rev(72) /= 0) &
      &  vg(ind_gas_rev(72))=0.                  ! CHBr2I         emission is net flux
-      if(ind_gas_rev(73) /= 0)
+      if(ind_gas_rev(73) /= 0) &
      &  vg(ind_gas_rev(73))=0.                  ! C2H5I          emission is net flux
 
       if (lst/4*4.eq.lst.and.lmin.eq.1) then
@@ -1772,17 +1767,17 @@ c update total liquid water [kg/m^3]
 ! new aqueous phase concentrations due to 
 ! gravitational settling of droplets
 
-      USE config, ONLY :
+      USE config, ONLY : &
      &     nkc_l
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     j2, &
+     &     j6, &
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -1894,10 +1889,10 @@ c update total liquid water [kg/m^3]
 ! and after Beard for large droplets (r > 10 micron, regime 2)
 ! all formulas after Pruppacher and Klett Chapter 10.
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
-     &     g,
-     &     r0,                   ! Specific gas constant of dry air, in J/(kg.K)
+     &     g, &
+     &     r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
       implicit none
@@ -1963,13 +1958,13 @@ c update total liquid water [kg/m^3]
       subroutine wfield
 ! calculation of subsidence if chosen to be time dependent
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
+     &     n, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -1978,9 +1973,9 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
@@ -2006,14 +2001,14 @@ c update total liquid water [kg/m^3]
 ! except xd(k) which has another meaning than d(k) of Roache's program.
 ! dirichlet conditions at the surface and at the top of the atmosphere
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      &     r0               ! Specific gas constant of dry air, in J/(kg.K)
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nm,
+     &     n, &
+     &     nm, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -2023,9 +2018,9 @@ c update total liquid water [kg/m^3]
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
@@ -2142,11 +2137,11 @@ c update total liquid water [kg/m^3]
 ! for diffusion mixing ratio is needed --> factor 1./am3(k,1)
 ! (#/cm^3 --> #/mol)
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nm,
-     &     nka,
+     &     n, &
+     &     nm, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -2183,7 +2178,7 @@ c update total liquid water [kg/m^3]
             enddo
 !            do k=nf,2,-1
             do k=nm,2,-1
-               ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.d6+xf(k))
+               ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.d6+xf(k)) &
      &              *am3(k)/1.d6
             enddo
 !           large scale subsidence
@@ -2235,23 +2230,23 @@ c update total liquid water [kg/m^3]
 ! jjb work done: removal of unused arguments
 !     missing declarations and implicit none
 
-      USE config, ONLY :
+      USE config, ONLY : &
      &     nkc_l
 
-      USE gas_common, ONLY :
+      USE gas_common, ONLY : &
 ! Imported Parameters:
-     &     j1,
-     &     j5,
+     &     j1, &
+     &     j5, &
 ! Imported Array Variables with intent (inout):
-     &     s1,
+     &     s1, &
      &     s3
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     n,
-     &     nm,
+     &     j2, &
+     &     j6, &
+     &     n, &
+     &     nm, &
      &     nkc
 
       implicit none
@@ -2349,7 +2344,7 @@ c update total liquid water [kg/m^3]
             do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+
+               sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+ &
      &              xf(k))*am3(k)
             enddo
 !           large scale subsidence
@@ -2376,14 +2371,14 @@ c update total liquid water [kg/m^3]
             do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/
+               sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/ &
      &              am3(k+1)+xf(k))*am3(k)
             enddo
 !           large scale subsidence
 !            do k=2,nf         
             do k=2,nm
                kp=k+1
-               sion1(j,kc,k)=sion1(j,kc,k)-c(k)*
+               sion1(j,kc,k)=sion1(j,kc,k)-c(k)* &
      &              (sion1(j,kc,kp)-sion1(j,kc,k))
             enddo
          enddo
@@ -2398,9 +2393,9 @@ c update total liquid water [kg/m^3]
       subroutine atk0
 ! calculation of exchange coefficients, mixing length etc at model start
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
+     &     n, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -2410,9 +2405,9 @@ c update total liquid water [kg/m^3]
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
@@ -2462,10 +2457,10 @@ c update total liquid water [kg/m^3]
 
       subroutine atk1
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nm,
+     &     n, &
+     &     nm, &
      &     nka
 
 ! jjb work done
@@ -2486,9 +2481,9 @@ c update total liquid water [kg/m^3]
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
@@ -2508,7 +2503,7 @@ c update total liquid water [kg/m^3]
 !
 ! buoyancy term
          do k=2,nm
-            x0=((1+0.61*xm1(k))*(theta(k+1)-theta(k))
+            x0=((1+0.61*xm1(k))*(theta(k+1)-theta(k)) &
      &         +0.61*theta(k)*(xm1(k+1)-xm1(k)))/deta(k)
             sm(k)=x0
             sh(k)=x0
@@ -2621,7 +2616,7 @@ c update total liquid water [kg/m^3]
       do k=2,nm
          ghn=gh(k)
          gmn=gm(k)
-         x0=1./(1.+ghn*(-36.7188+187.4408*ghn)
+         x0=1./(1.+ghn*(-36.7188+187.4408*ghn) &
      &      +gmn*(5.0784-88.83949*ghn))
          smn=(.6992d0-9.339487d0*ghn)*x0
          shn=(.74d0-4.534128d0*ghn+.901924d0*gmn)*x0
@@ -2647,15 +2642,15 @@ c update total liquid water [kg/m^3]
 
       subroutine soil (dt)
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      &     rhow                  ! Water density [kg/m**3]
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nb,
-     &     nbm,
+     &     n, &
+     &     nb, &
+     &     nbm, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -2663,12 +2658,12 @@ c update total liquid water [kg/m^3]
 ! and moisture transport within the soil.
 ! for further details see subroutine difm.
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
 ! soil temperature
@@ -2699,7 +2694,7 @@ c update total liquid water [kg/m^3]
  1030 d(k)=x2*x3**x1
       ak(1)=0.
       d(1)=0.
-      if (abs(eb(2)-eb(1)).gt.1.d-5)
+      if (abs(eb(2)-eb(1)).gt.1.d-5) &
      & d(1)=ajm*dzb(1)/(rhow*(eb(2)-eb(1)))
       xa(1)=d(1)*dt/(dzbw(1)*dzb(1))
       do 1040 k=2,nbm
@@ -2722,9 +2717,9 @@ c update total liquid water [kg/m^3]
 
       subroutine surf0 (dt)
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
+     &     n, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -2734,9 +2729,9 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
@@ -2782,17 +2777,17 @@ c update total liquid water [kg/m^3]
 
       subroutine surf1 (dt)
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp,                   ! Specific heat of dry air, in J/(kg.K)
-     &     r1,                   ! Specific gas constant of water vapour, in J/(kg.K)
+     &     cp, &                   ! Specific heat of dry air, in J/(kg.K)
+     &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nb,
+     &     n, &
+     &     nb, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -2804,14 +2799,14 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
       common /cb46/ ustern,gclu,gclt
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
@@ -2910,7 +2905,7 @@ c update total liquid water [kg/m^3]
       djbdt=-anu/dzb(1)
       djqde=rrho*ust*qs*g*bs*psi1/(ctq*r1*ts*eb1)
       x0=p21(ts)
-      djqdt=rrho*ust*qs/ctq*(g*psi1/(r1*ts*ts)+
+      djqdt=rrho*ust*qs/ctq*(g*psi1/(r1*ts*ts)+ &
      & x0*4027.163/((x0-.37802*ps)*(ts-38.33)**2))
       djtdt=-rrho*cp*ust/ctq
 !     djmde=(ajm*bs3+rak1/dzb(1)*psi1*bs)/eb1
@@ -2970,7 +2965,7 @@ c update total liquid water [kg/m^3]
       if (dabs(fts).le.1.d-1.and.dabs(fqs).le..1*dabs(ajq)) goto 2030
  1000 continue
       write (6,6000) eb1,ts,fts,fqs
- 6000 format (10x,'no convergence of ts- and eb1-iteration:'/
+ 6000 format (10x,'no convergence of ts- and eb1-iteration:'/ &
      & 'eb1',f16.4,'ts',f16.4,'fts',f16.4,'fqs',f16.4)
       write (6,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
  6010 format (10x,3f16.4,e16.4)
@@ -3014,7 +3009,7 @@ c update total liquid water [kg/m^3]
 ! water vapour pressure over ice
       implicit double precision (a-h,o-z)
       parameter (t1=273.16)
-      xlog10=-9.09685*(t1/t-1.)-3.56654*dlog10(t1/t)
+      xlog10=-9.09685*(t1/t-1.)-3.56654*dlog10(t1/t) &
      & +0.87682*(1.-t/t1)+0.78614
       p31=100.*(10.**xlog10)
 
@@ -3098,14 +3093,14 @@ c update total liquid water [kg/m^3]
          endif
       else
          dy=(zpdz0a-xzpdz0(nz-1))/(xzpdz0(nz)-xzpdz0(nz-1))
-         u=fu(nl-1,nz-1)+(fu(nl,nz-1)-fu(nl-1,nz-1))*dx+(fu(nl-1,nz)
-     &     -fu(nl-1,nz-1))*dy+(fu(nl,nz)-fu(nl-1,nz)+fu(nl-1,nz-1)
+         u=fu(nl-1,nz-1)+(fu(nl,nz-1)-fu(nl-1,nz-1))*dx+(fu(nl-1,nz) &
+     &     -fu(nl-1,nz-1))*dy+(fu(nl,nz)-fu(nl-1,nz)+fu(nl-1,nz-1) &
      &     -fu(nl,nz-1))*dx*dy
          if (zpdl.ge.0.) then
             tq=u/1.35
          else
-            tq=(ft(nl-1,nz-1)+(ft(nl,nz-1)-ft(nl-1,nz-1))*dx
-     &         +(ft(nl-1,nz)-ft(nl-1,nz-1))*dy+(ft(nl,nz)-ft(nl-1,nz)
+            tq=(ft(nl-1,nz-1)+(ft(nl,nz-1)-ft(nl-1,nz-1))*dx &
+     &         +(ft(nl-1,nz)-ft(nl-1,nz-1))*dy+(ft(nl,nz)-ft(nl-1,nz) &
      &         +ft(nl-1,nz-1)-ft(nl,nz-1))*dx*dy)/1.35
          endif
       end if
@@ -3128,17 +3123,17 @@ c update total liquid water [kg/m^3]
 !      USE config, ONLY :
 !     &     nkc_l
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
-     &     nkc,
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
+     &     nkc, &
      &     mb
 
       implicit double precision (a-h,o-z)
@@ -3151,7 +3146,7 @@ c update total liquid water [kg/m^3]
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -3159,13 +3154,13 @@ c update total liquid water [kg/m^3]
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn,
+      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
      &              xm1o,xm1n,kr
       double precision ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
       integer kr
 
       common /blck06/ kw(nka),ka
-      common /blck07/ part_o_a(nka,n),part_o_d(nka,n),
+      common /blck07/ part_o_a(nka,n),part_o_d(nka,n), &
      &                part_n_a(nka,n),part_n_d(nka,n),pntot(nkc,n)
       common /blck08/ vol1_a(nka,n),vol1_d(nka,n),vol2(nkc,n)
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
@@ -3365,15 +3360,15 @@ c update total liquid water [kg/m^3]
 
       subroutine equil (ncase,kk)
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nka,
+     &     nf, &
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -3381,12 +3376,12 @@ c update total liquid water [kg/m^3]
 ! of humidified aerosol particles at given relative humidity
 ! new distribution of the particles on their equilibrium positions
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -3454,19 +3449,19 @@ c update total liquid water [kg/m^3]
 !     - reindexed all (nka,nkt) arrays for computing efficiency
 !     - defined water diffusivity as an external function
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp,                   ! Specific heat of dry air, in J/(kg.K)
-     &     pi,
-     &     r0,                   ! Specific gas constant of dry air, in J/(kg.K)
-     &     r1,                   ! Specific gas constant of water vapour, in J/(kg.K)
+     &     cp, &                   ! Specific heat of dry air, in J/(kg.K)
+     &     pi, &
+     &     r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
+     &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     jptaerrad,
-     &     nka,
-     &     nkt,
+     &     jptaerrad, &
+     &     nka, &
+     &     nkt, &
      &     mb
 
       implicit double precision (a-h,o-z)
@@ -3480,17 +3475,17 @@ c update total liquid water [kg/m^3]
       double precision, external :: diff_wat_vap
       double precision, external :: therm_conduct_air
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      common /cb49/ qabs(18,nkt,nka,jptaerrad), ! only qabs is used here
-     &              qext(18,nkt,nka,jptaerrad),
+      common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
+     &              qext(18,nkt,nka,jptaerrad), &
      &              asym(18,nkt,nka,jptaerrad)
       double precision qabs,qext,asym
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -3562,7 +3557,7 @@ c update total liquid water [kg/m^3]
             if (kr0.eq.3.and.rn(ia).lt.0.5) kr0=2
             rad=0.
             do ib=ib0,mb
-               rad=rad+totr(ib)*(qabs(ib,jt,ia,kr0)*de0+
+               rad=rad+totr(ib)*(qabs(ib,jt,ia,kr0)*de0+ &
      &             qabs(ib,jtp,ia,kr0)*dep)/de0p
             enddo
             cr(jt,ia)=rad*7.5e05/(rk*x1)-rhow*4190.*(tn-t)/(dt*x1)
@@ -3571,7 +3566,7 @@ c update total liquid water [kg/m^3]
       falt(:,:) = ffk(:,:)
 
       feuneu=feualt+dfdt*dt
-      if (feualt.lt.0.95)
+      if (feualt.lt.0.95) &
      & feuneu=xm1n*p/(p21(tn)*(.62198+.37802*xm1n))
       fquer=0.5*(feuneu+feualt)
       ! Initialisation
@@ -3716,11 +3711,11 @@ c update total liquid water [kg/m^3]
 ! [apparently checking whether particle number is ever negative]
 ! currently never called
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nka,
+     &     nf, &
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -3743,7 +3738,7 @@ c update total liquid water [kg/m^3]
       subroutine advec_old (dt)
 ! one of many implementations of Bott's advection scheme
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     nkt
 
@@ -3822,7 +3817,7 @@ c update total liquid water [kg/m^3]
          a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
          a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
          a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3)
+         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
      &        +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
  2090    x0=dmax1(0.d0,x0)
          y(k)=y(k)+x0
@@ -3849,7 +3844,7 @@ c update total liquid water [kg/m^3]
 !    - removed archaic forms of Fortran intrinsic functions
 !    - passed y and u as arguments instead of common block
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     nkt
 
@@ -3983,13 +3978,13 @@ c update total liquid water [kg/m^3]
             al=1.-2.*c0
             al2=al*al
             al3=al2*al
-            a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i))
+            a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i)) &
      &         /1920.
             a1=(-5.*(z(i+2)-z(i-2))+34.*(z(i+1)-z(i-1)))/384.
             a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
             a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
             a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3)
+            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
      &           +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
          end if
 
@@ -4019,7 +4014,7 @@ c update total liquid water [kg/m^3]
 ! jjb fortran generic functions min and max 15/12/16
 ! jjb checked identical to AB str code
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf
 
@@ -4066,7 +4061,7 @@ c update total liquid water [kg/m^3]
 ! Thus, fm(i) is flux from gridbox i+1 into gridbox i for c(i)<0,
 ! fp(i) is flux from gridbox i into gridbox i+1 for c(i)>0.
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf
 
@@ -4080,7 +4075,7 @@ c update total liquid water [kg/m^3]
       a3(2)=0.
       a4(2)=0.
       do i=3,nf-2
-         a0(i)=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1))
+         a0(i)=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1)) &
      &         +2134.*y(i))/1920.
          a1(i)=(-5.*(y(i+2)-y(i-2))+34.*(y(i+1)-y(i-1)))/384.
          a2(i)=(-y(i+2)+12.*(y(i+1)+y(i-1))-22.*y(i)-y(i-2))/384.
@@ -4103,7 +4098,7 @@ c update total liquid water [kg/m^3]
          x3=x1*x2
          ymin=dmin1(y(i),y(i+1))
          ymax=dmax1(y(i),y(i+1))
-         fmim=dmax1(0.d0,a0(i)*cl-a1(i)*(1.-x2)+a2(i)*(1.-x3)
+         fmim=dmax1(0.d0,a0(i)*cl-a1(i)*(1.-x2)+a2(i)*(1.-x3) &
      &        -a3(i)*(1.-x1*x3)+a4(i)*(1.-x2*x3))
          fmim=dmin1(fmim,y(i)-ymin+fm(i))
          fmim=dmax1(fmim,y(i)-ymax+fm(i))
@@ -4128,7 +4123,7 @@ c update total liquid water [kg/m^3]
 
 ! jjb arithmetic do replaced by do / enddo 15/12/2016
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf
 
@@ -4158,7 +4153,7 @@ c update total liquid water [kg/m^3]
          x1=1.-2.*cl
          x2=x1*x1
          x3=x1*x2
-         fm=dmax1(0.d0,a0*cl-a1*(1.-x2)+a2*(1.-x3)-a3*(1.-x1*x3)
+         fm=dmax1(0.d0,a0*cl-a1*(1.-x2)+a2*(1.-x3)-a3*(1.-x1*x3) &
      &        +a4*(1.-x2*x3))
          w=y(i)/dmax1(fm+1.d-15,a0+2.d0*(a2+a4))
          flux(i-1)=fm*w
@@ -4190,21 +4185,21 @@ c update total liquid water [kg/m^3]
 !     subroutine stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
       subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in 2 IF tests
 
-      USE config, ONLY :
+      USE config, ONLY : &
      &     nkc_l
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     j2, &
+     &     j6, &
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -4220,7 +4215,7 @@ c update total liquid water [kg/m^3]
       integer tix,tixp
 
       parameter (lsp=9)
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -4337,7 +4332,7 @@ c update total liquid water [kg/m^3]
 !              change in mass determining chemical species
                do l=1,lsp
                   ll=lj2(l)
-                  dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06
+                  dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06 &
      &                 /sap(kc,k) 
 !                  dss(k,l,kc)=dss(k,l,kc)+dsion1(l,kc,k) ! jjb output no longer used
                enddo
@@ -4345,10 +4340,10 @@ c update total liquid water [kg/m^3]
 ! mole masses for l=1,2,8,9,13,14,19,20,30: H+=1g/mole, NH4=18g/mole, SO4(2-)=96g/mole,
 ! HCO3-=61g/mole, NO3=62g/mole, Cl-=35.5g/mole, HSO4-=97g/mole, Na+=23g/mole, CH3SO3-=95g/mole
 ! HCO3-=61g/mole --> 44 g/mole as water remains in particle when CO2 degasses due to acidification
-               den=(dsion1(1,kc,k)*1.+dsion1(2,kc,k)*18.+dsion1(3,kc,k)
-!     &              *96.+dsion1(4,kc,k)*61.+dsion1(5,kc,k)*62.+
-     &              *96.+dsion1(4,kc,k)*44.+dsion1(5,kc,k)*62.+
-     &              dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+
+               den=(dsion1(1,kc,k)*1.+dsion1(2,kc,k)*18.+dsion1(3,kc,k) &
+!     &              *96.+dsion1(4,kc,k)*61.+dsion1(5,kc,k)*62.+ &
+     &              *96.+dsion1(4,kc,k)*44.+dsion1(5,kc,k)*62.+ &
+     &              dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+ &
      &              dsion1(8,kc,k)*23.+dsion1(9,kc,k)*95.)*1000.
                
 !              define upper and lower limits of ia loop
@@ -4446,9 +4441,9 @@ c update total liquid water [kg/m^3]
                            endif
                         endif
 ! store change of volume for ix --> ix and ia --> ix+1
-                        if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1*
+                        if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1* &
      &                       c0*fpi*rq(jt,ia)**3
-                        if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1*
+                        if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1* &
      &                       (1.-c0)*fpi*rq(jt,ia)**3
 ! output for control
 !                       if (tix.ne.kc)  fss(k,kc,tix)=fss(k,kc,tix) +x1* ! jjb output no longer used
@@ -4518,20 +4513,20 @@ c update total liquid water [kg/m^3]
 !! Imported Parameters:
 !     & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nka,
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -4579,16 +4574,16 @@ c update total liquid water [kg/m^3]
 ! calculate particle dry deposition velocity after Seinfeld and Pandis,
 ! 1998, p.958ff
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -4598,13 +4593,13 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb46/ ustern,gclu,gclt
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -4613,7 +4608,7 @@ c update total liquid water [kg/m^3]
       double precision theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
+!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
 !      double precision ra,rb,vs,vd,z,xD,sc,st,rx,Cc
       dimension xx1(nkc)
@@ -4653,7 +4648,7 @@ c update total liquid water [kg/m^3]
             St=vs*ustern**2/(g*xnu) !Stokes number
             rb=1./(ustern*(sc**(-2./3.)+10**(-3./st))) !quasi laminar resistance
             vd(jt,ia)=1./(ra+rb+ra*rb*vs)+vs !deposition velocity
-!            write (110,20) ia,jt,rq(jt,ia),vs*100.,vd*100.,100./
+!            write (110,20) ia,jt,rq(jt,ia),vs*100.,vd*100.,100./ &
 !     &           (ra+rb+ra*rb*vs)
 ! calculate mass weighted mean dry deposition velocities
 ! loop over the nkc different chemical bins
@@ -4663,8 +4658,7 @@ c update total liquid water [kg/m^3]
                if (kc.eq.1.and.(ia.gt.ka.or.jt.gt.kw(ia))) goto 1001
                if (kc.eq.2.and.(ia.lt.(ka+1).or.jt.gt.kw(ia))) goto 1001
                if (kc.eq.3.and.(ia.gt.ka.or.jt.lt.(kw(ia)+1))) goto 1001
-               if (kc.eq.4.and.(ia.lt.(ka+1).or.jt.lt.(kw(ia)+1))) goto 
-     &              1001
+               if (kc.eq.4.and.(ia.lt.(ka+1).or.jt.lt.(kw(ia)+1))) goto 1001
 ! LWC weighted deposition velocity
                xx1(kc)=xx1(kc)+rx*rx*rx*vd(jt,ia)*ff(jt,ia,k)*1.e6
 ! deposition velocity:
@@ -4676,7 +4670,7 @@ c update total liquid water [kg/m^3]
       enddo
 
       do kc=1,nkc
-         if (cw(kc,k).gt.0.d0)
+         if (cw(kc,k).gt.0.d0) &
 !     &              vdm(kc)=4.*3.1415927/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
      &              vdm(kc)=4.*pi/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
       end do
@@ -4702,13 +4696,13 @@ c update total liquid water [kg/m^3]
 !     - integer exponents (**2 instead of **2.)
 !     - removed archaic forms of intrinsic functions (dlog, datan)
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      &     cp              ! Specific heat of dry air, in J/(kg.K)
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
+     &     n, &
      &     nka
 
       implicit double precision (a-h,o-z)
@@ -4720,9 +4714,9 @@ c update total liquid water [kg/m^3]
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb46/ ustern,gclu,gclt
@@ -4755,7 +4749,7 @@ c update total liquid water [kg/m^3]
          k=n-1
          print *,'SR monin: index out of bounds (2)'
       endif
-      dtdz=((theta(k+1)-theta(k))/deta(k)+(theta(k)-theta(k-1))/
+      dtdz=((theta(k+1)-theta(k))/deta(k)+(theta(k)-theta(k-1))/ &
      &     deta(k-1))/2.
       q3=rho(k)*cp*(-1.)*atkh(k)*dtdz
 
@@ -4775,8 +4769,8 @@ c update total liquid water [kg/m^3]
          else if (xmo.lt.0) then
             xeta0=(1.-15.*zeta0)**0.25
             xeta=(1.-15.*zeta)**0.25
-            phi=log( (xeta0**2+1.)*(xeta0+1.)**2
-     &               /((xeta**2+1.)*(xeta+1.)**2) ) 
+            phi=log( (xeta0**2+1.)*(xeta0+1.)**2 &
+     &               /((xeta**2+1.)*(xeta+1.)**2) )  &
      &       +2.*(atan(xeta)-atan(xeta0))
          else            ! jjb: note that the case xmo=0 is not explained in S & P
             print*,'Warning, in SR monin, xmo=0',xmo
@@ -4798,14 +4792,14 @@ c update total liquid water [kg/m^3]
       subroutine ion_mass (srname)
 ! calculation of ion mass for ion balance checks
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     j2, &
+     &     j6, &
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -4814,7 +4808,7 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -4874,9 +4868,9 @@ c update total liquid water [kg/m^3]
       subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
 !     initialisation for box models runs
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
+     &     nf, &
      &     n
 
       implicit double precision (a-h,o-z)
@@ -4934,23 +4928,23 @@ c update total liquid water [kg/m^3]
 !
 
 !      subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl,chem, ! jjb unused arguments CHEM, HALO, IOD
-      subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl,
+      subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
 !      &     halo,iod,BL_box)
      &     BL_box)
 
 ! update of astronomical, aerosol and meteorological properties for box model runs
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nrlay,
-     &     nkc,
-     &     nmax_chem_aer,
+     &     nf, &
+     &     n, &
+     &     nrlay, &
+     &     nkc, &
+     &     nmax_chem_aer, &
      &     mbs
 
       implicit double precision (a-h,o-z)
@@ -5043,17 +5037,17 @@ c update total liquid water [kg/m^3]
 !           average parameters over depth of BL if BL_box=.true.
             call ave_parms (n_bl,nz_box) 
             call ave_aer (n_bl,nz_box) 
-            if (xph3.eq.1..or.xph4.eq.1.) 
+            if (xph3.eq.1..or.xph4.eq.1.)  &
      &           call ave_tot (n_bl,nz_box) 
          else
             call set_box_gas (nlevbox,n_bl) 
             call set_box_lev_a (nlevbox,n_bl) 
 ! p21 after magnus formula
             p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*
+            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))* &
      &           p21)
             call equil (1,n_bl)
-            if (xph3.eq.1..or.xph4.eq.1.) 
+            if (xph3.eq.1..or.xph4.eq.1.)  &
      &           call set_box_lev_t (nlevbox,n_bl) 
          endif
 !         call print_vals (nlevbox,n_bl)
@@ -5109,18 +5103,18 @@ c update total liquid water [kg/m^3]
 
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & Avogadro
 
-      USE gas_common, ONLY :
+      USE gas_common, ONLY : &
 ! Imported Parameters:
-     &     j1,
+     &     j1, &
 ! Imported Array Variables with intent (in):
-     &     es1,
-     &     ind_gas_rev,
+     &     es1, &
+     &     ind_gas_rev, &
 ! Imported Array Variables with intent (inout):
-     &     s1,
+     &     s1, &
      &     vg
       
       implicit none
@@ -5157,35 +5151,35 @@ c update total liquid water [kg/m^3]
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-      if(ind_gas_rev(4) /= 0)
+      if(ind_gas_rev(4) /= 0) &
      & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
-      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
-      if(ind_gas_rev(37) /= 0)
+      if(ind_gas_rev(37) /= 0) &
      &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux 
-      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
-      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
-      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0)
+      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
      &  vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
-      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0)
+      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
      &  vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
-      if(ind_gas_rev(56) /= 0)
+      if(ind_gas_rev(56) /= 0) &
      &  vg(ind_gas_rev(56))=0.                  ! CH3I          emission is net flux
-      if(ind_gas_rev(57) /= 0)
+      if(ind_gas_rev(57) /= 0) &
      &  vg(ind_gas_rev(57))=0.                  ! CH2I2         emission is net flux
-      if(ind_gas_rev(58) /= 0)
+      if(ind_gas_rev(58) /= 0) &
      &  vg(ind_gas_rev(58))=0.                  ! CH2ClI        emission is net flux
-      if(ind_gas_rev(59) /= 0)
+      if(ind_gas_rev(59) /= 0) &
      &  vg(ind_gas_rev(59))=0.                  ! C3H7I         emission is net flux
-      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0)
+      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
-      if(ind_gas_rev(71) /= 0)
+      if(ind_gas_rev(71) /= 0) &
      &  vg(ind_gas_rev(71))=0.                  ! CH2BrI         emission is net flux
-      if(ind_gas_rev(72) /= 0)
+      if(ind_gas_rev(72) /= 0) &
      &  vg(ind_gas_rev(72))=0.                  ! CHBr2I         emission is net flux
-      if(ind_gas_rev(73) /= 0)
+      if(ind_gas_rev(73) /= 0) &
      &  vg(ind_gas_rev(73))=0.                  ! C2H5I          emission is net flux
 
 
@@ -5219,14 +5213,14 @@ c update total liquid water [kg/m^3]
 
       subroutine box_partdep (dt, z_box, n_bl)
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     nf,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     j2, &
+     &     j6, &
+     &     nf, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
       implicit double precision (a-h,o-z)
@@ -5266,7 +5260,7 @@ c update total liquid water [kg/m^3]
             s_old = sion1(l,kc,n_bl)
             sion1(l,kc,n_bl) = s_old * x_depterm
 ! add deposited numbers
-            sion1(l,kc,1) = sion1(l,kc,1) + (s_old - sion1(l,kc,n_bl))
+            sion1(l,kc,1) = sion1(l,kc,1) + (s_old - sion1(l,kc,n_bl)) &
      &           *z_box
          enddo
       enddo
@@ -5281,11 +5275,11 @@ c update total liquid water [kg/m^3]
       subroutine mic_init (iaertyp,fogtype)
 ! initialization of microphysics for restart (cut and paste from SR initm)
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nb,
-     &     nka,
+     &     n, &
+     &     nb, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -5293,15 +5287,15 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
+      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
@@ -5332,7 +5326,7 @@ c update total liquid water [kg/m^3]
 !         de0p=de0+dep ! jjb variable unreferenced
          do ia=1,nka
             rk=rw(jt,ia)
-            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2))
+            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2)) &
      &                -b0m(ia)*en(ia)/ew(jt)))
          enddo
       enddo
@@ -5401,13 +5395,13 @@ c update total liquid water [kg/m^3]
       subroutine out_mass
 ! subroutine to print aerosol and ion mass
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2,
-     &     j6,
-     &     n,
-     &     nka,
-     &     nkt,
+     &     j2, &
+     &     j6, &
+     &     n, &
+     &     nka, &
+     &     nkt, &
      &     nkc
 
        implicit double precision (a-h,o-z)
@@ -5417,14 +5411,14 @@ c update total liquid water [kg/m^3]
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /liq_pl/ nkc_l
-      dimension xsum(n),lj2(lsp),xionmass(n,nkc),xion(n),xmm(lsp),
+      dimension xsum(n),lj2(lsp),xionmass(n,nkc),xion(n),xmm(lsp), &
      &     zion(n)
       data lj2/1,2,8,9,13,14,19,20,30/
 ! molar mass of mass-determining ions in g/mole
@@ -5463,7 +5457,7 @@ c update total liquid water [kg/m^3]
             enddo
           enddo
 
-         xion(k)=xionmass(k,1)+xionmass(k,2)+xionmass(k,3)+
+         xion(k)=xionmass(k,1)+xionmass(k,2)+xionmass(k,3)+ &
      &        xionmass(k,4)
       enddo
 
@@ -5488,7 +5482,7 @@ c update total liquid water [kg/m^3]
 
       subroutine get_n_box (z_box,nz_box)
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
      &     n
 
@@ -5528,10 +5522,10 @@ c update total liquid water [kg/m^3]
 !      jjb cleaning
 !          do end do without label
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nka,
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
@@ -5569,25 +5563,25 @@ c update total liquid water [kg/m^3]
       subroutine oneD_dist_old
 !  calculate 1D size distribution of 2D particles dist.
 
-      USE constants, ONLY :
+      USE constants, ONLY : &
 ! Imported Parameters:
      & pi
       
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n,
-     &     nka,
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
       double precision Np
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      common /oneDs_0/partN(n,nka+nkt),partA(n,nka+nkt),partV(n,nka+nkt)
+      common /oneDs_0/partN(n,nka+nkt),partA(n,nka+nkt),partV(n,nka+nkt) &
      &     ,partr(n,nka+nkt),drp(nka+nkt),nrp
       dimension rp(nka+nkt)  !particle radius [um]
       dimension Np(nka+nkt)  !particle number [part cm-3]
@@ -5636,14 +5630,14 @@ c update total liquid water [kg/m^3]
                    if (rq(jt,ia).gt.rp(ij-1)) then
                       Np(ij) = Np(ij) + ff(jt,ia,k)
                       Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
-                      Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)*
+                      Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)* &
      &                     rp(ij)*rp(ij)/3.
                    endif
                 else if ((ij.eq.1).and.(rq(jt+1,ia).gt.rp(ij))) then           ! jjb BUG here, jt+1 leads to out of bounds index when jt = nkt
 !                write (*,100) ij,ia,jt,rq(jt,1),rp(ij),rq(jt,ia),ff(jt,ia,k)
                    Np(ij) = Np(ij) + ff(jt,ia,k)
                    Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
-                   Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)*
+                   Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)* &
      &                  rp(ij)*rp(ij)/3.
                 endif
              else
@@ -5680,17 +5674,17 @@ c update total liquid water [kg/m^3]
 !     (XXX could be equal to any of the already used parameters, nka, nkt, nka+nkt for finer resolution, or whatever)
 !     currently, many particles are likely to be in the last rp class
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf,
-     &     n,
-     &     nka,
+     &     nf, &
+     &     n, &
+     &     nka, &
      &     nkt
 
       implicit double precision (a-h,o-z)
       double precision Np
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
+      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
