@@ -114,7 +114,7 @@ utils.o: utils.f90 config.mod file_unit.mod gas_common.mod global_params.mod \
 	Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
-str.o: str.f config.mod constants.mod gas_common.mod global_params.mod Makefile
+str.o: str.f90 config.mod constants.mod gas_common.mod global_params.mod Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
 radinit.o: radinit.f90 config.mod constants.mod file_unit.mod global_params.mod precision.mod Makefile
