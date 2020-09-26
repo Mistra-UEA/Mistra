@@ -65,7 +65,7 @@ global_params.o global_params.mod: global_params.f90 Makefile
 	rm -f global_params.mod
 	$(FC) $(CFLAGS) -c $<
 
-common_modules.o gas_common.mod: common_modules.f global_params.mod Makefile
+common_modules.o gas_common.mod: common_modules.f90 global_params.mod Makefile
 	rm -f gas_common.mod
 	$(FC) $(CFLAGS) -c $<
 

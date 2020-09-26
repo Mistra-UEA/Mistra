@@ -20,7 +20,7 @@
 
       module gas_common
 
-      USE global_params, ONLY :
+      USE global_params, ONLY : &
      &     n
 
       implicit none
