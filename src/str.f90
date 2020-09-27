@@ -22,7 +22,7 @@
 
 ! box = .true. is option to run model in one level only
 !     so far without dynamics, microphysics and radiation.
-!     Only the photolysis rates are updated and T, rh, .. 
+!     Only the photolysis rates are updated and T, rh, ..
 !     are changed with sinus function.
 !     Init is the same as in 1D run, to make sure that all
 !     variables are defined and to avoid too much differences
@@ -52,7 +52,7 @@
 !       |_____SR sedp
 !       |_____SR equil (case 2)
 !
-!       
+!
 
 program mistra
 
@@ -88,6 +88,10 @@ program mistra
        nmax_chem_aer,       &
        mbs
 
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
   implicit double precision (a-h,o-z)
 
   logical Napari, Lovejoy, both
@@ -97,6 +101,9 @@ program mistra
   double precision u0, albedo, thk
 
   common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   double precision detw, deta, eta, etw
 
@@ -119,7 +126,7 @@ program mistra
 
   ! initialisation switch
   llinit = .true.
-
+  !call test_jjb
   call read_config
 
   fogtype='a'
@@ -248,7 +255,7 @@ program mistra
   print*,'end initialisation str.f'
 ! ====================integration in time=====================
 ! outer time loop: minutes
-  do it=it0+1,itmax                    
+  do it=it0+1,itmax
      if (lct.gt.nf) stop 'lct.gt.nf'
 !         time=time+dt
      lmin=lmin+1
@@ -291,7 +298,7 @@ program mistra
 !              print*,'call equil'
               call equil (2,k)
            endif
-! put aerosol into equilibrium with current rel hum 
+! put aerosol into equilibrium with current rel hum
            if (.not.mic) call equil (1,n_bl)
 ! radiative heating
            do k=2,nm
@@ -341,7 +348,7 @@ program mistra
         else                ! if .not.box
 ! --------1D only end------------
 ! --------box model version only start -------------------
-! put aerosol into equilibrium with current rel hum 
+! put aerosol into equilibrium with current rel hum
 !               if (.not.mic) call equil (1,n_bl)
 ! call u0, T, rh, J-values  .. update
            !call box_update(box_switch,ij,nlevbox,nz_box,n_bl,chem,halo,iod,BL_box) ! jjb 3 unused arguments
@@ -386,7 +393,7 @@ program mistra
 !       print*,'call oneD_dist'
         call oneD_dist
 ! binary output
-        if (binout) then 
+        if (binout) then
            call ploutm (fogtype,n_bln)
            if (lmin/30*30.eq.lmin.and.mic.and..not.box) call ploutp (fogtype)
            call ploutr (fogtype,n_bln)
@@ -402,7 +409,7 @@ program mistra
 !         if (chem.and.lmin/60*60.eq.lmin) call ploutj(fogtype,n_bln)
      endif
 ! hourly output of profiles in ascii files
-     if (lmin/60*60.eq.lmin) then 
+     if (lmin/60*60.eq.lmin) then
         call profm (dt)
 !       call profr
         if (chem) call profc (dt,mic)
@@ -477,7 +484,7 @@ block data
 ! gravitational acceleration
    data g /9.8065d0/
 
-! chose the water temperature and subsidence velocities depending on 
+! chose the water temperature and subsidence velocities depending on
 ! what version of SR initm is used (see ./special_versions/SR_initm)
 ! water temperature
 !   data tw /288.15d0/ !cloud and aer sub run
@@ -507,7 +514,7 @@ block data
    data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
 ! surface roughness
 !      data z0 /0.01d0/
-   data z0 /0.00001d0/ 
+   data z0 /0.00001d0/
 ! soil constants for sandy loam
    data ebs,psis,aks,bs,rhoc /.435d0,-.218d0,3.41d-05,4.9d0,1.34d+06/
    data rhocw,ebc,anu0,bs0 /4.186d+06,.0742724d0,43.415524d0,2.128043d0/
@@ -685,12 +692,19 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -735,7 +749,7 @@ end block data
 !      data ((ws(i,j),i=1,4),j=1,3)/8.3299,9.8765,1.1583,1.2019, &
 !     & 1.1273,1.6116,11.338,7.8114,4.4026,7.0665,3.1885,2.7682/
 ! constants for aerosol distributions after jaenicke (1988)
-! except constants for maritime aerosol distribution 
+! except constants for maritime aerosol distribution
 ! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
       data ((wn(i,j),i=1,4),j=1,3) &
      & /1.6169d+05,1.1791d+04,159.576,79.788, &
@@ -842,7 +856,7 @@ end block data
 !            fsum(k)=fsum(k)+ff(1,ia,k)
 !         enddo
 !      enddo
-! parameters a0m, b0m of koehler curve of subroutine subkon: 
+! parameters a0m, b0m of koehler curve of subroutine subkon:
 ! sr(ia,jt)=exp(a0m/(r(ia,jt)*t)-b0m(ia)*en(ia)/ew(jt)))
 ! a0m see p. 141 pruppacher and klett a0m=2 sigma/(r1*t*rhow*a)
 ! 152200= 2 sigma*10**6 with sigma is surface tension = 76.1*10**-3
@@ -872,13 +886,13 @@ end block data
       xmol3(ia)=132.
       go to 1030
 !c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
-! soluble part of ocean aerosol: pure (NH4)2SO4; 
+! soluble part of ocean aerosol: pure (NH4)2SO4;
  2020 continue
       fcs(ia)=1.
-!      xnue=3.                   
+!      xnue=3.
 !      xmol3(ia)=132.
 ! 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
-      xnue=0.32*3.+0.64*2+0.04*2                   
+      xnue=0.32*3.+0.64*2+0.04*2
       xmol3(ia)=0.32*132.+0.64*115+0.04*80
 ! large are NaCl
       if (rn(ia).lt.0.5) go to 1030
@@ -934,9 +948,9 @@ end block data
 !         xm1(k)=dmin1(8.5d-03,0.4*xm21s) no cloud
 !         if (eta(k).gt.zinv)  xm1(k)=7.6d-03-4.d-03/1000.*(eta(k)-zinv)
 !#         if (eta(k).gt.zinv)  xm1(k)=4.d-03
-         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.4*xm21s) 
-!;         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.35*xm21s) 
-!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s) 
+         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.4*xm21s)
+!;         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.35*xm21s)
+!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s)
 !         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s) no cloud
          feu(k)=xm1(k)*p(k)/((0.62198+0.37802*xm1(k))*p21(t(k)))
 ! r1/r0-1=0.61
@@ -948,7 +962,7 @@ end block data
          xm2(k)=0.
          xm2a(k)=0.
          u(k)=ug
-         v(k)=vg  
+         v(k)=vg
          w(k)=eta(k)/1000.*0.5*(wmin+wmax)
          tke(k)=1.d-05
          if (eta(k).lt.zinv) tke(k)=0.05
@@ -1144,8 +1158,8 @@ end block data
       ewmax=x1*rw1**3*1.d-12
       dlgew=dlog10(ewmax/ewmin)/float(nkt) ! jjb nkt, not nkt-1
       ax=10.**dlgew
-! new water grid 
-! prescribed doubling of water mass after scal bins 
+! new water grid
+! prescribed doubling of water mass after scal bins
 !      scal=1.36
 ! ln(10)=2.3025851  ln(x)=log(10)*log(x)
 !      dlgew=dlog10(scal)
@@ -1218,6 +1232,10 @@ end block data
      &     nkt, &
      &     mb
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! vertical profiles of meteorological data if the program is restarted
 
@@ -1228,6 +1246,9 @@ end block data
       double precision alat,declin
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -1315,6 +1336,10 @@ end block data
      &     nrxn, &
      &     nphrxn
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
 ! profiles of chemical data if the program is restarted
@@ -1329,6 +1354,9 @@ end block data
 
       common /budg/ bg(2,nrxn,nlev),il(nlev)
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /kinv_i/ kinv
       common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
 
@@ -1344,7 +1372,7 @@ end block data
       fname(5:5)=fogtype
       open (16,file=fname,status='unknown',form='unformatted')
 ! alpha, henry, vmean, xkmt are not read in because they depend on the
-! chemical mechanism used (aer, tot) and are calculated every time step 
+! chemical mechanism used (aer, tot) and are calculated every time step
 ! anyways
 
 ! double precision arrays
@@ -1370,8 +1398,8 @@ end block data
       write (61) is4
       close (61)
       write (64) is4
-      close (64) 
-      
+      close (64)
+
       print *,"restart file for chemistry read, filename: ",fname
       print *,lday,lst,lmin
 
@@ -1380,7 +1408,7 @@ end block data
 ! get alpha's
       call st_coeff_a
       call st_coeff_t
-      
+
       end subroutine startc
 
 !
@@ -1528,7 +1556,7 @@ end block data
 !            x4=rq(jt,ia)
 !            ww=-1.25d-4*x4*x4*(1.+8.6d-02/x4)
             ww=-1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
-            dt0=dt     
+            dt0=dt
             xsum=0.
             do k=2,nf
                psi(k)=ff(jt,ia,k)
@@ -1537,9 +1565,9 @@ end block data
             if (xsum.gt.1.d-06) then
                x0=0.
 ! 3000          dtmax=dmin1(dt0,x3/(ww+w(nf)))
-! see also SR difp: subsidence treated now consistently (i.e. like for other 
+! see also SR difp: subsidence treated now consistently (i.e. like for other
 ! tracers): w df/dz instead of d(wf)/dz
- 3000          dtmax=dmin1(dt0,x3/(ww))  
+ 3000          dtmax=dmin1(dt0,x3/(ww))
                do k=2,nf
 !                  c(k)=dtmax/deta(k)*(ww+w(k))
                   c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k) &
@@ -1620,6 +1648,10 @@ end block data
 ! Imported Parameters:
      &     n
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit none
 
 ! Subroutine arguments
@@ -1633,8 +1665,8 @@ end block data
 
 ! Common blocks:
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
@@ -1662,9 +1694,9 @@ end block data
 !x     &      0.0,0.2e-2,3*0.0,0.2e-1,0.2e-2,4*0.,
 !x     &      5*0.1e-1,4*0.0,3*0.0,1.e-2,2*0.0,1.e-2,2*0.0/
 
-!      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
+!      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
 !      vg(34)=vg(30) ! N2O5=HCl
-!      vg(37)=0.     ! DMS           emission is net flux 
+!      vg(37)=0.     ! DMS           emission is net flux
 !      vg(38)=vg(30) ! HOCl = HCl
 !      vg(43)=vg(30) ! HOBr = HCl
 !      vg(50)=vg(49) ! I2O2=HOI
@@ -1679,11 +1711,11 @@ end block data
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
       if(ind_gas_rev(4) /= 0) &
-     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
+     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
       if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
       if(ind_gas_rev(37) /= 0) &
-     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux 
+     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux
       if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
       if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -1753,7 +1785,7 @@ end block data
             s1(j,2)=s1(j,2)*exp(-dt/deta(2)*vg(j))
             s1(j,1)=s1(j,1)+(s12old-s1(j,2))*deta(2)
          endif
-! es1: emission rates in molec./cm**2/s, s1 in mol/m**3            
+! es1: emission rates in molec./cm**2/s, s1 in mol/m**3
          s1(j,2)=s1(j,2)+es1(j)*x4*dt*1.e+4/(detw(2)*Avogadro)
       enddo
 
@@ -1764,7 +1796,7 @@ end block data
 !
 
       subroutine sedl (dt)
-! new aqueous phase concentrations due to 
+! new aqueous phase concentrations due to
 ! gravitational settling of droplets
 
       USE config, ONLY : &
@@ -1795,14 +1827,14 @@ end block data
       dimension cc(nf)
       c(nf)=0.
 ! changes have to be made BOTH here and below for ions
-! rc in m 
+! rc in m
       xfac=1.e6
       do kc=1,nkc_l
          do k=2,nf
             xxx=0.01 ! jjb apparently, in um
             x4=dmax1(xxx,xfac*rc(kc,k)) ! jjb here as well
 ! subsidence see SR difl
-!            cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k) 
+!            cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
             cc(k)=(-1.*vterm(x4*1.d-6,t(k),p(k)))/deta(k) ! jjb: in vterm, radius in m
 ! mass weighted terminal velocity
             cc(k)=dmin1(cc(k),-1.*vt(kc,k)/deta(k))
@@ -1906,7 +1938,7 @@ end block data
       ! Polynomial coefficients for Beard approximation
       ! Pruppacher & Klett, p. 417, equation (10-145)
       double precision, parameter :: b0=-.318657d+1
-      double precision, parameter :: b1= .992696d+0 
+      double precision, parameter :: b1= .992696d+0
       double precision, parameter :: b2=-.153193d-2
       double precision, parameter :: b3=-.987059d-3
       double precision, parameter :: b4=-.578878d-3
@@ -1967,9 +1999,16 @@ end block data
      &     n, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -2040,7 +2079,7 @@ end block data
          c(k)=w(k)*dt/deta(k)
       enddo
 ! exchange coefficients
-      call atk1 
+      call atk1
 ! turbulent exchange with k_m:
       xa(1)=atkm(1)*dt/(detw(1)*deta(1))
       xe(1)=0.
@@ -2348,8 +2387,8 @@ end block data
      &              xf(k))*am3(k)
             enddo
 !           large scale subsidence
-!            do k=2,nf        
-            do k=2,nm        
+!            do k=2,nf
+            do k=2,nm
                kp=k+1
                sl1(j,kc,k)=sl1(j,kc,k)-c(k)*(sl1(j,kc,kp)-sl1(j,kc,k))
             enddo
@@ -2375,7 +2414,7 @@ end block data
      &              am3(k+1)+xf(k))*am3(k)
             enddo
 !           large scale subsidence
-!            do k=2,nf         
+!            do k=2,nf
             do k=2,nm
                kp=k+1
                sion1(j,kc,k)=sion1(j,kc,k)-c(k)* &
@@ -2463,6 +2502,10 @@ end block data
      &     nm, &
      &     nka
 
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
 ! jjb work done
 !     - removal of unused parameters, remaining one now in modules
 
@@ -2475,6 +2518,9 @@ end block data
 ! and Yamada, JAS 1974.
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -3118,7 +3164,7 @@ end block data
 !     jjb work done
 !      removed one unused parameter; use module instead
 !      removed k0=k, used only in equil argument. For the sake of clarity
-      
+
 
 !      USE config, ONLY :
 !     &     nkc_l
@@ -3136,6 +3182,10 @@ end block data
      &     nkc, &
      &     mb
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       logical chem!,chmic ! jjb defined below, but unused
@@ -3143,6 +3193,9 @@ end block data
       double precision totrad
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
@@ -3169,8 +3222,8 @@ end block data
       do 1000 k=2,nf+1
 ! initialize
          do ia=1,nka
-            vol1_a(ia,k)=0.               
-            vol1_d(ia,k)=0.               
+            vol1_a(ia,k)=0.
+            vol1_d(ia,k)=0.
             part_o_a(ia,k)=0.
             part_o_d(ia,k)=0.
             part_n_a(ia,k)=0.
@@ -3212,7 +3265,7 @@ end block data
 ! aerosol + cloud chemistry:
 ! vol2 and vol1 old liquid volume in class (1-nkc) and row/class (1-nkc,1-nka)
 ! (um^3/cm^3), used in SR konc to shift moles from aerosol to drop
-! and vice versa. 
+! and vice versa.
 ! part_o and part_n old and new part. conc. in row/class (1-nkc,1-nka) (cm^-3)
 ! take care if non-soluble parts are in aerosol
 !      if (.not.chmic) go to 2010
@@ -3346,7 +3399,7 @@ end block data
          if (xm2(k).gt.1.d-05) go to 2040
       enddo
  2040 continue
-! update chemical species      
+! update chemical species
 ! aerosol chemistry:
 !      if (chem.and.lct.gt.lcl) call konc
 ! aerosol + cloud chemistry:
@@ -3391,7 +3444,7 @@ end block data
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       dimension rg(nka),eg(nka)
 
-! get equilibrium distribution for 
+! get equilibrium distribution for
 !     case 1: active layer (1D: k<=nf (called from SR kon), 0d: active layer)
 !     case 2: all layers above nf
       kmin=kk
@@ -3666,7 +3719,7 @@ end block data
       end if
 
       end function diff_wat_vap
-      
+
 !
 !-------------------------------------------------------------
 !
@@ -3694,7 +3747,7 @@ end block data
       double precision :: therm_conduct_air
 
       double precision, intent(in) :: temperature  ! in [K]
-      
+
       double precision, parameter :: cst1 = 4.39d-3
       double precision, parameter :: cst2 = 7.1d-5
 
@@ -3702,7 +3755,7 @@ end block data
 
 
       end function therm_conduct_air
-      
+
 !
 !---------------------------------------------------------------------
 !
@@ -3780,7 +3833,7 @@ end block data
             k=nkt
             print *,'SR advec: index out of bounds'
          endif
-         if (u(k).lt.0.) k=k-2  
+         if (u(k).lt.0.) k=k-2
 ! avoid index out of bounds (2):
          if (k.le.0) then
             k=1
@@ -4022,7 +4075,7 @@ end block data
 
       integer :: i
       double precision :: fm(nf),fp(nf)
-      
+
       common /cb58/ c(nf),y(nf)
       double precision c, y
 
@@ -4240,7 +4293,7 @@ end block data
 
 !      fpi=4./3.*3.1415927
       fpi=4./3.*pi
-      
+
       nmin = 2
       nmax = nf
       if (box) then
@@ -4257,7 +4310,7 @@ end block data
 !      return
 !*************************** no aerosol processing *****************
 
-! sion1 ion conc. [mole m**-3], sion1o old ion conc. [mole m**-3], 
+! sion1 ion conc. [mole m**-3], sion1o old ion conc. [mole m**-3],
 ! dsion1 change in ion conc. [mole/part.]
 ! sap total number of aerosols [cm**-3], smp total aerosol mass [mg cm**-3]
 ! fs total aerosol mass integrated over all liquid classes [mg cm**-3]
@@ -4333,7 +4386,7 @@ end block data
                do l=1,lsp
                   ll=lj2(l)
                   dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06 &
-     &                 /sap(kc,k) 
+     &                 /sap(kc,k)
 !                  dss(k,l,kc)=dss(k,l,kc)+dsion1(l,kc,k) ! jjb output no longer used
                enddo
 ! den: new aerosol mass in mg/particle due to chemical reactions
@@ -4345,7 +4398,7 @@ end block data
      &              *96.+dsion1(4,kc,k)*44.+dsion1(5,kc,k)*62.+ &
      &              dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+ &
      &              dsion1(8,kc,k)*23.+dsion1(9,kc,k)*95.)*1000.
-               
+
 !              define upper and lower limits of ia loop
                if (kc.eq.1.or.kc.eq.3) then
                   if ((nuc).and.(ifeed.eq.1)) then
@@ -4395,8 +4448,8 @@ end block data
                      ix=nka-1
                      c0=0.
                   endif
- 2000             continue 
-!              define upper and lower limits of jt loop               
+ 2000             continue
+!              define upper and lower limits of jt loop
                if (kc.eq.1.or.kc.eq.2) then
                   jtl=1
                   jtu=kw(ia)
@@ -4409,8 +4462,8 @@ end block data
                      if (ff(jt,ia,k).gt.0.) then
                         x1=ff(jt,ia,k)
                         ff(jt,ia,k)=0.
-                        ff(jt,ix,k)=ff(jt,ix,k)+x1*c0  
-                        ff(jt,ix+1,k)=ff(jt,ix+1,k)+x1*(1.-c0) 
+                        ff(jt,ix,k)=ff(jt,ix,k)+x1*c0
+                        ff(jt,ix+1,k)=ff(jt,ix+1,k)+x1*(1.-c0)
 ! find "targetbin" for ix and ix+1:
 ! ix
                         if (ix.gt.ka) then
@@ -4454,8 +4507,8 @@ end block data
                   enddo   ! jt loop
                enddo      ! ia loop
             endif
-            
- 1000       continue   
+
+ 1000       continue
          enddo  ! kc loop
       enddo     ! k  loop
 ! move chemical species if transport above chemistry bins took place
@@ -4555,7 +4608,7 @@ end block data
 !            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
             do kl=1,nka
                if (rg.le.rn(kl)) then
-!               if (eg.le.enw(kl)) then   
+!               if (eg.le.enw(kl)) then
                   ff(1,ia,k)=x0*f_inter(kl)
                   goto 1000
                endif
@@ -4739,7 +4792,7 @@ end block data
 
 ! L=-rho c_p T_0 Ustar^3/(kappa g \bar(q_3))
 ! with \bar(q_3)=rho c_p \bar(w'theta')=rho c_p (-1.) atkh d theta/d z
-      
+
 ! dtheta'/dz in height k
       if (k.eq.1) then
          k=2
@@ -4765,7 +4818,7 @@ end block data
 ! stable
          if (xmo.gt.0.) then
             phi=4.7*(zeta-zeta0)
-! unstable      
+! unstable
          else if (xmo.lt.0) then
             xeta0=(1.-15.*zeta0)**0.25
             xeta=(1.-15.*zeta)**0.25
@@ -4867,7 +4920,7 @@ end block data
 
       subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
 !     initialisation for box models runs
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -4910,13 +4963,13 @@ end block data
       feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21)
       print *,"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
 
-! for strange reasons it didn't work to init the whole Mistra column and 
+! for strange reasons it didn't work to init the whole Mistra column and
 ! not producing a crash or strange results, therefore this 1D column
 ! init is repeated every hour in SR box_update
 
 ! if smogchamber run: adjust roughness length z0
 !     z0 = to be determined; maybe scale with the decline of the particle population
-!     in the chamber; make sure that this value is not overwritten later during the 
+!     in the chamber; make sure that this value is not overwritten later during the
 !     run
 
 ! also make sure for smogchamber that deposition occurs also to the sidewalls of the chamber
@@ -4937,7 +4990,7 @@ end block data
       USE constants, ONLY : &
 ! Imported Parameters:
      & pi
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -4946,6 +4999,10 @@ end block data
      &     nkc, &
      &     nmax_chem_aer, &
      &     mbs
+
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
 
       implicit double precision (a-h,o-z)
 
@@ -4958,8 +5015,11 @@ end block data
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
-!      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      common /cb40/ xtime,lday,lst,lmin,it,lcl,lct
+!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb warning time renamed xtime here
+      common /cb40/ xtime,lday,lst,lmin,it,lcl,lct ! jjb warning xtime here instead of time
+      real (kind=dp) :: xtime
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -4973,7 +5033,7 @@ end block data
 
       fa_lse = .false. ! jjb was missing, thus undefined when calling SRs fast_k_mt_* below
 
-! calculate u0 
+! calculate u0
       rlat=alat*1.745329e-02
       rdec=declin*1.745329e-02
       zeit=lst*3600.+dfloat(lmin-1)*60.
@@ -4984,9 +5044,9 @@ end block data
       ru0=6371.*u00
       u0=8./(sqrt(ru0**2+102000.)-ru0)
 
-! new photolysis rates are calculated from main program! 
+! new photolysis rates are calculated from main program!
 
-! get data for whole column for cw, rc, xkmt for box runs with averaging 
+! get data for whole column for cw, rc, xkmt for box runs with averaging
 ! over BL:
 
 ! if T, rH, .. vary in time update every hour or at "reasonable times" if not,
@@ -4999,7 +5059,7 @@ end block data
             freep(k)=2.28e-5 * t(k) / p(k)
          enddo
 
-         call cw_rc (nf) 
+         call cw_rc (nf)
 !!         do k=2,nf
 !!            do kc=1,nkc ! jjb reordered
 !         do kc=1,nkc
@@ -5008,7 +5068,7 @@ end block data
 !               rcm(k,kc)=rc(k,kc)
 !            enddo
 !         enddo
-         stop 'jjb: box version has to be updated'
+         !stop 'jjb: box version has to be updated'
          call v_mean (t(:nmax_chem_aer))
 !        call henry_a (t,p,nf) ! jjb second argument (p) not used
          call henry_a (t,nf)   ! jjb removed
@@ -5033,22 +5093,22 @@ end block data
             call equil_co_t (t,nf)
          endif
 
-         if (BL_box) then 
+         if (BL_box) then
 !           average parameters over depth of BL if BL_box=.true.
-            call ave_parms (n_bl,nz_box) 
-            call ave_aer (n_bl,nz_box) 
+            call ave_parms (n_bl,nz_box)
+            call ave_aer (n_bl,nz_box)
             if (xph3.eq.1..or.xph4.eq.1.)  &
-     &           call ave_tot (n_bl,nz_box) 
+     &           call ave_tot (n_bl,nz_box)
          else
-            call set_box_gas (nlevbox,n_bl) 
-            call set_box_lev_a (nlevbox,n_bl) 
+            call set_box_gas (nlevbox,n_bl)
+            call set_box_lev_a (nlevbox,n_bl)
 ! p21 after magnus formula
             p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
             feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))* &
      &           p21)
             call equil (1,n_bl)
             if (xph3.eq.1..or.xph4.eq.1.)  &
-     &           call set_box_lev_t (nlevbox,n_bl) 
+     &           call set_box_lev_t (nlevbox,n_bl)
          endif
 !         call print_vals (nlevbox,n_bl)
          box_switch = 0.
@@ -5078,7 +5138,7 @@ end block data
 !      sst_amp = 1.                  ! amplitude of SST diu var
 !      sst_var = sst_amp * sin(pi05*(tmax - th)/6.)
 !      tw      = tw0 + sst_var
-!      t(1)=tw 
+!      t(1)=tw
 !----------
 ! change only for different LWC
 !      conv2(n_bl,1-4)    ! conversion factor [1/(1000 m3/m3)]
@@ -5116,7 +5176,11 @@ end block data
 ! Imported Array Variables with intent (inout):
      &     s1, &
      &     vg
-      
+
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit none
 
 ! Subroutine arguments
@@ -5130,14 +5194,15 @@ end block data
 
 ! Common blocks
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
 
 !- End of header ---------------------------------------------------------------
 
-!      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
+!      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
 !      vg(34)=vg(30) ! N2O5=HCl
-!      vg(37)=0.     ! DMS           emission is net flux 
+!      vg(37)=0.     ! DMS           emission is net flux
 !      vg(38)=vg(30) ! HOCl = HCl
 !      vg(43)=vg(30) ! HOBr = HCl
 !      vg(50)=vg(49) ! I2O2=HOI
@@ -5152,11 +5217,11 @@ end block data
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
       if(ind_gas_rev(4) /= 0) &
-     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or 
+     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
       if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
       if(ind_gas_rev(37) /= 0) &
-     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux 
+     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux
       if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
      &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
       if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -5200,7 +5265,7 @@ end block data
          endif
 
 ! emission
-! es1: emission rates in molec./cm**2/s, s1 in mol/m**3            
+! es1: emission rates in molec./cm**2/s, s1 in mol/m**3
          s1(j,n_bl)=s1(j,n_bl)+es1(j)*dt*1.e+4/(z_box*Avogadro)
       enddo
 
@@ -5212,7 +5277,7 @@ end block data
 !
 
       subroutine box_partdep (dt, z_box, n_bl)
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5231,7 +5296,7 @@ end block data
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
 ! calculation of deposition velocity is done in SR partdep; for smog chamber runs
-! the roughness length z0 has to be adjusted in SRs box_init 
+! the roughness length z0 has to be adjusted in SRs box_init
 
 ! apply v_dep to particles
       do ia = 1, nka
@@ -5274,7 +5339,7 @@ end block data
 
       subroutine mic_init (iaertyp,fogtype)
 ! initialization of microphysics for restart (cut and paste from SR initm)
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -5337,7 +5402,7 @@ end block data
       close (44)
  6010 format (5e16.8)
 
-! parameters a0m, b0m of koehler curve of subroutine subkon: 
+! parameters a0m, b0m of koehler curve of subroutine subkon:
 ! sr(ia,jt)=exp(a0m/(r(ia,jt)*t)-b0m(ia)*en(ia)/ew(jt)))
 ! a0m see p. 141 pruppacher and klett a0m=2 sigma/(r1*t*rhow*a)
 ! 152200= 2 sigma*10**6 with sigma is surface tension = 76.1*10**-3
@@ -5368,13 +5433,13 @@ end block data
          xmol3(ia)=132.
          go to 1030
 !c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
-! soluble part of ocean aerosol: pure (NH4)2SO4; 
+! soluble part of ocean aerosol: pure (NH4)2SO4;
  2020    continue
          fcs(ia)=1.
-!      xnue=3.                   
+!      xnue=3.
 !      xmol3(ia)=132.
 ! 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
-         xnue=0.32*3.+0.64*2+0.04*2                   
+         xnue=0.32*3.+0.64*2+0.04*2
          xmol3(ia)=0.32*132.+0.64*115+0.04*80
 ! large are NaCl
          if (rn(ia).lt.0.5) go to 1030
@@ -5394,7 +5459,7 @@ end block data
 
       subroutine out_mass
 ! subroutine to print aerosol and ion mass
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5404,10 +5469,17 @@ end block data
      &     nkt, &
      &     nkc
 
-       implicit double precision (a-h,o-z)
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
+      implicit double precision (a-h,o-z)
 
       parameter (lsp=9)
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -5442,7 +5514,7 @@ end block data
          xxsum=xxsum+xsum(k)*detw(k)
       enddo
 
-      write (13,6240) 
+      write (13,6240)
       write (13,6250) xsum
       write (13,6260) xxsum
 
@@ -5465,7 +5537,7 @@ end block data
          zion(k) = xion(k)*1.d6
       enddo
 
-      write (13,6280) 
+      write (13,6280)
       write (13,6250) zion
 
  6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
@@ -5481,7 +5553,7 @@ end block data
 !
 
       subroutine get_n_box (z_box,nz_box)
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n
@@ -5534,7 +5606,7 @@ end block data
       common /blck06/ kw(nka),ka
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
- 
+
 
       do k=2,n
          fsum1=0.
@@ -5566,7 +5638,7 @@ end block data
       USE constants, ONLY : &
 ! Imported Parameters:
      & pi
-      
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -5594,7 +5666,7 @@ end block data
 !     distribution. The reason is that the radius resolution for small
 !     ia is very fine (see plot of 2D particle grid). To avoid this use
 !     rq(1,ia) until ia=nka and then rq(1:nkt,nka); the dimension of rq
-!     is nka+nkt; to avoid having drp=0. the 
+!     is nka+nkt; to avoid having drp=0. the
 
 
       rnmax = rn(nka)
@@ -5641,7 +5713,7 @@ end block data
      &                  rp(ij)*rp(ij)/3.
                 endif
              else
-                goto 2002          
+                goto 2002
              endif
           enddo                 !jt
  2002     continue
@@ -5668,7 +5740,7 @@ end block data
 
       subroutine oneD_dist
 !  calculate 1D size distribution of 2D particles dist.
-      
+
 ! jjb rewritten, but needs improvements.
 !     idea: map all rq onto a specific which would range between rq(1,1) and rq(nkt,nka) with XXX values
 !     (XXX could be equal to any of the already used parameters, nka, nkt, nka+nkt for finer resolution, or whatever)
@@ -5699,15 +5771,16 @@ end block data
 ! Ap, Vp can easily be calculated in ferret, so reduce output file size
 
 ! ignore radius range problem as outlined in SR oneD_dist_old and use rq(1:nkt,1)
-! to map all particles onto; this might lead to adding a few bins of 2D spectrum 
-! into one on 1D but I think this is just a "cosmetic" problem which in the end 
-! might be overcome by smoothing the plot. Benefit: everything is easier and there 
-! are no "empty" bins as when using the old radius 2D --> 1D mapping nka+nkt 
+! to map all particles onto; this might lead to adding a few bins of 2D spectrum
+! into one on 1D but I think this is just a "cosmetic" problem which in the end
+! might be overcome by smoothing the plot. Benefit: everything is easier and there
+! are no "empty" bins as when using the old radius 2D --> 1D mapping nka+nkt
 
 ! define 1D grid
       do jt=1,nkt
          rp(jt)=rq(jt,1)
       enddo
+      rp(nkt) = rq(nkt,nka) ! jjb correction to be tested
 ! calculate width of each bin in 1D grid
 !      drp(1)=rp(1)
 !      xlogdrp(1)=log10(rp(1))
@@ -5727,7 +5800,7 @@ end block data
             do ia = 1, nka
                if (rn(ia).gt.rp(ij+1)) goto 2001 ! save time
                do jt = 1,nkt
-                  if (rq(jt,ia).lt.rp(ij+1)) then    
+                  if (rq(jt,ia).lt.rp(ij+1)) then
                      if (rq(jt,ia).ge.rp(ij)) then
                         Np(ij) = Np(ij) + ff(jt,ia,k)
                      endif
@@ -5743,7 +5816,7 @@ end block data
             enddo              !ia
  2001       continue
          end do                !ij
-
+         Np(2) = Np(2)+ff(1,1,k) ! jjb correction to be tested
        do ij = 1,nkt
 ! to plot dN/dr, dA/dr, dV/dr:
           partN(k,ij,1) = Np(ij)/drp(ij)      ! #/um/cm3
