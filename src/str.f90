@@ -114,7 +114,7 @@ program mistra
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-  double precision theta, thetl, t, talt, p, rho
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
@@ -741,8 +741,9 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
+      real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb63/ fcs(nka),xmol3(nka)
       common /kinv_i/ kinv
@@ -1303,8 +1304,9 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
+      real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb63/ fcs(nka),xmol3(nka)
       character *10 fname
@@ -1485,7 +1487,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       dimension rg(nka),eg(nka)
 
@@ -1591,7 +1593,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb58/ c(nf),psi(nf)
       common /blck06/ kw(nka),ka
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
@@ -1873,7 +1875,7 @@ end block data
       common /blck11/ rc(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
       dimension cc(nf)
       c(nf)=0.
@@ -2126,8 +2128,9 @@ end block data
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
+      real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
       dimension c(n)
@@ -2533,7 +2536,7 @@ end block data
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
 ! mixing length
       xl(1)=0.
@@ -2625,8 +2628,9 @@ end block data
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
+      real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /kinv_i/ kinv
       dimension es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
@@ -2886,7 +2890,7 @@ end block data
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
 
 !      tw=tw-5.787d-6*dt
@@ -2970,7 +2974,7 @@ end block data
       double precision sk, sl, dtrad, dtcon
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       dimension ebb(40),tss(40),ftss(40),fqss(40)
 ! Stefan-Boltzmann-constant
@@ -3320,7 +3324,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
      &              xm1o,xm1n,kr
@@ -3562,7 +3566,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       dimension rg(nka),eg(nka)
 
@@ -4733,7 +4737,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       dimension f_inter(nka)
 
       x0=1.
@@ -4814,7 +4818,7 @@ end block data
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
@@ -4937,7 +4941,7 @@ end block data
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
 
 ! check inversion height - it is diagnosed in SR atk1 but might be zero after restart
@@ -5100,7 +5104,7 @@ end block data
       logical BL_box
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
@@ -5191,7 +5195,7 @@ end block data
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
@@ -5550,7 +5554,7 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb63/ fcs(nka),xmol3(nka)
       dimension sr(nka,nkt)
 !      dimension xb0m(nka) ! jjb used for a test at the end, probably useless

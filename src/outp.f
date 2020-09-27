@@ -117,7 +117,7 @@
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /cb63/ fcs(nka),xmol3(nka)
 
@@ -971,7 +971,7 @@
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       double precision i0
       dimension i0(12,n_bln)
@@ -1582,7 +1582,7 @@
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
 
       character *10 srname

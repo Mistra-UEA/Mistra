@@ -122,7 +122,7 @@ c initialization of chemistry module
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       common /cb63/ fcs(nka),xmol3(nka)
       double precision fcs, xmol3
@@ -447,7 +447,8 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
+
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt
 
@@ -546,6 +547,10 @@ c sticking coefficients, needed for calculation of k_mt
      &     nf,
      &     n
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       include 'tot_Parameters.h' !additional common blocks and other definitions
@@ -554,7 +559,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision alpha, vmean
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
       double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
@@ -718,6 +723,10 @@ c sticking coefficients, needed for calculation of k_mt
      &     nf,
      &     n
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
@@ -726,7 +735,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision alpha, vmean
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
       double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
@@ -1837,7 +1846,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -2085,7 +2094,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -2993,7 +3002,7 @@ c calculation of sea salt aerosol source
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /blck06/ kw(nka),ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
@@ -3244,7 +3253,7 @@ c interface between MISTRA and the KPP gas phase chemistry
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /band_rat/ photol_j(nphrxn,n)
       common /kinv_i/ kinv
@@ -3816,6 +3825,10 @@ c xhet1/2 in SR kpp_driver)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
@@ -3826,7 +3839,7 @@ c xhet1/2 in SR kpp_driver)
 !    &              e(nkt),dew(nkt),rq(nkt,nka)         !   (after commenting rqm = rq line below)
 !      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !      common /kpp_dryp/ rcd(n,2),cwd(n,2)
@@ -4002,6 +4015,10 @@ c xhet1/2 in SR kpp_driver)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h'     !additional common blocks and other definitions
@@ -4009,7 +4026,7 @@ c xhet1/2 in SR kpp_driver)
       parameter (ndr=4)
       common /blck11/ rcd(nkc,n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_dryt/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !     common /kpp_dryp/ rcd(n,2),cwd(n,2)
@@ -4845,12 +4862,16 @@ c      implicit double precision (a-h,o-z)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'gas_Parameters.h' !additional common blocks and other definitions 
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5184,7 +5205,7 @@ c     pick the values from the designated level: nlevbox
       integer :: nar
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5249,6 +5270,10 @@ c     pick the values from the designated level: nlevbox
      &     nkc,
      &     mb
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h' !additional common blocks and other definitions          
@@ -5257,7 +5282,7 @@ c     pick the values from the designated level: nlevbox
       double precision totrad
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5337,7 +5362,7 @@ c     test output
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5445,6 +5470,10 @@ c$$$     &     nka,
 c$$$     &     nkt,
 c$$$     &     nkc
 c$$$
+c$$$      USE precision, ONLY :
+c$$$! Imported Parameters:
+c$$$     &     dp
+c$$$
 c$$$      implicit double precision (a-h,o-z)
 c$$$      logical box
 c$$$
@@ -5456,7 +5485,7 @@ c$$$      real (kind=dp) :: ff, fsum
 c$$$      integer :: nar
 c$$$
 c$$$      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-c$$$      double precision theta, thetl, t, talt, p, rho
+c$$$      real(kind=dp) :: theta, thetl, t, talt, p, rho
 c$$$      common /blck06/ kw(nka),ka
 c$$$      common /blck12/ cw(nkc,n),cm(nkc,n)
 c$$$      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
