@@ -1327,6 +1327,8 @@
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
+      real (kind=dp) :: dlgew,dlgenw,dlne
+
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
 
       dimension xsum(n)

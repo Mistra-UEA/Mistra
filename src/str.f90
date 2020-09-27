@@ -731,6 +731,8 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
+      real (kind=dp) :: dlgew, dlgenw, dlne
+
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -1084,6 +1086,8 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
+      real (kind=dp) :: dlgew, dlgenw, dlne
+
       common /blck06/ kw(nka),ka
 ! density and molecular weight of pure water
 ! minimum (rnw0) maximum (rnw1) radius of dry aerosol   [um]
@@ -3603,6 +3607,10 @@ end block data
      &     nkt, &
      &     mb
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       ! jjb declarations
@@ -3629,6 +3637,7 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
+      real (kind=dp) :: dlgew, dlgenw, dlne
 
       double precision :: psi(nkt),u(nkt)
 
