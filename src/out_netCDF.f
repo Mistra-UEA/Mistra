@@ -3072,6 +3072,10 @@ c
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 
@@ -3081,6 +3085,8 @@ c
       include 'netcdf.inc'
       common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
 
@@ -3190,6 +3196,10 @@ c output of meteorological variables
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 !     character*8 fname  ! jjb
@@ -3203,15 +3213,26 @@ c output of meteorological variables
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb45/ u(n),v(n),w(n)
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
 !     common /cb52/ ff(nkt,nka,n),fsum(n,0:nkc),nar(n) ! jjb wrong
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)       ! jjb corrected, but mess up below, see comments
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),ta(n),p(n),rho(n)
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
+
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
      &              fsn(nrlev),dtdts(nrlay)
@@ -3440,6 +3461,10 @@ c
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 !     character*6 fname  ! jjb
@@ -3456,6 +3481,9 @@ c
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)
 
       dimension ifield(1,1,1), idimcount(4), idimstart(4), 

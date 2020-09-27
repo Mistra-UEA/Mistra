@@ -73,6 +73,10 @@
      &     nkt,
      &     mb
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 ! Local scalars:
@@ -91,22 +95,32 @@
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      double precision gm, gh, sm, sh, xl
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d,
+     &      ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /cb63/ fcs(nka),xmol3(nka)
 
 !- End of header ---------------------------------------------------------------
@@ -222,6 +236,7 @@
       integer lday, lst, lmin, it, lcl, lct
 
       common /kinv_i/ kinv
+      integer :: kinv
       common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt
@@ -626,6 +641,10 @@
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
  
       implicit double precision (a-h,o-z)
 
@@ -925,6 +944,10 @@
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb15/ fnseb,flgeg,hr(nrlay)
@@ -938,15 +961,23 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d,
+     &      ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       double precision i0
       dimension i0(12,n_bln)
       character *10 fname
@@ -1004,7 +1035,11 @@
      &     nka,
      &     nkt
 
-      double precision ff,fsum,xm1,xm2,feu,dfddt,xm1a,xm2a
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      double precision xm1,xm2,feu,dfddt,xm1a,xm2a
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       double precision time
@@ -1014,7 +1049,12 @@
       double precision detw, deta, eta, etw
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       dimension ff2(nka,nkt)
       character *10 fname
       character *1 fogtype
@@ -1107,6 +1147,10 @@
      &     mb,
      &     mbs
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb10/ totrad (mb,nrlay)
@@ -1127,6 +1171,9 @@
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
      &              fsn(nrlev),dtdts(nrlay)
       double precision fs1, fs2, totds, ss, fsn, dtdts
@@ -1201,20 +1248,32 @@
 ! Imported Parameters:
      &     n
       
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
+      real (kind=dp) :: time
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
+      real (kind=dp) :: tkeps, tkepb, tkepd
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb45/ u(n),v(n),w(n)
-      double precision i0
+      real (kind=dp) :: u, v, w
+
+      real (kind=dp) :: i0
       dimension i0(12,n_bln)
       character *10 fname
       character *1 fogtype
@@ -1269,6 +1328,10 @@
      &     nrlay,
      &     nrlev
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 ! output of constants and parameters used in the current run
 
@@ -1276,24 +1339,30 @@
       common /band_o3/ scaleo3_m
       common /blck06/ kw(nka),ka
       common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+      real (kind=dp) :: alat,declin
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d,
+     &      ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
+      real (kind=dp) :: dlgew,dlgenw,dlne
+
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
 
       dimension xsum(n)
       write (26,6000)
@@ -1475,6 +1544,10 @@
      &     nkt,
      &     mbs
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb16/ u0,albedo(mbs),thk(nrlay)
@@ -1488,16 +1561,22 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      double precision gm, gh, sm, sh, xl
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       common /cb46/ ustern,gclu,gclt
+      double precision ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d,
+     &      ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
@@ -1506,9 +1585,13 @@
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       character *10 srname
       dimension xsum(n)

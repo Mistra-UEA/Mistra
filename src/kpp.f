@@ -65,6 +65,10 @@ c initialization of chemistry module
       USE kpp_tot_Parameters, ONLY :
      &     nspec_t=>NSPEC
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
 ! Subroutine arguments
@@ -111,20 +115,20 @@ c initialization of chemistry module
       integer il
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       common /cb63/ fcs(nka),xmol3(nka)
       double precision fcs, xmol3
 
       common /kinv_i/ kinv
-      integer kinv
+      integer :: kinv
 
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt
@@ -430,16 +434,21 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
      &     nkc,
      &     nmax_chem_aer
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /blck01/ am3(n),cm3(n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
+
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt
 
@@ -538,6 +547,10 @@ c sticking coefficients, needed for calculation of k_mt
      &     nf,
      &     n
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       include 'tot_Parameters.h' !additional common blocks and other definitions
@@ -546,7 +559,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision alpha, vmean
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
       double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
@@ -710,6 +723,10 @@ c sticking coefficients, needed for calculation of k_mt
      &     nf,
      &     n
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
@@ -718,7 +735,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision alpha, vmean
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
       double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
@@ -1593,7 +1610,7 @@ c mean radius and LWC for "chemical" particles size bins
       integer nar
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n) ! only feu is used
-      double precision xm1, xm2, feu, dfddt, xm1a, xm2a
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       common /kpp_l1/ cloud(nkc,n)
       logical cloud
@@ -1602,7 +1619,7 @@ c mean radius and LWC for "chemical" particles size bins
       double precision xcryssulf,xcrysss,xdelisulf,xdeliss
 
       common /kinv_i/ kinv
-      integer kinv
+      integer :: kinv
 
       common /nucfeed/ ifeed
       integer ifeed
@@ -1804,6 +1821,10 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       USE kpp_tot_Global, ONLY :
      &     SPC_NAMES
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
 
       implicit double precision (a-h,o-z)
 
@@ -1814,14 +1835,18 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -2042,6 +2067,10 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       USE kpp_aer_Global, ONLY :
      &     SPC_NAMES
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
 
  
       implicit double precision (a-h,o-z)
@@ -2054,14 +2083,18 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -2853,6 +2886,10 @@ c      double precision ap1o,ap2o,ap2n,apo,apn
      &     nkt,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /blck06/ kw(nka),ka
@@ -2861,6 +2898,9 @@ c      double precision ap1o,ap2o,ap2n,apo,apn
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /nucfeed/ ifeed
 
       dimension ap(n,nka)
@@ -2936,23 +2976,35 @@ c calculation of sea salt aerosol source
      &     nkt,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
       logical box
 
       logical mona,smith
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /blck06/ kw(nka),ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
      &       /blck78/ sa1(nka,j2),sac1(nka,j2)
@@ -3088,6 +3140,10 @@ c use for parameterisation development for global models
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
 
       implicit none
 
@@ -3104,8 +3160,8 @@ c use for parameterisation development for global models
       double precision sl1, sion1
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 !- End of header ---------------------------------------------------------------
 
       do k=2,nf
@@ -3177,6 +3233,10 @@ c interface between MISTRA and the KPP gas phase chemistry
      &     nkc,
      &     nphrxn
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z) 
 !     logical halo,iod,box,new_a,new_c,cloud,short,ros3 ! jjb ros3 removed, thus new_a, new_c & short as well
       logical box,cloud
@@ -3190,14 +3250,16 @@ c interface between MISTRA and the KPP gas phase chemistry
       double precision alat,declin
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /band_rat/ photol_j(nphrxn,n)
       common /kinv_i/ kinv
+      integer :: kinv
       common /cb_1/ air_cc,te,h2oppm,pk
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_l1/ cloud(nkc,n)
@@ -3429,6 +3491,10 @@ c check ion balance
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       logical, intent(in) :: box
@@ -3437,14 +3503,14 @@ c check ion balance
       integer :: k, kc
       integer :: n_min, n_max
 
-      double precision :: xpos(nkc),xneg(nkc)
+      real (kind=dp) :: xpos(nkc),xneg(nkc)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      double precision sl1, sion1
+      real (kind=dp) :: sl1, sion1
 
 
       write (103,*) lday,lst,lmin,' aerosol'
@@ -3500,6 +3566,10 @@ c calculates LWC and mean radius for "dry" aerosol
      &     nkt,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
 
       implicit none
 
@@ -3508,34 +3578,34 @@ c calculates LWC and mean radius for "dry" aerosol
       integer, intent(in) :: nmax
 
 ! Local parameters:
-      double precision, parameter :: xpi = 4./3.*pi
+      real (kind=dp), parameter :: xpi = 4./3.*pi
 
 ! Local scalars:
-      double precision :: cwd1, cwd2
-      double precision :: rcd1, rcd2
-      double precision :: x0
+      real (kind=dp) :: cwd1, cwd2
+      real (kind=dp) :: rcd1, rcd2
+      real (kind=dp) :: x0
       integer :: ia, ial, jt, k
 
 ! Common blocks:
       common /blck06/ kw(nka),ka
-      integer kw, ka
+      integer :: kw, ka
 
       common /blck11/ rcd(nkc,n)
-      double precision rcd
+      real (kind=dp) :: rcd
 
       common /blck12/ cwd(nkc,n),cm(nkc,n)
-      double precision cwd, cm
+      real (kind=dp) :: cwd, cm
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), ! only rq is used
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw, ew, rn, rw, en, e, dew, rq
+      real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
-      double precision ff, fsum
-      integer nar
+      real (kind=dp) :: ff, fsum
+      integer :: nar
 
       common /nucfeed/ ifeed
-      integer ifeed
+      integer :: ifeed
 
 !- End of header ---------------------------------------------------------------
 
@@ -3758,6 +3828,10 @@ c xhet1/2 in SR kpp_driver)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
@@ -3766,8 +3840,9 @@ c xhet1/2 in SR kpp_driver)
       common /blck11/ rcd(nkc,n)
 !     common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),      ! jjb  none of the objects of the common block is used
 !    &              e(nkt),dew(nkt),rq(nkt,nka)         !   (after commenting rqm = rq line below)
+!      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !      common /kpp_dryp/ rcd(n,2),cwd(n,2)
@@ -3943,6 +4018,10 @@ c xhet1/2 in SR kpp_driver)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h'     !additional common blocks and other definitions
@@ -3950,7 +4029,7 @@ c xhet1/2 in SR kpp_driver)
       parameter (ndr=4)
       common /blck11/ rcd(nkc,n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
       common /kpp_dryt/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !     common /kpp_dryp/ rcd(n,2),cwd(n,2)
@@ -4057,6 +4136,10 @@ c
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
       logical, intent(in) :: box
@@ -4079,11 +4162,11 @@ c
 
 ! Common blocks:
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      double precision xm1, xm2, feu, dfddt, xm1a, xm2a
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       common /blck12/ cw(nkc,n),cm(nkc,n)
       double precision cw, cm
@@ -4285,6 +4368,10 @@ c Seinfeld and Pandis, 1999
      &     vmean,
      &     vg
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
@@ -4293,6 +4380,7 @@ c Seinfeld and Pandis, 1999
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 !      common /gas_vdd/ vg(j1)
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
 !     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
 !    &     f0(j1)
       dimension tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
@@ -4536,6 +4624,10 @@ c emitted atoms (see SR aer_source) are subtracted
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
 
       implicit double precision (a-h,o-z) 
       logical cl_out
@@ -4544,11 +4636,11 @@ c emitted atoms (see SR aer_source) are subtracted
       double precision sl1, sion1
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /sss/ brsss,clsss,xnasss
 
@@ -4773,12 +4865,16 @@ c      implicit double precision (a-h,o-z)
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'gas_Parameters.h' !additional common blocks and other definitions 
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5096,6 +5192,10 @@ c     pick the values from the designated level: nlevbox
      &     nkc,
      &     mb
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
@@ -5104,8 +5204,11 @@ c     pick the values from the designated level: nlevbox
       double precision totrad
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5170,6 +5273,10 @@ c     pick the values from the designated level: nlevbox
      &     nkc,
      &     mb
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h' !additional common blocks and other definitions          
@@ -5178,7 +5285,7 @@ c     pick the values from the designated level: nlevbox
       double precision totrad
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5242,6 +5349,10 @@ c     test output
      &     nkc,
      &     mb
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions          
@@ -5250,11 +5361,11 @@ c     test output
       double precision totrad
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      double precision theta, thetl, t, talt, p, rho
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
@@ -5362,14 +5473,22 @@ c$$$     &     nka,
 c$$$     &     nkt,
 c$$$     &     nkc
 c$$$
+c$$$      USE precision, ONLY :
+c$$$! Imported Parameters:
+c$$$     &     dp
+c$$$
 c$$$      implicit double precision (a-h,o-z)
 c$$$      logical box
 c$$$
 c$$$      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
 c$$$     &              e(nkt),dew(nkt),rq(nkt,nka)
+c$$$      double precision enw,ew,rn,rw,en,e,dew,rq
 c$$$      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+c$$$      real (kind=dp) :: ff, fsum
+c$$$      integer :: nar
+c$$$
 c$$$      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-c$$$      double precision theta, thetl, t, talt, p, rho
+c$$$      real(kind=dp) :: theta, thetl, t, talt, p, rho
 c$$$      common /blck06/ kw(nka),ka
 c$$$      common /blck12/ cw(nkc,n),cm(nkc,n)
 c$$$      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
