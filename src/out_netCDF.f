@@ -3216,6 +3216,8 @@ c output of meteorological variables
       real (kind=dp) :: detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb45/ u(n),v(n),w(n)
       common /cb48/ sk,sl,dtrad(n),dtcon(n)

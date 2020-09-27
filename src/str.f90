@@ -111,6 +111,8 @@ program mistra
   double precision sk, sl, dtrad, dtcon
 
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   double precision theta, thetl, t, talt, p, rho
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -709,6 +711,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
@@ -1253,6 +1257,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -2050,6 +2056,10 @@ end block data
      &     nm, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       parameter (fcor=1.d-4)
@@ -2057,6 +2067,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
@@ -2183,6 +2195,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /blck01/ am3(n),cm3(n)
@@ -2190,6 +2206,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb45/ u(n),v(n),w(n)
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
@@ -2437,12 +2455,18 @@ end block data
      &     n, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -2525,6 +2549,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
@@ -4758,6 +4784,10 @@ end block data
      &     n, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       double precision, intent(out) :: phi ! see S & P 1st Ed, p. 963, equation (19.14)
@@ -4767,6 +4797,8 @@ end block data
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &

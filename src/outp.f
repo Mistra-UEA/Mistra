@@ -91,6 +91,7 @@
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -938,6 +939,7 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
@@ -1211,6 +1213,7 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb45/ u(n),v(n),w(n)
@@ -1488,6 +1491,7 @@
       double precision detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+      double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
