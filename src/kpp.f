@@ -1610,7 +1610,7 @@ c mean radius and LWC for "chemical" particles size bins
       integer nar
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n) ! only feu is used
-      double precision xm1, xm2, feu, dfddt, xm1a, xm2a
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       common /kpp_l1/ cloud(nkc,n)
       logical cloud
@@ -3004,6 +3004,7 @@ c calculation of sea salt aerosol source
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /blck06/ kw(nka),ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
      &       /blck78/ sa1(nka,j2),sac1(nka,j2)
@@ -3255,6 +3256,7 @@ c interface between MISTRA and the KPP gas phase chemistry
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /band_rat/ photol_j(nphrxn,n)
       common /kinv_i/ kinv
       common /cb_1/ air_cc,te,h2oppm,pk
@@ -4163,7 +4165,7 @@ c
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      double precision xm1, xm2, feu, dfddt, xm1a, xm2a
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       common /blck12/ cw(nkc,n),cm(nkc,n)
       double precision cw, cm

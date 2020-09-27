@@ -119,6 +119,8 @@
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /cb63/ fcs(nka),xmol3(nka)
 
 !- End of header ---------------------------------------------------------------
@@ -973,6 +975,8 @@
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       double precision i0
       dimension i0(12,n_bln)
       character *10 fname
@@ -1048,6 +1052,8 @@
       integer :: nar
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       dimension ff2(nka,nkt)
       character *10 fname
       character *1 fogtype
@@ -1584,6 +1590,7 @@
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       character *10 srname
       dimension xsum(n)

@@ -113,12 +113,14 @@ program mistra
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-  real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
+
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
   common /band_rat/ photol_j(nphrxn,n)
   common /kpp_eul/ xadv(10),nspec(10)
@@ -745,6 +747,7 @@ end block data
       common /cb53a/ thet(n),theti(n)
       real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /cb63/ fcs(nka),xmol3(nka)
       common /kinv_i/ kinv
 !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
@@ -1308,6 +1311,8 @@ end block data
       common /cb53a/ thet(n),theti(n)
       real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /cb63/ fcs(nka),xmol3(nka)
       character *10 fname
       character *1 fogtype
@@ -1489,6 +1494,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       dimension rg(nka),eg(nka)
 
       do k=2,n
@@ -2132,6 +2139,8 @@ end block data
       common /cb53a/ thet(n),theti(n)
       real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
       dimension c(n)
       p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
@@ -2632,6 +2641,7 @@ end block data
       common /cb53a/ thet(n),theti(n)
       real(kind=dp) :: thet, theti
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /kinv_i/ kinv
       dimension es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
 ! statement functions
@@ -2892,6 +2902,7 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
 !      tw=tw-5.787d-6*dt
 !      tw=tw-6.94444d-6*dt
@@ -2976,6 +2987,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       dimension ebb(40),tss(40),ftss(40),fqss(40)
 ! Stefan-Boltzmann-constant
       parameter (sigma=5.6697d-8)
@@ -3326,6 +3339,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
      &              xm1o,xm1n,kr
       double precision ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
@@ -3568,6 +3583,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       dimension rg(nka),eg(nka)
 
 ! get equilibrium distribution for
@@ -5106,6 +5123,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
 
@@ -5197,6 +5216,8 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
 !     dimension rc(nf,nkc),freep(nf) ! jjb rc now in blck11
