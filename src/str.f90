@@ -724,6 +724,8 @@ end block data
       real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -1052,6 +1054,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! numerical grid for the atmosphere, aerosols and water droplets
 
@@ -1071,6 +1077,8 @@ end block data
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -1275,6 +1283,8 @@ end block data
       real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
@@ -1539,6 +1549,10 @@ end block data
      &     nkt, &
      &     nkc
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -1546,6 +1560,8 @@ end block data
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -2745,6 +2761,10 @@ end block data
      &     nbm, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! fully implicit procedure for the solution of the diffusive heat
 ! and moisture transport within the soil.
@@ -2757,6 +2777,8 @@ end block data
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
 ! soil temperature
       xe(1)=0.
@@ -2914,6 +2936,8 @@ end block data
       real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
 
@@ -5434,6 +5458,8 @@ end block data
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
