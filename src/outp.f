@@ -1506,6 +1506,7 @@
       common /cb45/ u(n),v(n),w(n)
       double precision u, v, w
       common /cb46/ ustern,gclu,gclt
+      double precision ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)

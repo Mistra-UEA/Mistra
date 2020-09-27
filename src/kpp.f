@@ -4324,6 +4324,10 @@ c Seinfeld and Pandis, 1999
      &     vmean,
      &     vg
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
@@ -4332,6 +4336,7 @@ c Seinfeld and Pandis, 1999
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 !      common /gas_vdd/ vg(j1)
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
 !     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
 !    &     f0(j1)
       dimension tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),

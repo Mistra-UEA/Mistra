@@ -721,6 +721,7 @@ end block data
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
@@ -1271,6 +1272,7 @@ end block data
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
@@ -2083,6 +2085,7 @@ end block data
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
@@ -2486,6 +2489,7 @@ end block data
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
 
@@ -2575,6 +2579,7 @@ end block data
       real (kind=dp) :: u, v, w
 
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
@@ -2829,6 +2834,7 @@ end block data
       real (kind=dp) :: u, v, w
 
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -2905,6 +2911,7 @@ end block data
       real (kind=dp) :: u, v, w
 
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
@@ -4705,6 +4712,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -4832,6 +4840,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb46/ ustern,gclu,gclt
+      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
