@@ -100,6 +100,7 @@
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
@@ -1219,6 +1220,7 @@
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       double precision gm, gh, sm, sh, xl
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       double precision i0
       dimension i0(12,n_bln)
       character *10 fname
@@ -1502,6 +1504,7 @@
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      double precision u, v, w
       common /cb46/ ustern,gclu,gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep

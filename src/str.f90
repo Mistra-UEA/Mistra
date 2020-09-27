@@ -719,6 +719,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
@@ -1268,6 +1269,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
@@ -2026,6 +2028,8 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
+
       zeit=lst*3600.+lmin*60.
       u0=dcos(2.*pi*zeit/86400.)
       do k=1,n
@@ -2077,6 +2081,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2211,6 +2216,7 @@ end block data
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
 
@@ -2478,6 +2484,7 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb46/ ustern,gclu,gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2565,6 +2572,8 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
+
       common /cb46/ ustern,gclu,gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2800,6 +2809,10 @@ end block data
      &     n, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! lower boundary condition for water surface
 ! constant temperature and saturation specific humidity
@@ -2813,6 +2826,8 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
+
       common /cb46/ ustern,gclu,gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2868,6 +2883,10 @@ end block data
      &     nb, &
      &     nka
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! calculation of surface temperature and volumetric moisture content
 ! by means of balance of fluxes at the surface following Pielke,
@@ -2883,6 +2902,8 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
+
       common /cb46/ ustern,gclu,gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
@@ -5385,6 +5406,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -5396,6 +5421,8 @@ end block data
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
+
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
