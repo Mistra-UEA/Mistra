@@ -236,6 +236,7 @@
       integer lday, lst, lmin, it, lcl, lct
 
       common /kinv_i/ kinv
+      integer :: kinv
       common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt

@@ -128,7 +128,7 @@ c initialization of chemistry module
       double precision fcs, xmol3
 
       common /kinv_i/ kinv
-      integer kinv
+      integer :: kinv
 
       common /kpp_l1/ cloudt(nkc,n)
       logical cloudt
@@ -1619,7 +1619,7 @@ c mean radius and LWC for "chemical" particles size bins
       double precision xcryssulf,xcrysss,xdelisulf,xdeliss
 
       common /kinv_i/ kinv
-      integer kinv
+      integer :: kinv
 
       common /nucfeed/ ifeed
       integer ifeed
@@ -3259,6 +3259,7 @@ c interface between MISTRA and the KPP gas phase chemistry
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /band_rat/ photol_j(nphrxn,n)
       common /kinv_i/ kinv
+      integer :: kinv
       common /cb_1/ air_cc,te,h2oppm,pk
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_l1/ cloud(nkc,n)

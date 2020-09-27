@@ -750,6 +750,8 @@ end block data
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /cb63/ fcs(nka),xmol3(nka)
       common /kinv_i/ kinv
+      integer :: kinv
+
 !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
 !    &          fnorm(n)
  !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),fnorm(n) ! jjb removed ! jjb fnorm unused
@@ -1400,6 +1402,7 @@ end block data
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /kinv_i/ kinv
+      integer :: kinv
       common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
 
       common /kpp_l1/ cloudt(nkc,n)
@@ -2646,6 +2649,7 @@ end block data
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
       common /kinv_i/ kinv
+      integer :: kinv
       dimension es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
 ! statement functions
       qsatur(esat,ppp)=0.62198*esat/(ppp-0.37802*esat)
@@ -4841,6 +4845,7 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
+      integer :: kinv
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
@@ -4964,6 +4969,7 @@ end block data
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
+      integer :: kinv
 
 ! check inversion height - it is diagnosed in SR atk1 but might be zero after restart
       if (kinv.eq.0)  then
@@ -5131,6 +5137,7 @@ end block data
 
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
+      integer :: kinv
 
 ! initialize kinv (needed in SR kpp_driver)
       kinv=nf
