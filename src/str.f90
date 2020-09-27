@@ -1260,6 +1260,8 @@ end block data
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
@@ -2468,6 +2470,8 @@ end block data
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
@@ -2553,6 +2557,8 @@ end block data
 
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &

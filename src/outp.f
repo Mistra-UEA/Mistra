@@ -93,6 +93,7 @@
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      double precision gm, gh, sm, sh, xl
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
@@ -1216,6 +1217,7 @@
       double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      double precision gm, gh, sm, sh, xl
       common /cb45/ u(n),v(n),w(n)
       double precision i0
       dimension i0(12,n_bln)
@@ -1493,6 +1495,7 @@
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       double precision atke, atkh, atkm, tke, tkep, buoy
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      double precision gm, gh, sm, sh, xl
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,

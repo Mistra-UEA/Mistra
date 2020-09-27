@@ -3219,6 +3219,8 @@ c output of meteorological variables
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb45/ u(n),v(n),w(n)
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
       double precision sk, sl, dtrad, dtcon
