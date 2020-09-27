@@ -3072,6 +3072,10 @@ c
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 
@@ -3081,6 +3085,8 @@ c
       include 'netcdf.inc'
       common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
 
@@ -3190,6 +3196,10 @@ c output of meteorological variables
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 !     character*8 fname  ! jjb
@@ -3203,6 +3213,8 @@ c output of meteorological variables
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       common /cb45/ u(n),v(n),w(n)

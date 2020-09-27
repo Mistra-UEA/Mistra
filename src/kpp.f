@@ -65,6 +65,10 @@ c initialization of chemistry module
       USE kpp_tot_Parameters, ONLY :
      &     nspec_t=>NSPEC
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
 ! Subroutine arguments
@@ -111,7 +115,7 @@ c initialization of chemistry module
       integer il
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
@@ -2948,11 +2952,17 @@ c calculation of sea salt aerosol source
      &     nkt,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
       logical box
 
       logical mona,smith
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
+      real (kind=dp) :: detw, deta, eta, etw
+
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
@@ -4580,7 +4590,7 @@ c emitted atoms (see SR aer_source) are subtracted
       integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /sss/ brsss,clsss,xnasss
 
