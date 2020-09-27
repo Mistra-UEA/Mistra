@@ -2142,6 +2142,8 @@ end block data
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
+      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+
       dimension c(n)
       p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
       tke(1)=dmax1(1.d-06,3.2537*ustern**2)
@@ -2276,6 +2278,7 @@ end block data
       integer :: nar
 
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
+      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
 
       dimension c(n)
 
@@ -2822,6 +2825,7 @@ end block data
       real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
+      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
 ! soil temperature
       xe(1)=0.
       x0=dmax1(eb(1),ebc)
