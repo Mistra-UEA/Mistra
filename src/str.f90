@@ -728,7 +728,7 @@ end block data
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
@@ -1081,7 +1081,7 @@ end block data
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
       common /blck06/ kw(nka),ka
@@ -1564,7 +1564,7 @@ end block data
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -3285,7 +3285,7 @@ end block data
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -4723,6 +4723,10 @@ end block data
      &     nkt, &
      &     nkc
 
+      use precision, only : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /blck06/ kw(nka),ka
@@ -4739,7 +4743,7 @@ end block data
       real (kind=dp) :: ustern, gclu, gclt
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -5462,7 +5466,7 @@ end block data
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -5585,7 +5589,7 @@ end block data
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)

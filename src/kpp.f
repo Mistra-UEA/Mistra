@@ -1831,6 +1831,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2075,6 +2076,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -2972,6 +2974,7 @@ c calculation of sea salt aerosol source
       double precision u, v, w
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
@@ -3801,6 +3804,7 @@ c xhet1/2 in SR kpp_driver)
       common /blck11/ rcd(nkc,n)
 !     common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),      ! jjb  none of the objects of the common block is used
 !    &              e(nkt),dew(nkt),rq(nkt,nka)         !   (after commenting rqm = rq line below)
+!      double precision enw, ew, rn, rw, en, e, dew, rq
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -5419,6 +5423,7 @@ c$$$      logical box
 c$$$
 c$$$      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
 c$$$     &              e(nkt),dew(nkt),rq(nkt,nka)
+c$$$      double precision enw,ew,rn,rw,en,e,dew,rq
 c$$$      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
 c$$$      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
 c$$$      double precision theta, thetl, t, talt, p, rho
