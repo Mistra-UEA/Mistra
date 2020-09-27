@@ -117,6 +117,9 @@ program mistra
   double precision theta, thetl, t, talt, p, rho
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
   common /band_rat/ photol_j(nphrxn,n)
   common /kpp_eul/ xadv(10),nspec(10)
   common /nucfeed/ ifeed
@@ -734,6 +737,9 @@ end block data
       real (kind=dp) :: dlgew, dlgenw, dlne
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
@@ -1293,6 +1299,9 @@ end block data
       double precision sk, sl, dtrad, dtcon
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
@@ -1453,6 +1462,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! equilibrium values for radius rg(i) and water mass eg(i)
 ! of humidified aerosol particles at given relative humidity
@@ -1468,6 +1481,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -1571,6 +1587,9 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb58/ c(nf),psi(nf)
@@ -2241,6 +2260,9 @@ end block data
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
 
       dimension c(n)
@@ -3294,6 +3316,9 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -3514,6 +3539,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! equilibrium values for radius rg(i) and water mass eg(i)
 ! of humidified aerosol particles at given relative humidity
@@ -3529,6 +3558,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -3866,9 +3898,16 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       do k=1,nf+5
          do ia=1,nka
             do jt=1,nkt
@@ -4350,6 +4389,10 @@ end block data
      &     nkt, &
      &     nkc
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 ! chemical reactions
 ! aerosol mass change due to chemical reactions
@@ -4368,6 +4411,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
@@ -4667,6 +4713,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
@@ -4679,6 +4729,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       dimension f_inter(nka)
@@ -4734,7 +4787,7 @@ end block data
      &     nkt, &
      &     nkc
 
-      use precision, only : &
+      USE precision, ONLY : &
 ! Imported Parameters:
            dp
 
@@ -4757,6 +4810,9 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
@@ -4962,6 +5018,10 @@ end block data
      &     nkt, &
      &     nkc
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
@@ -4973,6 +5033,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /liq_pl/ nkc_l
       character *10   srname
       dimension xsum(nf)
@@ -5395,10 +5458,17 @@ end block data
      &     nkt, &
      &     nkc
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
 ! dry deposition of particles and aqueous constituents in box
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
@@ -5603,6 +5673,9 @@ end block data
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /liq_pl/ nkc_l
       dimension xsum(n),lj2(lsp),xionmass(n,nkc),xion(n),xmm(lsp), &
@@ -5715,9 +5788,16 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /blck06/ kw(nka),ka
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
@@ -5760,6 +5840,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
       double precision Np
 
@@ -5768,6 +5852,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /oneDs_0/partN(n,nka+nkt),partA(n,nka+nkt),partV(n,nka+nkt) &
      &     ,partr(n,nka+nkt),drp(nka+nkt),nrp
       dimension rp(nka+nkt)  !particle radius [um]
@@ -5868,6 +5955,10 @@ end block data
      &     nka, &
      &     nkt
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
       double precision Np
 
@@ -5876,6 +5967,9 @@ end block data
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
 !     common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt),xlogdrp(nkt) ! jjb last variable shouldn't be in this CB
       common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)              ! jjb removed and declared below
       dimension xlogdrp(nkt) ! jjb

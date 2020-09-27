@@ -113,6 +113,9 @@
       double precision sk, sl, dtrad, dtcon
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -635,6 +638,10 @@
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
  
       implicit double precision (a-h,o-z)
 
@@ -960,6 +967,9 @@
       double precision sk, sl, dtrad, dtcon
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -1020,7 +1030,11 @@
      &     nka,
      &     nkt
 
-      double precision ff,fsum,xm1,xm2,feu,dfddt,xm1a,xm2a
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      double precision xm1,xm2,feu,dfddt,xm1a,xm2a
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       double precision time
@@ -1030,6 +1044,9 @@
       double precision detw, deta, eta, etw
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       dimension ff2(nka,nkt)
       character *10 fname
@@ -1123,6 +1140,10 @@
      &     mb,
      &     mbs
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb10/ totrad (mb,nrlay)
@@ -1143,6 +1164,9 @@
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
      &              fsn(nrlev),dtdts(nrlay)
       double precision fs1, fs2, totds, ss, fsn, dtdts
@@ -1330,6 +1354,8 @@
       real (kind=dp) :: dlgew,dlgenw,dlne
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
 
       dimension xsum(n)
       write (26,6000)
@@ -1552,6 +1578,9 @@
       double precision enw,ew,rn,rw,en,e,dew,rq
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       double precision theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)

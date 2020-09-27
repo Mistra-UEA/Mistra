@@ -3227,6 +3227,9 @@ c output of meteorological variables
 
 !     common /cb52/ ff(nkt,nka,n),fsum(n,0:nkc),nar(n) ! jjb wrong
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)       ! jjb corrected, but mess up below, see comments
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /cb53/ theta(n),thetl(n),t(n),ta(n),p(n),rho(n)
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
@@ -3456,6 +3459,10 @@ c
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
 !     character*6 fname  ! jjb
@@ -3472,6 +3479,9 @@ c
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+      real (kind=dp) :: ff, fsum
+      integer :: nar
+
       common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)
 
       dimension ifield(1,1,1), idimcount(4), idimstart(4), 
