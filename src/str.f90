@@ -2583,6 +2583,8 @@ end block data
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
+      real (kind=dp) :: tkeps, tkepb, tkepd
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 

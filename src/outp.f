@@ -1217,23 +1217,32 @@
 ! Imported Parameters:
      &     n
       
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
+      real (kind=dp) :: time
       integer lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      double precision atke, atkh, atkm, tke, tkep, buoy
+      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
       common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
+      real (kind=dp) :: tkeps, tkepb, tkepd
+
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      double precision gm, gh, sm, sh, xl
+      real (kind=dp) :: gm, gh, sm, sh, xl
+
       common /cb45/ u(n),v(n),w(n)
-      double precision u, v, w
-      double precision i0
+      real (kind=dp) :: u, v, w
+
+      real (kind=dp) :: i0
       dimension i0(12,n_bln)
       character *10 fname
       character *1 fogtype
@@ -1299,14 +1308,14 @@
       common /band_o3/ scaleo3_m
       common /blck06/ kw(nka),ka
       common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+      real (kind=dp) :: alat,declin
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+      real (kind=dp) :: detw, deta, eta, etw
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb),
@@ -1315,7 +1324,7 @@
      &      ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
       common /cb51/ dlgew,dlgenw,dlne
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
