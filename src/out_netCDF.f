@@ -46,7 +46,7 @@ c supplemented by Susanne Marquart, Sep 2004
 !
 ! ================================================================
 
-c open netCDF-files      
+c open netCDF-files
       true=.true. ! to be able to compare hal vs. nohal
       call open_met (n_bln)                         ! thermodynamics
       if (mic)   call open_mic                      ! microphysics
@@ -58,7 +58,7 @@ c      if (chem)  call open_chem_aq(n_bln,halo,iod) ! aqueous phase
       if (chem)  call open_jrate (n_bln)            ! photolysis rates
       if (chem)  call open_rxn                      ! reaction rates
       if (nuc)   call open_nuc                      ! nucleation
-      call open_grid ! writes information on grid that is not f(t) 
+      call open_grid ! writes information on grid that is not f(t)
 c      call write_grid ! writes information on grid that is not f(t)
 c      this call is now in main program AFTER call to SR grid
 
@@ -77,7 +77,7 @@ c
 
       logical :: true
 
-c write netCDF-files      
+c write netCDF-files
       true=.true.
       call write_met (n_bln)                          ! thermodynamics
       if (mic.and..not.box) call write_mic             ! microphysics
@@ -99,7 +99,7 @@ c
       implicit none
 
       logical :: chem,mic,nuc
-c close netCDF-files      
+c close netCDF-files
       call close_met
       if (mic)   call close_mic
       if (chem)  call close_chem_gas
@@ -357,7 +357,7 @@ c turbulence parameters
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,idvar(24),'units',6, 'm2 s-1')
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      
+
       k=nf_def_var(idfile,'tke',nf_float,4,jddim1,idvar(25))
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,idvar(25),'long_name',24,
@@ -388,7 +388,7 @@ c flux divergences
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,idvar(28),'units',6,'m s-2')
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      
+
       k=nf_def_var(idfile,'fd_v',nf_float,4,jddim1,idvar(29))
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,idvar(29),'long_name',15,
@@ -481,13 +481,13 @@ c end define mode
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end
-      
+
 c
 c----------------------------------------------------------------
 c
 
 
-      subroutine open_grid 
+      subroutine open_grid
 c initialize plot file for grid output
 c ferret complains about variable ordering but the way I set it up "i", "j", "k" refer to the same parameters (nka, nkt, n) in grid and f etc
 
@@ -633,8 +633,8 @@ c end define mode
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end
-      
-  
+
+
 c
 c----------------------------------------------------------------
 c
@@ -768,8 +768,8 @@ c end define mode
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end
-      
-      
+
+
 c
 c----------------------------------------------------------------
 c
@@ -864,7 +864,7 @@ c long lived gas phase species
       jddim1(3)=id_n
       jddim1(4)=idgas_rec
 
-c offset due to time variables      
+c offset due to time variables
       i0 = j0
 
       do j = 1,j1
@@ -906,7 +906,7 @@ c end define mode
 c
 c----------------------------------------------------------------
 c
-      
+
       subroutine open_chem_aq(n_bln,halo,iod,nuc)
 c open netCDF file for aqueous phase chemistry output
 
@@ -985,7 +985,7 @@ c aqueous phase species
       jddim1(2)=id_y
       jddim1(3)=id_n
       jddim1(4)=idaq_rec
-c offset due to time variables      
+c offset due to time variables
       i0 = 3
 
       k=nf_def_var(idaqfile,'NO',nf_float,4,jddim1,idvar_aq(i0+1))
@@ -1331,7 +1331,7 @@ c      if (k.ne.nf_noerr) call ehandle(k,fname)
          k=nf_put_att_text(idaqfile,idvar_aq(i0+38),'units',14,
      &        'mol m-3 (air) ')
          if (k.ne.nf_noerr) call ehandle(k,fname)
-         
+
 c         k=nf_def_var(idaqfile,'ClNO2',nf_float,4,jddim1,idvar_aq(i0+39))
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+39),'long_name',14,
@@ -1340,7 +1340,7 @@ c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+39),'units',14,
 c     &        'mol m-3 (air) ')
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
-c         
+c
 c         k=nf_def_var(idaqfile,'ClNO3',nf_float,4,jddim1,idvar_aq(i0+40))
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+40),'long_name',20,
@@ -1349,7 +1349,7 @@ c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+40),'units',14,
 c     &        'mol m-3 (air) ')
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
-         
+
          k=nf_def_var(idaqfile,'Cl2',nf_float,4,jddim1,idvar_aq(i0+41))
          if (k.ne.nf_noerr) call ehandle(k,fname)
          k=nf_put_att_text(idaqfile,idvar_aq(i0+41),'long_name',19,
@@ -1385,7 +1385,7 @@ c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+44),'units',14,
 c     &        'mol m-3 (air) ')
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
-c         
+c
 c         k=nf_def_var(idaqfile,'BrNO3',nf_float,4,jddim1,idvar_aq(i0+45))
 c         if (k.ne.nf_noerr) call ehandle(k,fname)
 c         k=nf_put_att_text(idaqfile,idvar_aq(i0+45),'long_name',20,
@@ -1502,7 +1502,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
 c            k=nf_put_att_text(idaqfile,idvar_aq(i0+48),'units',14,
 c     &           'mol m-3 (air) ')
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
-            
+
             k=nf_def_var(idaqfile,'HOI',nf_float,4,jddim1,
      &       idvar_aq(i0+49))
             if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1512,7 +1512,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
             k=nf_put_att_text(idaqfile,idvar_aq(i0+49),'units',14,
      &           'mol m-3 (air) ')
             if (k.ne.nf_noerr) call ehandle(k,fname)
-            
+
 c            k=nf_def_var(idaqfile,'I2O2',nf_float,4,jddim1,
 c     &        idvar_aq(i0+50))
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1522,7 +1522,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
 c            k=nf_put_att_text(idaqfile,idvar_aq(i0+50),'units',14,
 c     &           'mol m-3 (air) ')
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
-c            
+c
 c            k=nf_def_var(idaqfile,'INO2',nf_float,4,jddim1,
 c     &        idvar_aq(i0+51))
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1532,7 +1532,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
 c            k=nf_put_att_text(idaqfile,idvar_aq(i0+51),'units',14,
 c     &           'mol m-3 (air) ')
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
-c            
+c
 c            k=nf_def_var(idaqfile,'INO3',nf_float,4,jddim1,
 c     &        idvar_aq(i0+52))
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1542,7 +1542,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
 c            k=nf_put_att_text(idaqfile,idvar_aq(i0+52),'units',14,
 c     &           'mol m-3 (air) ')
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
-            
+
             k=nf_def_var(idaqfile,'I2',nf_float,4,jddim1,
      &       idvar_aq(i0+53))
             if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1552,7 +1552,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
             k=nf_put_att_text(idaqfile,idvar_aq(i0+53),'units',14,
      &           'mol m-3 (air) ')
             if (k.ne.nf_noerr) call ehandle(k,fname)
-            
+
             k=nf_def_var(idaqfile,'ICl',nf_float,4,jddim1,
      &        idvar_aq(i0+54))
             if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1562,7 +1562,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
             k=nf_put_att_text(idaqfile,idvar_aq(i0+54),'units',14,
      &           'mol m-3 (air) ')
             if (k.ne.nf_noerr) call ehandle(k,fname)
-            
+
             k=nf_def_var(idaqfile,'IBr',nf_float,4,jddim1,
      &           idvar_aq(i0+55))
             if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -1602,7 +1602,7 @@ c            if (k.ne.nf_noerr) call ehandle(k,fname)
 c            k=nf_put_att_text(idaqfile,idvar_aq(i0+58),'units',14,
 c     &           'mol m-3 (air) ')
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
-c            
+c
 c            k=nf_def_var(idaqfile,'C3H7I',nf_float,4,jddim1,
 c     &         idvar_aq(i0+59))
 c            if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -2096,7 +2096,7 @@ c rvg: it's NOT possible to replace "p" and "m" with"+" and "-"
 
 c offset due to time variables and non-ionic species:
       i2=j1+j3+i0
-     
+
 
       k=nf_def_var(idaqfile,'Hp',nf_float,4,jddim1,idvar_aq(i2+1))
       if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -2562,7 +2562,7 @@ c      k=nf_put_att_text(idaqfile,idvar_aq(i2+50),'units',14,
 c     & 'mol m-3 (air) ')
 c      if (k.ne.nf_noerr) call ehandle(k,fname)
 
-c LWC per aqueous bin 
+c LWC per aqueous bin
       k=nf_def_var(idaqfile,'cw',nf_float,4,jddim1,idvar_aq(i2+41))
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idaqfile,idvar_aq(i2+41),'long_name',20,
@@ -2582,7 +2582,7 @@ c radius
      & 'm')
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-c end define mode      
+c end define mode
       k=nf_enddef(idaqfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -2632,7 +2632,7 @@ c
 
 ! Common blocks:
       common /cdf_var_jrat/ idjrat_rec,idvar_jrat(n_jrates+3),
-     &   idjratfile,ijratcount,jddim_jrat(4)      
+     &   idjratfile,ijratcount,jddim_jrat(4)
       integer idjrat_rec, idvar_jrat, idjratfile, ijratcount, jddim_jrat
 
 
@@ -2699,14 +2699,14 @@ c photolysis jrates
 c end define mode
        k=nf_enddef(idjratfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
- 
+
       end
 
 c
 c----------------------------------------------------------------
 c
 
-      subroutine open_rxn 
+      subroutine open_rxn
 c open netcdf file for reaction rates
 
       USE global_params, ONLY :
@@ -2719,7 +2719,7 @@ c open netcdf file for reaction rates
 ! Include statements:
       include 'netcdf.inc'
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
-     &   irxncount,jddim_rxn(4)      
+     &   irxncount,jddim_rxn(4)
       integer x,y,noz
 
       parameter (x=1,y=1,noz=1)
@@ -2789,7 +2789,7 @@ c reaction rates
 c end define mode
        k=nf_enddef(idrxnfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
- 
+
       end
 
 c
@@ -3106,7 +3106,7 @@ c
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=icount
-      
+
       field(1,1,:)=eta(1:n)
       k=nf_put_vara_double(idfile,idvar_g(1),idimstart,idimcount,field)
       if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -3121,7 +3121,7 @@ c
       field2(:,1,1)=enw(1:nka)
       k=nf_put_vara_double(idfile,idvar_g(3),idimstart,idimcount,field2)
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      
+
       field2(:,1,1)=en(1:nka)
       k=nf_put_vara_double(idfile,idvar_g(4),idimstart,idimcount,field2)
       if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -3172,14 +3172,14 @@ c close file
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end
-      
+
 
 
 c
 c----------------------------------------------------------------
 c
 
-      subroutine write_met (n_bln) 
+      subroutine write_met (n_bln)
 c output of meteorological variables
 
 ! jjb work done
@@ -3241,7 +3241,7 @@ c output of meteorological variables
       common /lang/ fl1(nrlev),fl2(nrlev),fln(nrlev),dtdtl(nrlay)
       double precision fl1, fl2, fln, dtdtl
 
-      dimension ifield(1,1,1), idimcount(4), idimstart(4) 
+      dimension ifield(1,1,1), idimcount(4), idimstart(4)
 !      dimension field(1,1,n),field2(4,1,n),blowitup(n) ! jjb field2 not used
       dimension field(1,1,n_bln),blowitup(n)
       dimension fd_u(n),fd_v(n),fd_q(n),fd_t(n),fd_tke(n)
@@ -3257,7 +3257,7 @@ c output of meteorological variables
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=icount
-      
+
 c time variables
       ifield(1,1,1)=lday
       k=nf_put_vara_int(idfile,idvar(1),idimstart,idimcount,ifield)
@@ -3327,8 +3327,8 @@ c other variables
       field(1,1,:)=rho(1:n_bln)
       k=nf_put_vara_double(idfile,idvar(14),idimstart,idimcount,field)
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      
-c the next 3 variables are necessary to be f(t)/f(z) for comfortable plotting 
+
+c the next 3 variables are necessary to be f(t)/f(z) for comfortable plotting
 c in Ferret: they have to have same dimensions as vars to be plotted
       field(1,1,:)=eta(1:n_bln)
       k=nf_put_vara_double(idfile,idvar(15),idimstart,idimcount,field)
@@ -3486,7 +3486,7 @@ c
 
       common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)
 
-      dimension ifield(1,1,1), idimcount(4), idimstart(4), 
+      dimension ifield(1,1,1), idimcount(4), idimstart(4),
 !     &   field(nka,nkt,nf/10),field2(2,nkt,nf),
      &   field(nka,nkt,n/10),field2(2,nkt,nf), ! jjb test, see also below
      &   field3(1,nkt,nf)
@@ -3503,7 +3503,7 @@ c
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=imiccount
-      
+
 c time variables
       ifield(1,1,1)=lday
       k=nf_put_vara_int(idmicfile,idvar_mic(1),idimstart,
@@ -3565,8 +3565,8 @@ c time variables
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine write_mic
-      
-      
+
+
 c
 c----------------------------------------------------------------
 c
@@ -3585,13 +3585,8 @@ c
      &     j1,
      &     j5,
 ! Imported Array Variables with intent (in):
-     &     ind_gas,
      &     s1,
      &     s3
-
-      USE global_params, ONLY :
-! Imported Parameters:
-     &     n
 
       USE cdf_var_gas, ONLY :
      &     idgasfile,
@@ -3638,7 +3633,7 @@ c
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=igascount
-      
+
 c time variables
       ifield(1,1,1)=lday
       k=nf_put_vara_int(idgasfile,idvar_gas(1),idimstart,
@@ -3664,7 +3659,7 @@ c chemical species
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=igascount
-c offset due to time variables      
+c offset due to time variables
       i0 = j0
 
 c write all defined species
@@ -3690,8 +3685,8 @@ c radicals
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine write_chem_gas
-      
-      
+
+
 c
 c----------------------------------------------------------------
 c
@@ -3740,7 +3735,7 @@ c
 
 c add mercury/Hg
 
-c this lists which indices are defined and can be output - this HAS to be the same as in 
+c this lists which indices are defined and can be output - this HAS to be the same as in
 c SR open_chem_aq
 c "normal" aqueous phase species plus "normal" uncharged additional species
       data mliq /1,2,3,4,5,6,7,15,16,17,19,20,21,35,36,37,60,70,78,88,
@@ -3790,7 +3785,7 @@ c I ions
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=iliqcount
-      
+
 c time variables
       ifield(1,1,1)=lday
 c      k=nf_put_var1_int(idfile,idvar(1),icount,lday)
@@ -3971,8 +3966,8 @@ c
 
       common /band_rat/ photol_j(47,n)
 !      dimension field(1,1,n),jddim1(4),idimcount(4),idimstart(4), ! jjb jddim not used
-!     &        ifield(1,1,1) 
-      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1) 
+!     &        ifield(1,1,1)
+      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1)
       ijratcount=ijratcount+1
       fname="jrate.nc"
 
@@ -3985,7 +3980,7 @@ c
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=ijratcount
-      
+
 c time variables
       ifield(1,1,1)=lday
       k=nf_put_vara_int(idjratfile,idvar_jrat(1),idimstart,
@@ -4044,14 +4039,14 @@ c
 !     character*10 fname ! jjb
       character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
-     &   irxncount,jddim_rxn(4) 
+     &   irxncount,jddim_rxn(4)
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       double precision time
       integer lday, lst, lmin, it, lcl, lct
 
       common /budg/ bg(2,nrxn,nlev),il(nlev)
       dimension ifield(1,1,1),idimcount(4),idimstart(4),
-     &     field(1,nrxn,nlev) 
+     &     field(1,nrxn,nlev)
 
       fname="rxnrate.nc"
       irxncount=irxncount+1
@@ -4065,7 +4060,7 @@ c
       idimstart(2)=1
       idimstart(3)=1
       idimstart(4)=irxncount
-      
+
 c time variables
       ifield(1,1,1)=lday
       k=nf_put_vara_int(idrxnfile,idvar_rxn(1),idimstart,
@@ -4309,7 +4304,7 @@ c
 c
 c----------------------------------------------------------------
 c
-      
+
       subroutine close_mic
 
 ! Include statements:
@@ -4325,7 +4320,7 @@ c
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine close_mic
-      
+
 c
 c----------------------------------------------------------------
 c
@@ -4396,7 +4391,7 @@ c
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine close_jrate
-   
+
 c----------------------------------------------------------------
 c
 
@@ -4406,7 +4401,7 @@ c
       include 'netcdf.inc'
 
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
-     &   irxncount,jddim_rxn(4) 
+     &   irxncount,jddim_rxn(4)
 !     character*10 fname ! jjb
       character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
       fname="rxnrate.nc"
@@ -4414,7 +4409,7 @@ c
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine close_rxn
-       
+
 c
 c----------------------------------------------------------------
 c
@@ -4452,7 +4447,7 @@ c
       implicit none
 
 ! Include statements:
-      include 'netcdf.inc'  
+      include 'netcdf.inc'
 
       integer :: nb_err
       character (len=*) :: file

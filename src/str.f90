@@ -1875,6 +1875,10 @@ end block data
      &     nkt, &
      &     nkc
 
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
+
       implicit double precision (a-h,o-z)
 !      double precision dt,f,fsum,c,psi,detw,deta,eta,etw
 
@@ -5126,6 +5130,10 @@ end block data
 ! Imported Parameters:
      &     nf, &
      &     n
+
+      USE precision, ONLY : &
+! Imported Parameters:
+           dp
 
       implicit double precision (a-h,o-z)
       logical BL_box
