@@ -33,7 +33,7 @@
 !
 ! ... no restart
 !       |
-!       |_____SR vgleich
+!       |_____SR equil (case 0)
 !       |      |_____FN rgl
 
 ! ... if (mic)
@@ -194,8 +194,10 @@ program mistra
   itmax=60*lstmax
 ! initial exchange coefficients and turbulent kinetic energy
   call atk0
-! initial position of humidified aerosols
-  call vgleich
+
+! initial position of humidified aerosols on Köhler curve
+  call equil(0)
+
 ! output of meteorological and chemical constants of current run
   call constm (chem,mic,rst)
   if (chem) call constc
@@ -1462,90 +1464,6 @@ end block data
       call st_coeff_t
 
       end subroutine startc
-
-!
-!-------------------------------------------------------------
-!
-
-      subroutine vgleich
-
-      USE constants, ONLY : &
-! Imported Parameters:
-     &     pi,              &
-       rho3,            &       ! aerosol density
-       rhow                     ! water density
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     n, &
-     &     nka, &
-     &     nkt
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit double precision (a-h,o-z)
-! equilibrium values for radius rg(i) and water mass eg(i)
-! of humidified aerosol particles at given relative humidity
-! new distribution of the particles on their equilibrium positions
-
-! Local parameters:
-  ! optimisation: define parameters that will be computed only once
-  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
-  real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
-
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
-      dimension rg(nka),eg(nka)
-
-      do k=2,n
-         feu(k)=dmin1(feu(k),0.99999d0)
-! equilibrium radius
-         a0=a0m/t(k)
-         do ia=1,nka
-            b0=b0m(ia)*zrho_frac
-! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-            rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-            eg(ia)=z4pi3*(rg(ia)**3-rn(ia)**3)
-         enddo
-! new distribution
-         do 1020 ia=1,nka
-         do jt=1,nkt
-            if (eg(ia).le.ew(jt)) then
-               if (jt.eq.1) goto 1020
-               ff(jt,ia,k)=ff(1,ia,k)
-               ff(1,ia,k)=0.
-               goto 1020
-            endif
-         enddo
- 1020    continue
-! total liquid water
-         xm2(k)=0.
-         do ia=1,nka
-         do jt=1,nkt
-            xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
-         enddo
-         enddo
-      enddo
-
-      end subroutine vgleich
 
 !
 !-------------------------------------------------------------
@@ -3600,6 +3518,8 @@ subroutine equil (ncase,kk)
   ! 27-Apr-2021  Josue Bock  Review and merge with latest version provided by A. Bott
   !                          Add the case construct and consistency checks (arguments)
   !                          The "optional" attribute require interface when this routine is called
+  !
+  ! 28-Apr-2021  Josue Bock  Create case 0 for initialisation, and remove SR vgleich which was mostly a duplicate
 
 ! == End of header =============================================================
 
@@ -3643,6 +3563,7 @@ subroutine equil (ncase,kk)
   ! optimisation: define parameters that will be computed only once
   real (kind=dp), parameter :: zrho_frac = rho3 / rhow
   real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
+  real (kind=dp), parameter :: zfeumin = 0.99999_dp
 
 ! Local scalars:
   integer :: kmin, kmax
@@ -3675,10 +3596,21 @@ subroutine equil (ncase,kk)
 ! == End of declarations =======================================================
 
 ! get equilibrium distribution for
+!     case 0: all layers 2-n during initialisation
 !     case 1: active layer (1D: k<=nf (called from SR kon), 0D: active layer)
 !     case 2: all layers above nf
 
   select case (ncase)
+  case (0)
+     if (present(kk)) then
+        write(jpfunerr,*)"Warning, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 0 means equil is computed for levels 2 to n,"
+        write(jpfunerr,*)"  the optional argument #2 is thus unused"
+     end if
+     kmin=2
+     kmax=n
+     feu(kmin:kmax)=min(feu(kmin:kmax),zfeumin)
+
   case (1)
      if (.not.present(kk)) then
         write(jpfunerr,*)"Error, inconsistency when calling SR equil:"
@@ -3704,15 +3636,18 @@ subroutine equil (ncase,kk)
   end select
 
 
-  kloop:  do k=kmin,kmax
+  kloop: do k=kmin,kmax
 
 ! collect aerosol in lowest water class
-     do ia=1,nka
-        do jt=2,nkt
-           ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
-           ff(jt,ia,k)=0._dp
+!    (not needed during initialisation, all particles are already in the first water class (jt=1))
+     if (ncase.gt.0) then
+        do ia=1,nka
+           do jt=2,nkt
+              ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
+              ff(jt,ia,k)=0._dp
+           enddo
         enddo
-     enddo
+     end if
 
 ! calculate equilibrium radius with Newton iteration (rgl)
      a0=a0m/t(k)

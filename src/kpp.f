@@ -3060,7 +3060,7 @@ c this is also defined for box:
       endif
 
       do ia=ka+1,nka
-c compare SR vgleich in str.f
+c compare SR equil in str.f
 c aerosols in equilibrium with ambient rH:
          feu(k_in)=dmin1(feu(k_in),0.99999d0)
 c equilibrium radius
