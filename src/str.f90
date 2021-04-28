@@ -50,7 +50,7 @@
 !       |      |_____SR konc
 !       |
 !       |_____SR sedp
-!       |_____SR equil (case 2)
+!       |_____SR equil (case 2: levels nf+1 -> n)
 !
 !
 
@@ -93,6 +93,13 @@ program mistra
        dp
 
   implicit double precision (a-h,o-z)
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
 
   logical Napari, Lovejoy, both
   logical :: llinit
@@ -547,7 +554,7 @@ end block data
       integer i,k                 ! implied do loops indexes
 
 ! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarks table data
+      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
 !- End of header ---------------------------------------------------------------
 
@@ -3246,7 +3253,7 @@ end block data
       integer i,nl,nz
 
 ! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarks table data
+      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
 !- End of header ---------------------------------------------------------------
 
@@ -3328,6 +3335,13 @@ end block data
            dp
 
       implicit double precision (a-h,o-z)
+
+      interface
+         subroutine equil (ncase,kk)
+           integer,           intent(in)  :: ncase
+           integer, optional, intent(in)  :: kk    ! model level for calculation
+         end subroutine equil
+      end interface
 
       logical chem!,chmic ! jjb defined below, but unused
       common /cb11/ totrad (mb,n)
@@ -3557,94 +3571,174 @@ end block data
 !-------------------------------------------------------------
 !
 
-      subroutine equil (ncase,kk)
+subroutine equil (ncase,kk)
+!
+! Description:
+! -----------
+  ! Equilibrium values for radius rg(i) and water mass eg(i)
+  ! of humidified aerosol particles at given relative humidity
+  ! New distribution of the particles on their equilibrium positions
 
-      USE constants, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !     ?        Roland      Add the ncase switch, expecially for the box case
+  !              von Glasow?
+  !
+  ! 27-Apr-2021  Josue Bock  Review and merge with latest version provided by A. Bott
+  !                          Add the case construct and consistency checks (arguments)
+  !                          The "optional" attribute require interface when this routine is called
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+! Imported Routines:
+       abortM
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi,              &
+       rho3,            &       ! aerosol density
+       rhow                     ! water density
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt
+       jpfunerr
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf,                  &   ! model levels
+       n,                   &
+       nka,                 &   ! droplet and aerosol classes
+       nkt
 
-      implicit double precision (a-h,o-z)
-! equilibrium values for radius rg(i) and water mass eg(i)
-! of humidified aerosol particles at given relative humidity
-! new distribution of the particles on their equilibrium positions
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  implicit none
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+! Subroutine arguments
+  integer,           intent(in)  :: ncase
+  integer, optional, intent(in)  :: kk    ! model level for calculation
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! Local scalars:
+  integer :: kmin, kmax
+  integer :: k, ia, jt      ! running indices
+  real (kind=dp) :: a0, b0
+  real (kind=dp), external :: rgl
 
-      dimension rg(nka),eg(nka)
+! Local arrays:
+  real (kind=dp) :: rg(nka),eg(nka)
+
+! Common blocks:
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &         ! a0m, b0m: Koehler curve
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)                    ! ff: particles
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)      ! t: temperature
+  real(kind=dp) :: theta, thetl, t, talt, p, rho                ! rho: density
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)   ! feu: humidity
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a             ! xm2: liquid water content
+
+! == End of declarations =======================================================
 
 ! get equilibrium distribution for
-!     case 1: active layer (1D: k<=nf (called from SR kon), 0d: active layer)
+!     case 1: active layer (1D: k<=nf (called from SR kon), 0D: active layer)
 !     case 2: all layers above nf
-      kmin=kk
-      kmax=kk
-      if (ncase.eq.2) then
-         kmin=nf+1
-         kmax=n
-      endif
 
-      do k=kmin,kmax
-         do ia=1,nka
-            do jt=2,nkt
-               ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
-               ff(jt,ia,k)=0.
-            enddo
-         enddo
-! equilibrium radius
-         a0=a0m/t(k)
-         do ia=1,nka
-            b0=b0m(ia)*2.
+  select case (ncase)
+  case (1)
+     if (.not.present(kk)) then
+        write(jpfunerr,*)"Error, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 1 require optional argument #2 (level where the"
+        write(jpfunerr,*)"  equilibrium has to be computed)"
+        call abortM('Error in SR equil')
+     end if
+     kmin=kk
+     kmax=kk
+
+  case (2)
+     if (present(kk)) then
+        write(jpfunerr,*)"Warning, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 2 means equil is computed for levels nf+1 to n,"
+        write(jpfunerr,*)"  the optional argument #2 is thus unused"
+     end if
+     kmin=nf+1
+     kmax=n
+
+  case default
+     write(jpfunerr,*)"Error, SR equil, ncase must be 1 or 2"
+     call abortM('Error in SR equil')
+  end select
+
+
+  kloop:  do k=kmin,kmax
+
+! collect aerosol in lowest water class
+     do ia=1,nka
+        do jt=2,nkt
+           ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
+           ff(jt,ia,k)=0._dp
+        enddo
+     enddo
+
+! calculate equilibrium radius with Newton iteration (rgl)
+     a0=a0m/t(k)
+     do ia=1,nka
+        b0=b0m(ia)*zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-            rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-            eg(ia)=4.d-09*pi/3.*(rg(ia)**3-rn(ia)**3)
-         enddo
-! new distribution
-         do 1020 ia=1,nka
-            do jt=1,nkt
-               if (eg(ia).le.ew(jt)) then
-                  if (jt.eq.1) goto 1020
-                  ff(jt,ia,k)=ff(1,ia,k)
-                  ff(1,ia,k)=0.
-                  goto 1020
-               endif
-            enddo
- 1020    continue
-! total liquid water
-         xm2(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
-            enddo
-         enddo
-      enddo
+        rg(ia)=rgl(rn(ia),a0,b0,feu(k))
+        eg(ia)=z4pi3*(rg(ia)**3-rn(ia)**3)
+     enddo
 
-      end subroutine equil
+! new particle distribution
+     do ia=1,nka
+        jt=1
+        do while (eg(ia).gt.ew(jt))
+           jt = jt+1
+        end do
+        if (jt.ne.1) then
+           ff(jt,ia,k)=ff(1,ia,k)
+           ff(1,ia,k)=0._dp
+        endif
+     enddo
+
+! update of total liquid water content
+     xm2(k)=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
+        enddo
+     enddo
+
+  enddo kloop
+
+end subroutine equil
 
 !
 !-------------------------------------------------------------
@@ -4062,7 +4156,7 @@ end block data
 !    - rewritten using up to date features: do, do while, exit and cycle
 !    - also rewritten the initial search for min/max indexes by reading/writting arrays in increasing indexes, for computing efficiency
 !    - removed archaic forms of Fortran intrinsic functions
-!    - passed y and u as arguments instead of common block
+!    - passed y and u as arguments instead of common block (formerly cb59)
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -4991,7 +5085,7 @@ end block data
 ! L=-rho c_p T_0 Ustar^3/(kappa g \bar(q_3))
 ! with \bar(q_3)=rho c_p \bar(w'theta')=rho c_p (-1.) atkh d theta/d z
 
-! dtheta'/dz in height k
+! dtheat'/dz in height k
       if (k.eq.1) then
          k=2
          print *,'SR monin: index out of bounds (1)'
@@ -5217,6 +5311,13 @@ end block data
            dp
 
       implicit double precision (a-h,o-z)
+
+      interface
+         subroutine equil (ncase,kk)
+           integer,           intent(in)  :: ncase
+           integer, optional, intent(in)  :: kk    ! model level for calculation
+         end subroutine equil
+      end interface
 
 !      logical chem,halo,iod,fa_lse,BL_box ! jjb unused arguments removed: chem, halo, iod
       logical fa_lse,BL_box
