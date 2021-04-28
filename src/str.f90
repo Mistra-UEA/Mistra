@@ -1065,6 +1065,7 @@ end block data
       USE constants, ONLY : &
 ! Imported Parameters:
      &     pi, &
+     &     rho3, &               ! Aerosol density [kg/m**3]
      &     rhow                  ! Water density [kg/m**3]
 
       USE global_params, ONLY : &
@@ -1171,7 +1172,6 @@ end block data
 ! aerosol grid
       x0=1./3.
       x1=4.*x0*pi*rhow
-      rho3=2000.          ! jjb: dry aerosol density?
       x2=4.*x0*pi*rho3
 
 ! aerosol mass en(i) in mg
@@ -1471,7 +1471,9 @@ end block data
 
       USE constants, ONLY : &
 ! Imported Parameters:
-     &     pi
+     &     pi,              &
+       rho3,            &       ! aerosol density
+       rhow                     ! water density
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1487,6 +1489,11 @@ end block data
 ! equilibrium values for radius rg(i) and water mass eg(i)
 ! of humidified aerosol particles at given relative humidity
 ! new distribution of the particles on their equilibrium positions
+
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -1513,10 +1520,10 @@ end block data
 ! equilibrium radius
          a0=a0m/t(k)
          do ia=1,nka
-            b0=b0m(ia)*2.
+            b0=b0m(ia)*zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
             rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-            eg(ia)=4.d-09*pi/3.*(rg(ia)**3-rn(ia)**3)
+            eg(ia)=z4pi3*(rg(ia)**3-rn(ia)**3)
          enddo
 ! new distribution
          do 1020 ia=1,nka
@@ -4830,9 +4837,11 @@ end subroutine equil
       subroutine adjust_f
 ! adjustment of initial aerosol size distribution for specific scenarios
 
-!      USE constants, ONLY :
+      USE constants, ONLY : &
 !! Imported Parameters:
-!     & pi
+!     & pi,              &
+       rho3,            &       ! aerosol density
+       rhow                     ! water density
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -4845,6 +4854,11 @@ end subroutine equil
            dp
 
       implicit double precision (a-h,o-z)
+
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -4877,10 +4891,11 @@ end subroutine equil
 ! "dry" them !(this is not really exact..)
 ! equilibrium radius at 76 %
             a0=a0m/t(k)
-            b0=b0m(ia)*2.
+            b0=b0m(ia)*zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
             rg=rgl(rn(ia),a0,b0,.762d0)
-!            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
+!!            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
+!            eg=z4pi3*(rg**3-rn(ia)**3)
             do kl=1,nka
                if (rg.le.rn(kl)) then
 !               if (eg.le.enw(kl)) then

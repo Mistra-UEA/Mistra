@@ -488,6 +488,9 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
   ! 04-Nov-2017   Josue Bock   Fortran90
   !                            changed several test (... .ne. 0.) => (... .gt. 0.)
   !                            changed "over" (real) => llnovflw
+  !
+  ! 28-Apr-2021   Josue Bock   use rho3 (in module constants) to define ro_nuc
+  !                            turn hard-coded "2000" into conversion factors zconv_r2d / d2r
 
 ! == End of header =============================================================
 
@@ -498,7 +501,9 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
   USE constants, ONLY : &
        conv1,           & ! multiply by conv1 to get cm^3(air)/mlc --> m^3(air)/mol
        pi,              &
-       r1
+       r1,              &
+       ro_nuc => rho3,  & ! nuclei density [kg/m3] (same as assumed aesosol density rho3)
+       rhow
 
   USE gas_common, ONLY: &
 ! Imported Parameters:
@@ -540,6 +545,11 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
   logical, intent(in) :: Lovejoy       ! Lovejoy=true: J_real and d_nucini are calculated from OIO nucleation
   logical, intent(in) :: both          ! true if both Napari and Lovejoy are true (needed)
 
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = ro_nuc / rhow      ! = rho3 / rhow
+  real (kind=dp), parameter :: zconv_r2d = 2000._dp           ! convert radius, in micro meter, to diameter, in nm
+  real (kind=dp), parameter :: zconv_d2r = 1._dp / zconv_r2d  ! convert diameter, in nm, to radius, in micro meter
 
 !     --- Local Variables ---
   integer :: icount,jts
@@ -550,7 +560,6 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 
   real (kind=dp) :: alphaa !accomodation coefficient of condensing vapor
   real (kind=dp) :: betanuc, betacrit
-  real (kind=dp) :: ro_nuc !nuclei density [kg/m3]
   real (kind=dp) :: temp, press !Temperature [K] and Pressure [Pa]
   real (kind=dp) :: rh     ! relative humidity in layer k
   real (kind=dp) :: zdp(nkt)  !Particle diameter [nm]
@@ -636,8 +645,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 
   open(unit=20,file='nuc.out',status='unknown',form='formatted')
 
-  zdpmin = rn(1) * 2000._dp
-  ro_nuc = 2000._dp       !nuclei density [kg/m3] (same as assumed aesosol density rho3)
+  zdpmin = rn(1) * zconv_r2d ! rn is the radius in micro m, dp is the diameter in nm
 
 !     --- alphaa: for values for some species see alpha(jz,spec) in subroutine st_coeff_t ---
 !         but: in the current version only 1 alphaa can be used for all species together
@@ -664,7 +672,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
      write (20,1070)
      partsa(jz) = 0._dp
      do jt = 1,nkt
-        zdp(jt) = 2000._dp * rq(jt,1) !first dry aerosol class defines size bins for 1D distribution
+        zdp(jt) = zconv_r2d * rq(jt,1) !first dry aerosol class defines size bins for 1D distribution
         Np(jt)  = 0._dp
         do ia = 1, nka
            if (rn(ia).gt.rw(jt,1)) goto 2001
@@ -835,12 +843,12 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 !     a0mn = a0m=152200./(r1*rhow)
 !     b0mn = b0m=fcs*xnue*xmol2/xmol3: fcs(ia) fraction of soluble species
 !     xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
-     a0mn = 152200._dp / (r1 * ro_nuc)
+     a0mn = 152200._dp / (r1 * ro_nuc) ! jjb mistake here? Should this be rhow instead of ro_nuc?
      b0mn = 1._dp * 1._dp * 0.018_dp/m_vapmean  !fcs=1 and xnue=1 are assumed -> please adjust!
      a0 = a0mn/temp
 !       ---  b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-     b0 = b0mn*2._dp
-     rmin = zdpmin / 2000._dp
+     b0 = b0mn*zrho_frac
+     rmin = zdpmin * zconv_d2r
      rg = rgl(rmin,a0,b0,rh) !equilibrium total aerosol radius
      do jt = 1,nkt !find correct droplet size bin jts to smallest dry bin
         if (rw(jt,1) .ge. rg) then
@@ -849,7 +857,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
         endif
      enddo
 2003 continue
-     zdpmint = rq(jts,1) * 2000._dp
+     zdpmint = rq(jts,1) * zconv_r2d
 !     --- Update growth rate (including equilibrium with ambient RH) after Kerminen (pers. comm.)---
      gr = gr * zdpmint/zdpmin
      grs = grs * zdpmint/zdpmin
