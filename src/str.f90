@@ -294,8 +294,11 @@ program mistra
 ! --------1D only start------------
 ! skip dynamics, microphysics and radiation for box model run
         if (.not.box) then
+
 ! if w-field variable in time call wfield
+!   WARNING: check this routine before using, it is not the same as latest version used by Bott
 !         call wfield
+           
 ! turbulent exchange of thermodynamic variables, particles and
 ! chemical species
 !         print*,'call difm'
@@ -2048,49 +2051,77 @@ end function rgl
 !----------------------------------------------------------------
 !
 
-      subroutine wfield
-! calculation of subsidence if chosen to be time dependent
+subroutine wfield
+!
+! Description:
+! -----------
+  ! Optional subroutine: calculation of subsidence if chosen to be time dependent
 
-      USE constants, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  ! 29-Apr-2021  Josue Bock  Review: warning, this is not the same in latest Mistra version from A. Bott
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka
+       n,                   &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Local scalars:
+  integer :: k           ! running indices
+  real (kind=dp) :: u0   ! solar angle
+  real (kind=dp) :: zeit ! time [s]
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Common blocks:
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw     ! wmin, wmax: input for vertical wind
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      zeit=lst*3600.+lmin*60.
-      u0=dcos(2.*pi*zeit/86400.)
-      do k=1,n
-         w(k)=eta(k)/1000.*0.5*((wmax+wmin)+(wmin-wmax)*u0)
-      enddo
-      do k=n,1,-1
-         w(k)=w(k)-w(1)
-      enddo
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w                                 ! w: subsidence
 
-      end subroutine wfield
+! == End of declarations =======================================================
+
+  zeit = lst*3600._dp + lmin*60._dp
+  u0 = cos(2._dp*pi*zeit/86400._dp)
+  do k=1,n
+     w(k)=eta(k)/1000._dp*0.5_dp*((wmax+wmin)+(wmin-wmax)*u0)
+  enddo
+  do k=n,1,-1
+     w(k)=w(k)-w(1)
+  enddo
+
+end subroutine wfield
 
 !
 !-------------------------------------------------------------------
