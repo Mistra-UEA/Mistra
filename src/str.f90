@@ -1469,32 +1469,94 @@ end block data
 !-------------------------------------------------------------
 !
 
-      function rgl (r_dry,a,b,feu)
-      implicit double precision (a-h,o-z)
-! equilibrium radius of aerosol particle at given relative humidity
-! r_dry dry particle radius; a scaling radius for surface effect
-      f(x)=(x**3-1.)*(x*dlogf-alpha)+b*x
-      fstr(x)=(4.*x**3-1.)*dlogf-3.*x*x*alpha+b
-      if (feu.ge.1.) then
-         write (6,6000)
- 6000    format (10x,'initial value of relative humidity exceeding one')
-         rgl=r_dry
-         return
-      endif
-      dlogf=dlog(feu)
-      alpha=a/r_dry
-! initial value
-      xalt=dexp(feu)
-! Newton iteration
-      do ij=1,100
-         xneu=xalt-f(xalt)/fstr(xalt)
-         if (abs(xneu-xalt).lt.1.d-7*xalt) goto 2000
-         xalt=xneu
-      enddo
- 2000 continue
-      rgl=r_dry*xneu
+function rgl (r_dry,a,b,feu)
+!
+! Description:
+! -----------
+  ! Equilibrium radius of aerosol particle at given relative humidity
 
-      end function rgl
+!
+! Method:
+! -----------
+  ! Newton iterations: solve f(x) = 0
+  !   noting that f(x) ~= f(x0) + f'(x0) * (x - x0)
+  !   leads to x_k+1 = x_k - f(x_k) / f'(x_k)
+  !
+  ! Here f(x) = (x**3 - 1) * (x*ln(rH) - A/r_dry) + Bx
+  !           = x**4 ln(rH) - x ln(rH) - (x**3 - 1)*A/R_dry + Bx
+  ! its derivative
+  !     f'(x) = 4x**3 ln(rH) - ln(rH) - 3x**2 *A/R_dry + B
+  !           = (4x**3 - 1) * ln(rH)  - 3x**2 *A/R_dry + B
+  !
+  !  x is the ratio between particle radius and its dry radius
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  ! 29-Apr-2021  Josue Bock  Review and merge with latest version provided by A. Bott
+  !                          Remove statement function f(x) and fstr(x)
+  !                          Add methods section in header
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  real (kind=dp), intent(in)  :: r_dry ! dry particle radius
+  real (kind=dp), intent(in)  :: a     ! scaling radius for surface effect
+  real (kind=dp), intent(in)  :: b     ! factor accounting for the solution effect
+  real (kind=dp), intent(in)  :: feu   ! relative humidity
+
+! Local scalars:
+  integer :: ij      ! running indices
+  real (kind=dp) :: rgl            ! function result = particle radius
+  real (kind=dp) :: alpha
+  real (kind=dp) :: falt, fstralt  ! function to solve, and its derivative
+  real (kind=dp) :: xalt, xneu     ! xold, xnew or x_k, x_k+1
+  real (kind=dp) :: zlogf
+
+! == End of declarations =======================================================
+
+  if (feu.ge.1._dp) then
+     write (jpfunout,*)'  FN rgl: initial value of relative humidity exceeding one'
+     rgl = r_dry
+     return
+  endif
+
+  zlogf = log(feu)
+  alpha = a / r_dry
+! initial value
+  xalt = exp(feu)
+! Newton iteration
+  do ij=1,100
+     falt    = (xalt**3 - 1._dp)*(xalt*zlogf-alpha) + b*xalt
+     fstralt = (4._dp*xalt**3 - 1._dp)*zlogf - 3._dp*xalt**2 *alpha + b
+     xneu = xalt - falt/fstralt
+     if (abs(xneu-xalt) .lt. 1.e-7_dp * xalt) exit
+     xalt = xneu
+  enddo
+
+  rgl = r_dry*xneu
+
+end function rgl
 
 !
 !-------------------------------------------------------------
@@ -3563,7 +3625,7 @@ subroutine equil (ncase,kk)
   ! optimisation: define parameters that will be computed only once
   real (kind=dp), parameter :: zrho_frac = rho3 / rhow
   real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
-  real (kind=dp), parameter :: zfeumin = 0.99999_dp
+  real (kind=dp), parameter :: zfeumax = 0.99999_dp
 
 ! Local scalars:
   integer :: kmin, kmax
@@ -3609,7 +3671,7 @@ subroutine equil (ncase,kk)
      end if
      kmin=2
      kmax=n
-     feu(kmin:kmax)=min(feu(kmin:kmax),zfeumin)
+     feu(kmin:kmax)=min(feu(kmin:kmax),zfeumax)
 
   case (1)
      if (.not.present(kk)) then
@@ -3642,10 +3704,8 @@ subroutine equil (ncase,kk)
 !    (not needed during initialisation, all particles are already in the first water class (jt=1))
      if (ncase.gt.0) then
         do ia=1,nka
-           do jt=2,nkt
-              ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
-              ff(jt,ia,k)=0._dp
-           enddo
+           ff(1,ia,k) = sum(ff(:,ia,k))
+           ff(2:nkt,ia,k) = 0._dp
         enddo
      end if
 
