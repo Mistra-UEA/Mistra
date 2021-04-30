@@ -33,10 +33,15 @@
 !
 ! ... no restart
 !       |
-!       |_____SR vgleich
+!       |_____SR equil (case 0)
 !       |      |_____FN rgl
 
-! ... if (mic)
+! TIME LOOP
+! ...   |_____SR difm
+!              |_____SR atk1
+!     if (chem)
+!       |_____SR difc
+!     if (mic)
 !       |_____SR difp
 !       |_____SR kon
 !       |      |    _SR equil (case 1)   ! if rH < 70%
@@ -50,7 +55,7 @@
 !       |      |_____SR konc
 !       |
 !       |_____SR sedp
-!       |_____SR equil (case 2)
+!       |_____SR equil (case 2: levels nf+1 -> n)
 !
 !
 
@@ -93,6 +98,13 @@ program mistra
        dp
 
   implicit double precision (a-h,o-z)
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
 
   logical Napari, Lovejoy, both
   logical :: llinit
@@ -187,8 +199,10 @@ program mistra
   itmax=60*lstmax
 ! initial exchange coefficients and turbulent kinetic energy
   call atk0
-! initial position of humidified aerosols
-  call vgleich
+
+! initial position of humidified aerosols on Köhler curve
+  call equil(0)
+
 ! output of meteorological and chemical constants of current run
   call constm (chem,mic,rst)
   if (chem) call constc
@@ -285,16 +299,18 @@ program mistra
 ! --------1D only start------------
 ! skip dynamics, microphysics and radiation for box model run
         if (.not.box) then
+
 ! if w-field variable in time call wfield
+!   WARNING: check this routine before using, it is not the same as latest version used by Bott
 !         call wfield
-! turbulent exchange of thermodynamic variables, particles and
-! chemical species
-!         print*,'call difm'
+
+! turbulent exchange of thermodynamic variables
            call difm (dd)
-           if (chem) call difc (dd)
+           if (chem) call difc (dd)   ! turbulent exchange of chemical species
+
 ! microphysics
            if (mic) then
-              call difp (dd)
+              call difp (dd)          ! turbulent exchange of particles
 ! condensation/evaporation, update of chemical concentrations
 !              print*,'call kon'
               call kon (dd,chem)
@@ -547,7 +563,7 @@ end block data
       integer i,k                 ! implied do loops indexes
 
 ! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarks table data
+      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
 !- End of header ---------------------------------------------------------------
 
@@ -705,6 +721,10 @@ end block data
 
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
+
+! External function:
+  real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
+
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
@@ -759,8 +779,7 @@ end block data
       character *1 fogtype
       character *10 fname
       data xmol2 /18./
-! p21 after magnus formula
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
+
 ! constants for aerosol distributions after jaenicke (1988)
 ! 3 modes j=1,2,3
 ! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
@@ -1058,6 +1077,7 @@ end block data
       USE constants, ONLY : &
 ! Imported Parameters:
      &     pi, &
+     &     rho3, &               ! Aerosol density [kg/m**3]
      &     rhow                  ! Water density [kg/m**3]
 
       USE global_params, ONLY : &
@@ -1164,7 +1184,6 @@ end block data
 ! aerosol grid
       x0=1./3.
       x1=4.*x0*pi*rhow
-      rho3=2000.          ! jjb: dry aerosol density?
       x2=4.*x0*pi*rho3
 
 ! aerosol mass en(i) in mg
@@ -1460,109 +1479,94 @@ end block data
 !-------------------------------------------------------------
 !
 
-      subroutine vgleich
-
-      USE constants, ONLY : &
-! Imported Parameters:
-     &     pi
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     n, &
-     &     nka, &
-     &     nkt
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit double precision (a-h,o-z)
-! equilibrium values for radius rg(i) and water mass eg(i)
-! of humidified aerosol particles at given relative humidity
-! new distribution of the particles on their equilibrium positions
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
-
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
-      dimension rg(nka),eg(nka)
-
-      do k=2,n
-         feu(k)=dmin1(feu(k),0.99999d0)
-! equilibrium radius
-         a0=a0m/t(k)
-         do ia=1,nka
-            b0=b0m(ia)*2.
-! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-            rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-            eg(ia)=4.d-09*pi/3.*(rg(ia)**3-rn(ia)**3)
-         enddo
-! new distribution
-         do 1020 ia=1,nka
-         do jt=1,nkt
-            if (eg(ia).le.ew(jt)) then
-               if (jt.eq.1) goto 1020
-               ff(jt,ia,k)=ff(1,ia,k)
-               ff(1,ia,k)=0.
-               goto 1020
-            endif
-         enddo
- 1020    continue
-! total liquid water
-         xm2(k)=0.
-         do ia=1,nka
-         do jt=1,nkt
-            xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
-         enddo
-         enddo
-      enddo
-
-      end subroutine vgleich
+function rgl (r_dry,a,b,feu)
+!
+! Description:
+! -----------
+  ! Equilibrium radius of aerosol particle at given relative humidity
 
 !
-!-------------------------------------------------------------
-!
+! Method:
+! -----------
+  ! Newton iterations: solve f(x) = 0
+  !   noting that f(x) ~= f(x0) + f'(x0) * (x - x0)
+  !   leads to x_k+1 = x_k - f(x_k) / f'(x_k)
+  !
+  ! Here f(x) = (x**3 - 1) * (x*ln(rH) - A/r_dry) + Bx
+  !           = x**4 ln(rH) - x ln(rH) - (x**3 - 1)*A/R_dry + Bx
+  ! its derivative
+  !     f'(x) = 4x**3 ln(rH) - ln(rH) - 3x**2 *A/R_dry + B
+  !           = (4x**3 - 1) * ln(rH)  - 3x**2 *A/R_dry + B
+  !
+  !  x is the ratio between particle radius and its dry radius
 
-      function rgl (r_dry,a,b,feu)
-      implicit double precision (a-h,o-z)
-! equilibrium radius of aerosol particle at given relative humidity
-! r_dry dry particle radius; a scaling radius for surface effect
-      f(x)=(x**3-1.)*(x*dlogf-alpha)+b*x
-      fstr(x)=(4.*x**3-1.)*dlogf-3.*x*x*alpha+b
-      if (feu.ge.1.) then
-         write (6,6000)
- 6000    format (10x,'initial value of relative humidity exceeding one')
-         rgl=r_dry
-         return
-      endif
-      dlogf=dlog(feu)
-      alpha=a/r_dry
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  ! 29-Apr-2021  Josue Bock  Review and merge with latest version provided by A. Bott
+  !                          Remove statement function f(x) and fstr(x)
+  !                          Add methods section in header
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  real (kind=dp), intent(in)  :: r_dry ! dry particle radius
+  real (kind=dp), intent(in)  :: a     ! scaling radius for surface effect
+  real (kind=dp), intent(in)  :: b     ! factor accounting for the solution effect
+  real (kind=dp), intent(in)  :: feu   ! relative humidity
+
+! Local scalars:
+  integer :: ij      ! running indices
+  real (kind=dp) :: rgl            ! function result = particle radius
+  real (kind=dp) :: alpha
+  real (kind=dp) :: falt, fstralt  ! function to solve, and its derivative
+  real (kind=dp) :: xalt, xneu     ! xold, xnew or x_k, x_k+1
+  real (kind=dp) :: zlogf
+
+! == End of declarations =======================================================
+
+  if (feu.ge.1._dp) then
+     write (jpfunout,*)'  FN rgl: initial value of relative humidity exceeding one'
+     rgl = r_dry
+     return
+  endif
+
+  zlogf = log(feu)
+  alpha = a / r_dry
 ! initial value
-      xalt=dexp(feu)
+  xalt = exp(feu)
 ! Newton iteration
-      do ij=1,100
-         xneu=xalt-f(xalt)/fstr(xalt)
-         if (abs(xneu-xalt).lt.1.d-7*xalt) goto 2000
-         xalt=xneu
-      enddo
- 2000 continue
-      rgl=r_dry*xneu
+  do ij=1,100
+     falt    = (xalt**3 - 1._dp)*(xalt*zlogf-alpha) + b*xalt
+     fstralt = (4._dp*xalt**3 - 1._dp)*zlogf - 3._dp*xalt**2 *alpha + b
+     xneu = xalt - falt/fstralt
+     if (abs(xneu-xalt) .lt. 1.e-7_dp * xalt) exit
+     xalt = xneu
+  enddo
 
-      end function rgl
+  rgl = r_dry*xneu
+
+end function rgl
 
 !
 !-------------------------------------------------------------
@@ -2054,307 +2058,394 @@ end block data
 !----------------------------------------------------------------
 !
 
-      subroutine wfield
-! calculation of subsidence if chosen to be time dependent
+subroutine wfield
+!
+! Description:
+! -----------
+  ! Optional subroutine: calculation of subsidence if chosen to be time dependent
 
-      USE constants, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  ! 29-Apr-2021  Josue Bock  Review: warning, this is not the same in latest Mistra version from A. Bott
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka
+       n,                   &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Local scalars:
+  integer :: k           ! running indices
+  real (kind=dp) :: u0   ! solar angle
+  real (kind=dp) :: zeit ! time [s]
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Common blocks:
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw     ! wmin, wmax: input for vertical wind
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      zeit=lst*3600.+lmin*60.
-      u0=dcos(2.*pi*zeit/86400.)
-      do k=1,n
-         w(k)=eta(k)/1000.*0.5*((wmax+wmin)+(wmin-wmax)*u0)
-      enddo
-      do k=n,1,-1
-         w(k)=w(k)-w(1)
-      enddo
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w                                 ! w: subsidence
 
-      end subroutine wfield
+! == End of declarations =======================================================
+
+  zeit = lst*3600._dp + lmin*60._dp
+  u0 = cos(2._dp*pi*zeit/86400._dp)
+  do k=1,n
+     w(k)=eta(k)/1000._dp*0.5_dp*((wmax+wmin)+(wmin-wmax)*u0)
+  enddo
+  do k=n,1,-1
+     w(k)=w(k)-w(1)
+  enddo
+
+end subroutine wfield
 
 !
 !-------------------------------------------------------------------
 !
 
-      subroutine difm (dt)
-! fully implicit procedure for the solution of the diffusion equations
-! after Roache, 1972: Computational fluid dynamics, Appendix A.
-! all quantities are similarly defined with a(k) --> xa(k), etc.
-! except xd(k) which has another meaning than d(k) of Roache's program.
-! dirichlet conditions at the surface and at the top of the atmosphere
+subroutine difm (dt)
+!
+! Description:
+! -----------
+  ! fully implicit procedure for the solution of the diffusion equations
+  ! after Roache, 1972: Computational fluid dynamics, Appendix A.
+  ! all quantities are similarly defined with a(k) --> xa(k), etc.
+  ! except xd(k) which has another meaning than d(k) of Roache's program.
+  ! dirichlet conditions at the surface and at the top of the atmosphere
 
-      USE constants, ONLY : &
+! Declarations :
+! ------------
+! Modules used:
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     r0               ! Specific gas constant of dry air, in J/(kg.K)
+       r0               ! Specific gas constant of dry air, in J/(kg.K)
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nm, &
-     &     nka
+       n,                   &
+       nm,                  &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      parameter (fcor=1.d-4)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Subroutine arguments
+  real (kind=dp), intent(in)  :: dt          ! fractional timestep
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+! Local parameters:
+  real (kind=dp), parameter :: fcor=1.e-4_dp ! mean coriolis parameter (1/s)
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+! Local scalars:
+  integer :: k, kp      ! running indices
+  real (kind=dp) :: fdt
+  real (kind=dp), external :: p21
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! Local arrays:
+  real (kind=dp) :: c(n)
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+! Common blocks:
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      dimension c(n)
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
-      tke(1)=dmax1(1.d-06,3.2537*ustern**2)
-      do k=1,n
-         rho(k)=p(k)/(r0*(t(k)*(1.+0.61*xm1(k))))
-         theta(k)=t(k)*thet(k)
-         tke(k)=dmax1(1.d-05,tke(k)+tkep(k)*dt)
-         c(k)=w(k)*dt/deta(k)
-      enddo
-! exchange coefficients
-      call atk1
-! turbulent exchange with k_m:
-      xa(1)=atkm(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atkm(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb46/ ustern,gclu,gclt
+  real (kind=dp) :: ustern, gclu, gclt
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
+  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+
+! == End of declarations =======================================================
+
+! update of prognostic variables
+  tke(1)=max(1.e-06_dp,3.2537_dp*ustern**2)
+  do k=1,n
+     rho(k)=p(k)/(r0*(t(k)*(1._dp+0.61_dp*xm1(k))))
+     theta(k)=t(k)*thet(k)
+     tke(k)=max(1.e-05_dp,tke(k)+tkep(k)*dt)
+     c(k)=w(k)*dt/deta(k)
+  enddo
+
+! calculation of turbulent exchange coefficients
+  call atk1
+
+! -----------------------------------------------------------------------------
+
+! solution of the diffusive equations
+!------------------------------------
+
+! turbulent exchange with 'k_m' (atkm):
+  xa(1)=atkm(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atkm(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+
 ! u-component of horizontal wind field
-      fdt=fcor*dt
-      xf(1)=0.
-      do k=2,nm
-         oldu(k)=u(k)
-         xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         u(k)=xe(k)*u(k+1)+xf(k)
-      enddo
-! v-component of the horizontal wind field
-      do k=2,nm
-         xf(k)=(v(k)-fdt*(oldu(k)-ug)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         v(k)=xe(k)*v(k+1)+xf(k)
-      enddo
-! turbulent kinetic energy
-      xa(1)=atke(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atke(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
-      xf(1)=tke(1)
-      do k=2,nm
-         xf(k)=(tke(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         tke(k)=xe(k)*tke(k+1)+xf(k)
-      enddo
-! turbulent exchange with k_h:
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
-! specific humidity
-      xf(1)=xm1(1)
-      do k=2,nm
-         xf(k)=(xm1(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         xm1(k)=xe(k)*xm1(k+1)+xf(k)
-      enddo
-! new temperature obtained from potential temperature
-      xf(1)=theta(1)
-      do k=2,nm
-         xf(k)=(theta(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         theta(k)=xe(k)*theta(k+1)+xf(k)
-      enddo
-! large scale subsidence
-      do k=2,nm
-         kp=k+1
-         theta(k)=theta(k)-c(k)*(theta(kp)-theta(k))
-         u(k)=u(k)-c(k)*(u(kp)-u(k))
-         v(k)=v(k)-c(k)*(v(kp)-v(k))
-         xm1(k)=xm1(k)-c(k)*(xm1(kp)-xm1(k))
-         tke(k)=tke(k)-0.5*(c(k)+c(k+1))*(tke(kp)-tke(k))
-      enddo
-      do k=2,nm
-         t(k)=theta(k)*theti(k)
-         feu(k)=xm1(k)*p(k)/((0.62198+0.37802*xm1(k))*p21(t(k)))
-      enddo
+  fdt=fcor*dt
+  xf(1)=0._dp
+  do k=2,nm
+     oldu(k)=u(k)
+     xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     u(k)=xe(k)*u(k+1)+xf(k)
+  enddo
 
-      end subroutine difm
+! v-component of the horizontal wind field
+  do k=2,nm
+     xf(k)=(v(k)-fdt*(oldu(k)-ug)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     v(k)=xe(k)*v(k+1)+xf(k)
+  enddo
+
+! turbulent kinetic energy with 'k_e' (atke):
+  xa(1)=atke(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atke(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+  xf(1)=tke(1)
+  do k=2,nm
+     xf(k)=(tke(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     tke(k)=xe(k)*tke(k+1)+xf(k)
+  enddo
+
+! turbulent exchange with 'k_h' (atkh):
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+
+! specific humidity
+  xf(1)=xm1(1)
+  do k=2,nm
+     xf(k)=(xm1(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     xm1(k)=xe(k)*xm1(k+1)+xf(k)
+  enddo
+! new temperature obtained from potential temperature
+  xf(1)=theta(1)
+  do k=2,nm
+     xf(k)=(theta(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     theta(k)=xe(k)*theta(k+1)+xf(k)
+  enddo
+
+! large scale subsidence
+  do k=2,nm
+     kp=k+1
+     theta(k)=theta(k)-c(k)*(theta(kp)-theta(k))
+     u(k)=u(k)-c(k)*(u(kp)-u(k))
+     v(k)=v(k)-c(k)*(v(kp)-v(k))
+     xm1(k)=xm1(k)-c(k)*(xm1(kp)-xm1(k))
+     tke(k)=tke(k)-0.5_dp*(c(k)+c(k+1))*(tke(kp)-tke(k))
+  enddo
+  do k=2,nm
+     t(k)=theta(k)*theti(k)
+     feu(k)=xm1(k)*p(k)/((0.62198_dp+0.37802_dp*xm1(k))*p21(t(k)))
+  enddo
+
+end subroutine difm
 
 !
 !----------------------------------------------------------------------
 !
 
-      subroutine difp (dt)
-! fully implicit procedure for the solution of the turbulent transport
-! of aerosols and cloud droplets
-! for further details see subroutine difm
-! for diffusion mixing ratio is needed --> factor 1./am3(k,1)
-! (#/cm^3 --> #/mol)
+subroutine difp (dt)
+!
+! Description:
+! -----------
+  ! Turbulent diffusion of particles.
+  ! fully implicit procedure for the solution of the turbulent transport
+  ! of aerosols and cloud droplets. For further details see subroutine difm
+  !
+  ! for diffusion mixing ratio is needed --> factor 1./am3(k,1)
+  ! (#/cm^3 --> #/mol)
 
-      USE global_params, ONLY : &
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nm, &
-     &     nka, &
-     &     nkt
+       n,                   &
+       nm,                  &
+       nka,                 &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      common /blck01/ am3(n),cm3(n)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Subroutine arguments
+  real (kind=dp), intent(in)  :: dt          ! fractional timestep
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+! Local scalars:
+  integer :: k, kp, ia, jt      ! running indices
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Local arrays:
+  real (kind=dp) :: c(n)
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      dimension c(n)
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      xe(1)=0.
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-!      do k=2,nf
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-         c(k)=w(k)*dt/deta(k)
-      enddo
-!      if (lct.gt.1) then
-         do ia=1,nka
-         do jt=1,nkt
-            xf(1)=ff(jt,ia,2)/am3(2)*1.d6
-!            do k=2,nf
-            do k=2,nm
-               xf(k)=(ff(jt,ia,k)/am3(k)*1.d6+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
-               ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.d6+xf(k)) &
-     &              *am3(k)/1.d6
-            enddo
-!           large scale subsidence
-            do k=2,nm
-               kp=k+1
-               ff(jt,ia,k)=ff(jt,ia,k)-c(k)*(ff(jt,ia,kp)-ff(jt,ia,k))
-            enddo
-         enddo
-         enddo
-!         do k=2,nf
-         do k=2,n
-            fsum(k)=0.
-            do ia=1,nka
-            do jt=1,nkt
-               fsum(k)=fsum(k)+ff(jt,ia,k)
-            enddo
-            enddo
-         enddo
-!      else
-!         xf(1)=fsum(2)
-!         do k=2,nf
-!            oldf(k)=fsum(k)
-!            xf(k)=(fsum(k)+xc(k)*xf(k-1))/xd(k)
-!         enddo
-!         do k=nf,2,-1
-!            fsum(k)=xe(k)*fsum(k+1)+xf(k)
-!         enddo
-!         do k=2,nf
-!            x0=fsum(k)/oldf(k)
-!            do ia=1,nka
-!            do jt=1,nkt
-!               ff(jt,ia,k)=ff(jt,ia,k)*x0
-!            enddo
-!            enddo
-!         enddo
-!      endif
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      end subroutine difp
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
+  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
+
+! == End of declarations =======================================================
+
+! solution of the diffusive equation for particles
+!-------------------------------------------------
+
+! turbulent exchange of aerosol and droplets with 'k_h' (atkh)
+  xe(1)=0._dp
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+!  do k=2,nf
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+     c(k)=w(k)*dt/deta(k)
+  enddo
+!  if (lct.gt.1) then
+     do ia=1,nka
+        do jt=1,nkt
+           xf(1)=ff(jt,ia,2)/am3(2)*1.e6_dp
+!           do k=2,nf
+           do k=2,nm
+              xf(k)=(ff(jt,ia,k)/am3(k)*1.e6_dp+xc(k)*xf(k-1))/xd(k)
+           enddo
+!           do k=nf,2,-1
+           do k=nm,2,-1
+              ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.e6_dp+xf(k))*am3(k)/1.e6_dp
+           enddo
+!          large scale subsidence
+           do k=2,nm
+              kp=k+1
+              ff(jt,ia,k)=ff(jt,ia,k)-c(k)*(ff(jt,ia,kp)-ff(jt,ia,k))
+           enddo
+        enddo
+     enddo
+
+! update of fsum
+!     do k=2,nf
+     do k=2,n
+        fsum(k)=0._dp
+        do ia=1,nka
+           do jt=1,nkt
+              fsum(k)=fsum(k)+ff(jt,ia,k)
+           enddo
+        enddo
+     enddo
+
+!  else
+!     xf(1)=fsum(2)
+!     do k=2,nf
+!        oldf(k)=fsum(k)
+!        xf(k)=(fsum(k)+xc(k)*xf(k-1))/xd(k)
+!     enddo
+!     do k=nf,2,-1
+!        fsum(k)=xe(k)*fsum(k+1)+xf(k)
+!     enddo
+!     do k=2,nf
+!        x0=fsum(k)/oldf(k)
+!        do ia=1,nka
+!        do jt=1,nkt
+!           ff(jt,ia,k)=ff(jt,ia,k)*x0
+!        enddo
+!        enddo
+!     enddo
+!  endif
+
+end subroutine difp
 
 !
 !-----------------------------------------------------------------
 !
 
-      subroutine difc (dt)
+subroutine difc (dt)
 ! fully implicit procedure for the solution of the turbulent transport
 ! of chemical species
 ! for further details see subroutine difm
@@ -2362,161 +2453,163 @@ end block data
 ! jjb work done: removal of unused arguments
 !     missing declarations and implicit none
 
-      USE config, ONLY : &
-     &     nkc_l
+  USE config, ONLY : &
+       nkc_l
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Parameters:
-     &     j1, &
-     &     j5, &
+       j1,               &
+       j5,               &
 ! Imported Array Variables with intent (inout):
-     &     s1, &
-     &     s3
+       s1,               &
+       s3
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     n, &
-     &     nm, &
-     &     nkc
+       j2,                  &
+       j6,                  &
+       n,                   &
+       nm,                  &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      double precision dt
+  real (kind=dp) :: dt
 
 ! Local scalars:
-      integer k, kc, kp, j
+  integer :: k, kc, kp, j
 ! Local arrays:
-      double precision c(n)
+  real (kind=dp) :: c(n)
 
 ! Common blocks:
-      common /blck01/ am3(n),cm3(n)
-      double precision am3, cm3
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      double precision sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      double precision atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb45/ u(n),v(n),w(n)
-      double precision u, v, w
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-      double precision xa, xb, xc, xd, xe, xf, oldf
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
+  real (kind=dp) :: xa, xb, xc, xd, xe, xf, oldf
 
 !- End of header ---------------------------------------------------------------
 
 ! calculation of exchange coefficients
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-         c(k)=w(k)*dt/deta(k) ! large scale subsidence
-      enddo
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+     c(k)=w(k)*dt/deta(k) ! large scale subsidence
+  enddo
 
 ! gase phase species
 ! s1, s3, sl1, sion1 in mol/m^3
 ! for diffusion mixing ratio is needed --> factor 1./am3(k)
 ! (mol/m^3 --> mol/mol)
-      do j=1,j1
-         xf(1)=s1(j,2)/am3(2)
-         do k=2,nm
-            xf(k)=(s1(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-         enddo
-         do k=nm,2,-1
-            s1(j,k)=(xe(k)*s1(j,k+1)/am3(k+1)+xf(k))*am3(k)
-         enddo
-!        large scale subsidence
-         do k=2,nm
-            s1(j,k)=s1(j,k)-c(k)*(s1(j,k+1)-s1(j,k))
-         enddo
-      enddo
+  do j=1,j1
+     xf(1)=s1(j,2)/am3(2)
+     do k=2,nm
+        xf(k)=(s1(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+     enddo
+     do k=nm,2,-1
+        s1(j,k)=(xe(k)*s1(j,k+1)/am3(k+1)+xf(k))*am3(k)
+     enddo
+!    large scale subsidence
+     do k=2,nm
+        s1(j,k)=s1(j,k)-c(k)*(s1(j,k+1)-s1(j,k))
+     enddo
+  enddo
+
 ! dito for radicals
-      do j=1,j5
-         xf(1)=s3(j,2)/am3(2)
-         do k=2,nm
-            xf(k)=(s3(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-         enddo
-         do k=nm,2,-1
-            s3(j,k)=(xe(k)*s3(j,k+1)/am3(k+1)+xf(k))*am3(k)
-         enddo
-!        large scale subsidence
-         do k=2,nm
-            s3(j,k)=s3(j,k)-c(k)*(s3(j,k+1)-s3(j,k))
-         enddo
-      enddo
+  do j=1,j5
+     xf(1)=s3(j,2)/am3(2)
+     do k=2,nm
+        xf(k)=(s3(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+     enddo
+     do k=nm,2,-1
+        s3(j,k)=(xe(k)*s3(j,k+1)/am3(k+1)+xf(k))*am3(k)
+     enddo
+!    large scale subsidence
+     do k=2,nm
+        s3(j,k)=s3(j,k)-c(k)*(s3(j,k+1)-s3(j,k))
+     enddo
+  enddo
 
 ! aqueous phase species
 !      if (lct.lt.2) return
 !      if (ndt.lt.2) return
 
-      do kc=1,nkc_l
-         do j=1,j2
-            xf(1)=sl1(j,kc,2)/am3(2)
-!            do k=2,nf
-            do k=2,nm
+  do kc=1,nkc_l
+     do j=1,j2
+        xf(1)=sl1(j,kc,2)/am3(2)
+!        do k=2,nf
+        do k=2,nm
 !            do k=lcl,lct
 !            xf(ndb-1)=sl1(j,kc,ndb)
 !            xf(ndt+1)=sl1(j,kc,ndt)
 !            do k=ndb,ndt
-               xf(k)=(sl1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
+           xf(k)=(sl1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+        enddo
+!        do k=nf,2,-1
+        do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+ &
-     &              xf(k))*am3(k)
-            enddo
-!           large scale subsidence
+           sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+xf(k))*am3(k)
+        enddo
+!       large scale subsidence
 !            do k=2,nf
-            do k=2,nm
-               kp=k+1
-               sl1(j,kc,k)=sl1(j,kc,k)-c(k)*(sl1(j,kc,kp)-sl1(j,kc,k))
-            enddo
-         enddo
-      enddo
+        do k=2,nm
+           kp=k+1
+           sl1(j,kc,k)=sl1(j,kc,k)-c(k)*(sl1(j,kc,kp)-sl1(j,kc,k))
+        enddo
+     enddo
+  enddo
 ! aqueous phase ion species
-      do kc=1,nkc_l
-         do j=1,j6
-            xf(1)=sion1(j,kc,2)/am3(2)
-!            do k=2,nf
-            do k=2,nm
+  do kc=1,nkc_l
+     do j=1,j6
+        xf(1)=sion1(j,kc,2)/am3(2)
+!        do k=2,nf
+        do k=2,nm
 !            do k=lcl,lct
 !            xf(ndb-1)=sion1(j,ndb,kc)
 !            xf(ndt+1)=sion1(j,ndt,kc)
 !            do k=ndb,ndt
-               xf(k)=(sion1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
+           xf(k)=(sion1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+        enddo
+!        do k=nf,2,-1
+        do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/ &
-     &              am3(k+1)+xf(k))*am3(k)
-            enddo
-!           large scale subsidence
-!            do k=2,nf
-            do k=2,nm
-               kp=k+1
-               sion1(j,kc,k)=sion1(j,kc,k)-c(k)* &
-     &              (sion1(j,kc,kp)-sion1(j,kc,k))
-            enddo
-         enddo
-      enddo
+           sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/am3(k+1)+xf(k))*am3(k)
+        enddo
+!       large scale subsidence
+!        do k=2,nf
+        do k=2,nm
+           kp=k+1
+           sion1(j,kc,k)=sion1(j,kc,k)-c(k)*(sion1(j,kc,kp)-sion1(j,kc,k))
+        enddo
+     enddo
+  enddo
 
-      end subroutine difc
+end subroutine difc
 
 !
 !--------------------------------------------------------------------
@@ -2898,6 +2991,10 @@ end block data
 ! lower boundary condition for water surface
 ! constant temperature and saturation specific humidity
 
+! Local scalars:
+  real (kind=dp) :: pp21 ! p21(tw)
+  real (kind=dp), external :: p21
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -2919,7 +3016,7 @@ end block data
 !      tw=tw-5.787d-6*dt
 !      tw=tw-6.94444d-6*dt
       t(1)=tw
-      pp21=610.7*dexp(17.15*(tw-273.15)/(tw-38.33))
+      pp21=p21(tw)
 !      xm1(1)=0.62198*pp21/(p(1)-0.37802*pp21)
 !      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# INDOEX
 !      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# Appledore
@@ -2976,6 +3073,9 @@ end block data
 ! mesoscale meteorological modelling, chapter 11.
       logical l1
 
+      real (kind=dp), external :: p21  ! saturation vapour pressure
+      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -3006,8 +3106,6 @@ end block data
       parameter (sigma=5.6697d-8)
       parameter (al31=2.835d+6)
       parameter (t0=273.15)
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
-      al21(tt)=3.1387818d+06-2335.5*tt
       cm(pp)=0.62198*pp/(ps-0.37802*pp)
       rrho=rho(1)
       uu=u(2)
@@ -3049,9 +3147,9 @@ end block data
 ! latent microturbulent enthalpy flux
 ! ajs is water flux due to droplet sedimentation;
       if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-al21(ts))*ajs
+      ajl=al31*ajq-(al31-xl21(ts))*ajs
       else
-      ajl=al21(ts)*ajq
+      ajl=xl21(ts)*ajq
       endif
 ! sensible microturbulent enthalpy flux
       ajt=rrho*cp*ust*tst
@@ -3101,7 +3199,7 @@ end block data
 !    & bs3*aks/eb1*(eb1/ebs)**bs3)*rhow
 !     djmde=dmin1(djmde,0.)
 ! coefficients for solution of linear equation system
-      x0=al21(ts)
+      x0=xl21(ts)
       f1e=djbde+x0*djqde
       f1t=djbdt-2335.5*ajq+x0*djqdt+djtdt-4.*sigma*ts*ts*ts
       f2e=djqde+djmde
@@ -3131,9 +3229,9 @@ end block data
       ajb=anu*(tb(2)-ts)/dzb(1)
       ajq=rrho*ust*qst
       if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-al21(ts))*ajs
+      ajl=al31*ajq-(al31-xl21(ts))*ajs
       else
-      ajl=al21(ts)*ajq
+      ajl=xl21(ts)*ajq
       endif
       ajt=rrho*cp*ust*tst
       ajm=rak1*((psi2-psi1)/dzb(1)-1.)
@@ -3246,7 +3344,7 @@ end block data
       integer i,nl,nz
 
 ! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarks table data
+      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
 !- End of header ---------------------------------------------------------------
 
@@ -3329,7 +3427,16 @@ end block data
 
       implicit double precision (a-h,o-z)
 
+      interface
+         subroutine equil (ncase,kk)
+           integer,           intent(in)  :: ncase
+           integer, optional, intent(in)  :: kk    ! model level for calculation
+         end subroutine equil
+      end interface
+
       logical chem!,chmic ! jjb defined below, but unused
+      real (kind=dp), external :: p21
+
       common /cb11/ totrad (mb,n)
       double precision totrad
 
@@ -3387,8 +3494,7 @@ end block data
 !         xm2n=xm2(k) ! jjb variable unreferenced
          pp=p(k)
          if (feu(k).ge.0.7) goto 2000
-         p21=610.7*dexp(17.15*(tn-273.15)/(tn-38.33))
-         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21)
+         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21(tn))
          call equil (1,k)
          go to 1000
  2000    continue
@@ -3476,8 +3582,7 @@ end block data
          talt(k)=to
          xm1(k)=xm1o
          xm1a(k)=xm1o
-         p21=610.7*dexp(17.15*(to-273.15)/(to-38.33))
-         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21)
+         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21(to))
          dfddt(k)=(feu(k)-feualt)/dt
          xm2(k)=0.
          do ia=1,nka
@@ -3486,7 +3591,7 @@ end block data
                ff(jt,ia,k)=ffk(jt,ia)
             enddo
          enddo
-!         xl21=3138708.-2339.4*tn ! jjb variable unreferenced
+
          dtcon(k)=(to-tn)/dt
 ! aerosol chemistry:
 !      go to 1000
@@ -3557,94 +3662,189 @@ end block data
 !-------------------------------------------------------------
 !
 
-      subroutine equil (ncase,kk)
+subroutine equil (ncase,kk)
+!
+! Description:
+! -----------
+  ! Equilibrium values for radius rg(i) and water mass eg(i)
+  ! of humidified aerosol particles at given relative humidity
+  ! New distribution of the particles on their equilibrium positions
 
-      USE constants, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !     ?        Roland      Add the ncase switch, expecially for the box case
+  !              von Glasow?
+  !
+  ! 27-Apr-2021  Josue Bock  Review and merge with latest version provided by A. Bott
+  !                          Add the case construct and consistency checks (arguments)
+  !                          The "optional" attribute require interface when this routine is called
+  !
+  ! 28-Apr-2021  Josue Bock  Create case 0 for initialisation, and remove SR vgleich which was mostly a duplicate
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+! Imported Routines:
+       abortM
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi,              &
+       rho3,            &       ! aerosol density
+       rhow                     ! water density
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt
+       jpfunerr
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf,                  &   ! model levels
+       n,                   &
+       nka,                 &   ! droplet and aerosol classes
+       nkt
 
-      implicit double precision (a-h,o-z)
-! equilibrium values for radius rg(i) and water mass eg(i)
-! of humidified aerosol particles at given relative humidity
-! new distribution of the particles on their equilibrium positions
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  implicit none
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+! Subroutine arguments
+  integer,           intent(in)  :: ncase
+  integer, optional, intent(in)  :: kk    ! model level for calculation
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
+  real (kind=dp), parameter :: zfeumax = 0.99999_dp
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! Local scalars:
+  integer :: kmin, kmax
+  integer :: k, ia, jt      ! running indices
+  real (kind=dp) :: a0, b0
+  real (kind=dp), external :: rgl
 
-      dimension rg(nka),eg(nka)
+! Local arrays:
+  real (kind=dp) :: rg(nka),eg(nka)
+
+! Common blocks:
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &         ! a0m, b0m: Koehler curve
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)                    ! ff: particles
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)      ! t: temperature
+  real(kind=dp) :: theta, thetl, t, talt, p, rho                ! rho: density
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)   ! feu: humidity
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a             ! xm2: liquid water content
+
+! == End of declarations =======================================================
 
 ! get equilibrium distribution for
-!     case 1: active layer (1D: k<=nf (called from SR kon), 0d: active layer)
+!     case 0: all layers 2-n during initialisation
+!     case 1: active layer (1D: k<=nf (called from SR kon), 0D: active layer)
 !     case 2: all layers above nf
-      kmin=kk
-      kmax=kk
-      if (ncase.eq.2) then
-         kmin=nf+1
-         kmax=n
-      endif
 
-      do k=kmin,kmax
-         do ia=1,nka
-            do jt=2,nkt
-               ff(1,ia,k)=ff(1,ia,k)+ff(jt,ia,k)
-               ff(jt,ia,k)=0.
-            enddo
-         enddo
-! equilibrium radius
-         a0=a0m/t(k)
-         do ia=1,nka
-            b0=b0m(ia)*2.
+  select case (ncase)
+  case (0)
+     if (present(kk)) then
+        write(jpfunerr,*)"Warning, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 0 means equil is computed for levels 2 to n,"
+        write(jpfunerr,*)"  the optional argument #2 is thus unused"
+     end if
+     kmin=2
+     kmax=n
+     feu(kmin:kmax)=min(feu(kmin:kmax),zfeumax)
+
+  case (1)
+     if (.not.present(kk)) then
+        write(jpfunerr,*)"Error, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 1 require optional argument #2 (level where the"
+        write(jpfunerr,*)"  equilibrium has to be computed)"
+        call abortM('Error in SR equil')
+     end if
+     kmin=kk
+     kmax=kk
+
+  case (2)
+     if (present(kk)) then
+        write(jpfunerr,*)"Warning, inconsistency when calling SR equil:"
+        write(jpfunerr,*)"  case 2 means equil is computed for levels nf+1 to n,"
+        write(jpfunerr,*)"  the optional argument #2 is thus unused"
+     end if
+     kmin=nf+1
+     kmax=n
+
+  case default
+     write(jpfunerr,*)"Error, SR equil, ncase must be 1 or 2"
+     call abortM('Error in SR equil')
+  end select
+
+
+  kloop: do k=kmin,kmax
+
+! collect aerosol in lowest water class
+!    (not needed during initialisation, all particles are already in the first water class (jt=1))
+     if (ncase.gt.0) then
+        do ia=1,nka
+           ff(1,ia,k) = sum(ff(:,ia,k))
+           ff(2:nkt,ia,k) = 0._dp
+        enddo
+     end if
+
+! calculate equilibrium radius with Newton iteration (rgl)
+     a0=a0m/t(k)
+     do ia=1,nka
+        b0=b0m(ia)*zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-            rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-            eg(ia)=4.d-09*pi/3.*(rg(ia)**3-rn(ia)**3)
-         enddo
-! new distribution
-         do 1020 ia=1,nka
-            do jt=1,nkt
-               if (eg(ia).le.ew(jt)) then
-                  if (jt.eq.1) goto 1020
-                  ff(jt,ia,k)=ff(1,ia,k)
-                  ff(1,ia,k)=0.
-                  goto 1020
-               endif
-            enddo
- 1020    continue
-! total liquid water
-         xm2(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
-            enddo
-         enddo
-      enddo
+        rg(ia)=rgl(rn(ia),a0,b0,feu(k))
+        eg(ia)=z4pi3*(rg(ia)**3-rn(ia)**3)
+     enddo
 
-      end subroutine equil
+! new particle distribution
+     do ia=1,nka
+        jt=1
+        do while (eg(ia).gt.ew(jt))
+           jt = jt+1
+        end do
+        if (jt.ne.1) then
+           ff(jt,ia,k)=ff(1,ia,k)
+           ff(1,ia,k)=0._dp
+        endif
+     enddo
+
+! update of total liquid water content
+     xm2(k)=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
+        enddo
+     enddo
+
+  enddo kloop
+
+end subroutine equil
 
 !
 !-------------------------------------------------------------
@@ -3686,6 +3886,9 @@ end block data
 
       double precision, external :: diff_wat_vap
       double precision, external :: therm_conduct_air
+      real (kind=dp), external :: p21  ! saturation vapour pressure
+      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+      real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -3727,9 +3930,8 @@ end block data
 ! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
 ! all formulas and constants after Pruppacher and Klett Chapter 13.
 ! droplet growth equation after Davies, J. Atmos. Sci., 1987
-      p21(t)=610.7*exp(17.15*(t-273.15)/(t-38.33))
-      xl21=3138708.-2339.4*t
-      xldcp=xl21/cp
+      zxl21=xl21(t)
+      xldcp=zxl21/cp
 
 !      xka=4.38e-03+7.1e-05*t ! (13-18a) converted ?
       xka=therm_conduct_air(t)
@@ -3742,7 +3944,7 @@ end block data
       deltat=2.7*xl
       rho=p/(r0*t*(1+0.61*xm1))
       rho21=p21(t)/(r1*t)
-      rho21s=(xl21/(r1*t)-1.)*rho21/t
+      rho21s=(zxl21/(r1*t)-1.)*rho21/t
       a0=a0m/t
       xdv0=xdv*sqrt(2.*pi/(r1*t))/3.6e-08
       xka0=xka*sqrt(2.*pi/(r0*t))/(7.d-07*rho*cp)
@@ -3765,7 +3967,7 @@ end block data
             sr(jt,ia)=max(0.1d0,exp(a0/rk-b0m(ia)*en(ia)/ew(jt)))
             xdvs=xdv/(rk/(rk+deltav)+xdv0/rk)
             xkas=xka/(rk/(rk+deltat)+xka0/rk)
-            x1=rhow*(xl21+xkas/(xdvs*rho21s*sr(jt,ia)))
+            x1=rhow*(zxl21+xkas/(xdvs*rho21s*sr(jt,ia)))
             cd(jt,ia)=3.d+12*rho21*xkas/(x1*rk*rk*rho21s*sr(jt,ia))
             if (kr0.eq.3.and.rn(ia).lt.0.5) kr0=2
             rad=0.
@@ -4062,7 +4264,7 @@ end block data
 !    - rewritten using up to date features: do, do while, exit and cycle
 !    - also rewritten the initial search for min/max indexes by reading/writting arrays in increasing indexes, for computing efficiency
 !    - removed archaic forms of Fortran intrinsic functions
-!    - passed y and u as arguments instead of common block
+!    - passed y and u as arguments instead of common block (formerly cb59)
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -4736,9 +4938,11 @@ end block data
       subroutine adjust_f
 ! adjustment of initial aerosol size distribution for specific scenarios
 
-!      USE constants, ONLY :
+      USE constants, ONLY : &
 !! Imported Parameters:
-!     & pi
+!     & pi,              &
+       rho3,            &       ! aerosol density
+       rhow                     ! water density
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -4751,6 +4955,11 @@ end block data
            dp
 
       implicit double precision (a-h,o-z)
+
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -4783,10 +4992,11 @@ end block data
 ! "dry" them !(this is not really exact..)
 ! equilibrium radius at 76 %
             a0=a0m/t(k)
-            b0=b0m(ia)*2.
+            b0=b0m(ia)*zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
             rg=rgl(rn(ia),a0,b0,.762d0)
-!            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
+!!            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
+!            eg=z4pi3*(rg**3-rn(ia)**3)
             do kl=1,nka
                if (rg.le.rn(kl)) then
 !               if (eg.le.enw(kl)) then
@@ -4991,7 +5201,7 @@ end block data
 ! L=-rho c_p T_0 Ustar^3/(kappa g \bar(q_3))
 ! with \bar(q_3)=rho c_p \bar(w'theta')=rho c_p (-1.) atkh d theta/d z
 
-! dtheta'/dz in height k
+! dtheat'/dz in height k
       if (k.eq.1) then
          k=2
          print *,'SR monin: index out of bounds (1)'
@@ -5138,6 +5348,8 @@ end block data
       implicit double precision (a-h,o-z)
       logical BL_box
 
+      real(kind=dp), external :: p21
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -5170,9 +5382,7 @@ end block data
       endif
       t(n_bl)  = t0
       xm1(n_bl)= xm10
-! p21 after magnus formula
-      p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21)
+      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
       print *,"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
 
 ! for strange reasons it didn't work to init the whole Mistra column and
@@ -5217,6 +5427,13 @@ end block data
            dp
 
       implicit double precision (a-h,o-z)
+
+      interface
+         subroutine equil (ncase,kk)
+           integer,           intent(in)  :: ncase
+           integer, optional, intent(in)  :: kk    ! model level for calculation
+         end subroutine equil
+      end interface
 
 !      logical chem,halo,iod,fa_lse,BL_box ! jjb unused arguments removed: chem, halo, iod
       logical fa_lse,BL_box
@@ -5316,10 +5533,7 @@ end block data
          else
             call set_box_gas (nlevbox,n_bl)
             call set_box_lev_a (nlevbox,n_bl)
-! p21 after magnus formula
-            p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))* &
-     &           p21)
+            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
             call equil (1,n_bl)
             if (xph3.eq.1..or.xph4.eq.1.)  &
      &           call set_box_lev_t (nlevbox,n_bl)
@@ -5336,9 +5550,7 @@ end block data
 !     put SINUS here, t0 xm10
 !      t(n_bl)    = xsinus * t0        ! temp [K]
 !      xm1(n_bl)  = xsinus * xm10      ! spec humidity [kg/kg]
-!c p21 after magnus formula
-!      p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-!      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21)
+!      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
 
 !----------tests from run bug_fix_n: str.f SR surf0 (see also SST.f in bug_fix_n)
 !      common /tw_0/ tw0
@@ -6099,4 +6311,58 @@ end block data
 !--------------------------------------------------------------------------
 !
 
+! Compute the latent heat of vaporisation as a function of temperature
+function xl21(temperature)
 
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  ! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: temperature         ! in [K]
+
+! Local parameters:
+  real(kind=dp)             :: ppA = 3138708._dp   ! in J/kg
+  real(kind=dp)             :: ppB = -2339.4_dp    ! in J/kg/K
+! Local scalars:
+  real(kind=dp)             :: xl21                ! in J/kg
+!- End of header ------------------------------------------------------------
+
+  xl21 = ppA + ppB*temperature
+
+end function xl21
+
+
+!
+!--------------------------------------------------------------------------
+!
+
+! Compute the saturation water vapour pressure as a function of temperature
+!  after Magnus formula
+function p21(ttt)
+
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  ! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: ttt         ! temperature, in [K]
+
+! Local scalars:
+  real(kind=dp)             :: p21         ! saturation vapour pressure, in [Pa]
+!- End of header ------------------------------------------------------------
+
+  p21 = 610.7_dp * exp(17.15_dp*(ttt-273.15_dp)/(ttt-38.33_dp))
+
+end function p21
+!
+!--------------------------------------------------------------------------
+!

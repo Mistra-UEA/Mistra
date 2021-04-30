@@ -785,8 +785,8 @@ subroutine initr
   real (kind=dp) :: eta_o3(nrlev), u_o3(nrlay) ! intermediate variables for O3 interpolation
   real (kind=dp) :: rnaer(nrlay)               ! total number concentration of aerosol particles [cm**-3]
 
-! Internal function:
-  real (kind=dp) :: p21, tt
+! External function:
+  real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
 ! Common blocks:
   common /aeag/ feux(8),seanew(8,mb,4),saanew(8,mb,4),ganew(8,mb,4)
@@ -820,10 +820,6 @@ subroutine initr
   real (kind=dp) :: as, ee
 
 ! == End of declarations =======================================================
-
-  ! Internal function: saturation pressure of liquid water
-  p21(tt)=610.7_dp*exp(17.15_dp*(tt-273.15_dp)/(tt-38.33_dp))
-
 
 ! albedo of the ground for the six solar wavelength regions of the radiation code
   albedo(:)=0.05_dp

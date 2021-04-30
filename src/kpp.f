@@ -2974,9 +2974,14 @@ c
       subroutine aer_source (box,dd,z_mbl,n_bl)
 c calculation of sea salt aerosol source
 
+! work done:
+! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
+
       USE constants, ONLY :
 ! Imported Parameters:
-     & pi
+     & pi,
+     & rho3,                    ! aerosol density
+     & rhow                     ! water density
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -2993,6 +2998,12 @@ c calculation of sea salt aerosol source
      &     dp
 
       implicit double precision (a-h,o-z)
+
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+      real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+      real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
+
       logical box
 
       logical mona,smith
@@ -3049,15 +3060,15 @@ c this is also defined for box:
       endif
 
       do ia=ka+1,nka
-c compare SR vgleich in str.f
+c compare SR equil in str.f
 c aerosols in equilibrium with ambient rH:
          feu(k_in)=dmin1(feu(k_in),0.99999d0)
 c equilibrium radius
          a0=a0m/t(k_in)
-         b0=b0m(ia)*2.
+         b0=b0m(ia)*zrho_frac
 c b0=b0m*rho3/rhow; rho3=2000; rhow=1000
          rg=rgl(rn(ia),a0,b0,feu(k_in))
-         eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
+         eg=z4pi3*(rg**3-rn(ia)**3)
          do jt=1,nkt
 c find jt that corresponds to particle size at ambient rH
 c            if (rq(jt,ia).ge.rg) then
