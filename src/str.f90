@@ -299,13 +299,13 @@ program mistra
 !   WARNING: check this routine before using, it is not the same as latest version used by Bott
 !         call wfield
            
-! turbulent exchange of thermodynamic variables, particles and
-! chemical species
+! turbulent exchange of thermodynamic variables
            call difm (dd)
-           if (chem) call difc (dd)
+           if (chem) call difc (dd)   ! turbulent exchange of chemical species
+
 ! microphysics
            if (mic) then
-              call difp (dd)
+              call difp (dd)          ! turbulent exchange of particles
 ! condensation/evaporation, update of chemical concentrations
 !              print*,'call kon'
               call kon (dd,chem)
@@ -2312,104 +2312,129 @@ end subroutine difm
 !----------------------------------------------------------------------
 !
 
-      subroutine difp (dt)
-! fully implicit procedure for the solution of the turbulent transport
-! of aerosols and cloud droplets
-! for further details see subroutine difm
-! for diffusion mixing ratio is needed --> factor 1./am3(k,1)
-! (#/cm^3 --> #/mol)
+subroutine difp (dt)
+!
+! Description:
+! -----------
+  ! Turbulent diffusion of particles.
+  ! fully implicit procedure for the solution of the turbulent transport
+  ! of aerosols and cloud droplets. For further details see subroutine difm
+  !
+  ! for diffusion mixing ratio is needed --> factor 1./am3(k,1)
+  ! (#/cm^3 --> #/mol)
 
-      USE global_params, ONLY : &
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nm, &
-     &     nka, &
-     &     nkt
+       n,                   &
+       nm,                  &
+       nka,                 &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      common /blck01/ am3(n),cm3(n)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Subroutine arguments
+  real (kind=dp), intent(in)  :: dt          ! fractional timestep
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+! Local scalars:
+  integer :: k, kp, ia, jt      ! running indices
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Local arrays:
+  real (kind=dp) :: c(n)
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      dimension c(n)
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      xe(1)=0.
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-!      do k=2,nf
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-         c(k)=w(k)*dt/deta(k)
-      enddo
-!      if (lct.gt.1) then
-         do ia=1,nka
-         do jt=1,nkt
-            xf(1)=ff(jt,ia,2)/am3(2)*1.d6
-!            do k=2,nf
-            do k=2,nm
-               xf(k)=(ff(jt,ia,k)/am3(k)*1.d6+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
-               ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.d6+xf(k)) &
-     &              *am3(k)/1.d6
-            enddo
-!           large scale subsidence
-            do k=2,nm
-               kp=k+1
-               ff(jt,ia,k)=ff(jt,ia,k)-c(k)*(ff(jt,ia,kp)-ff(jt,ia,k))
-            enddo
-         enddo
-         enddo
-!         do k=2,nf
-         do k=2,n
-            fsum(k)=0.
-            do ia=1,nka
-            do jt=1,nkt
-               fsum(k)=fsum(k)+ff(jt,ia,k)
-            enddo
-            enddo
-         enddo
-!      else
-!         xf(1)=fsum(2)
-!         do k=2,nf
-!            oldf(k)=fsum(k)
-!            xf(k)=(fsum(k)+xc(k)*xf(k-1))/xd(k)
-!         enddo
-!         do k=nf,2,-1
-!            fsum(k)=xe(k)*fsum(k+1)+xf(k)
-!         enddo
-!         do k=2,nf
-!            x0=fsum(k)/oldf(k)
-!            do ia=1,nka
-!            do jt=1,nkt
-!               ff(jt,ia,k)=ff(jt,ia,k)*x0
-!            enddo
-!            enddo
-!         enddo
-!      endif
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      end subroutine difp
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
+  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
+
+! == End of declarations =======================================================
+
+! solution of the diffusive equation for particles 
+!-------------------------------------------------
+
+! turbulent exchange of aerosol and droplets with 'k_h' (atkh)
+  xe(1)=0._dp
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+!  do k=2,nf
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+     c(k)=w(k)*dt/deta(k)
+  enddo
+!  if (lct.gt.1) then
+     do ia=1,nka
+        do jt=1,nkt
+           xf(1)=ff(jt,ia,2)/am3(2)*1.e6_dp
+!           do k=2,nf
+           do k=2,nm
+              xf(k)=(ff(jt,ia,k)/am3(k)*1.e6_dp+xc(k)*xf(k-1))/xd(k)
+           enddo
+!           do k=nf,2,-1
+           do k=nm,2,-1
+              ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.e6_dp+xf(k))*am3(k)/1.e6_dp
+           enddo
+!          large scale subsidence
+           do k=2,nm
+              kp=k+1
+              ff(jt,ia,k)=ff(jt,ia,k)-c(k)*(ff(jt,ia,kp)-ff(jt,ia,k))
+           enddo
+        enddo
+     enddo
+
+! update of fsum
+!     do k=2,nf
+     do k=2,n
+        fsum(k)=0._dp
+        do ia=1,nka
+           do jt=1,nkt
+              fsum(k)=fsum(k)+ff(jt,ia,k)
+           enddo
+        enddo
+     enddo
+
+!  else
+!     xf(1)=fsum(2)
+!     do k=2,nf
+!        oldf(k)=fsum(k)
+!        xf(k)=(fsum(k)+xc(k)*xf(k-1))/xd(k)
+!     enddo
+!     do k=nf,2,-1
+!        fsum(k)=xe(k)*fsum(k+1)+xf(k)
+!     enddo
+!     do k=2,nf
+!        x0=fsum(k)/oldf(k)
+!        do ia=1,nka
+!        do jt=1,nkt
+!           ff(jt,ia,k)=ff(jt,ia,k)*x0
+!        enddo
+!        enddo
+!     enddo
+!  endif
+
+end subroutine difp
 
 !
 !-----------------------------------------------------------------
