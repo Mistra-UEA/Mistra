@@ -2415,7 +2415,7 @@ end subroutine difm
 !-----------------------------------------------------------------
 !
 
-      subroutine difc (dt)
+subroutine difc (dt)
 ! fully implicit procedure for the solution of the turbulent transport
 ! of chemical species
 ! for further details see subroutine difm
@@ -2423,161 +2423,163 @@ end subroutine difm
 ! jjb work done: removal of unused arguments
 !     missing declarations and implicit none
 
-      USE config, ONLY : &
-     &     nkc_l
+  USE config, ONLY : &
+       nkc_l
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Parameters:
-     &     j1, &
-     &     j5, &
+       j1,               &
+       j5,               &
 ! Imported Array Variables with intent (inout):
-     &     s1, &
-     &     s3
+       s1,               &
+       s3
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     n, &
-     &     nm, &
-     &     nkc
+       j2,                  &
+       j6,                  &
+       n,                   &
+       nm,                  &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      double precision dt
+  real (kind=dp) :: dt
 
 ! Local scalars:
-      integer k, kc, kp, j
+  integer :: k, kc, kp, j
 ! Local arrays:
-      double precision c(n)
+  real (kind=dp) :: c(n)
 
 ! Common blocks:
-      common /blck01/ am3(n),cm3(n)
-      double precision am3, cm3
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      double precision sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      double precision atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb45/ u(n),v(n),w(n)
-      double precision u, v, w
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-      double precision xa, xb, xc, xd, xe, xf, oldf
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
+  real (kind=dp) :: xa, xb, xc, xd, xe, xf, oldf
 
 !- End of header ---------------------------------------------------------------
 
 ! calculation of exchange coefficients
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-         c(k)=w(k)*dt/deta(k) ! large scale subsidence
-      enddo
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+     c(k)=w(k)*dt/deta(k) ! large scale subsidence
+  enddo
 
 ! gase phase species
 ! s1, s3, sl1, sion1 in mol/m^3
 ! for diffusion mixing ratio is needed --> factor 1./am3(k)
 ! (mol/m^3 --> mol/mol)
-      do j=1,j1
-         xf(1)=s1(j,2)/am3(2)
-         do k=2,nm
-            xf(k)=(s1(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-         enddo
-         do k=nm,2,-1
-            s1(j,k)=(xe(k)*s1(j,k+1)/am3(k+1)+xf(k))*am3(k)
-         enddo
-!        large scale subsidence
-         do k=2,nm
-            s1(j,k)=s1(j,k)-c(k)*(s1(j,k+1)-s1(j,k))
-         enddo
-      enddo
+  do j=1,j1
+     xf(1)=s1(j,2)/am3(2)
+     do k=2,nm
+        xf(k)=(s1(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+     enddo
+     do k=nm,2,-1
+        s1(j,k)=(xe(k)*s1(j,k+1)/am3(k+1)+xf(k))*am3(k)
+     enddo
+!    large scale subsidence
+     do k=2,nm
+        s1(j,k)=s1(j,k)-c(k)*(s1(j,k+1)-s1(j,k))
+     enddo
+  enddo
+
 ! dito for radicals
-      do j=1,j5
-         xf(1)=s3(j,2)/am3(2)
-         do k=2,nm
-            xf(k)=(s3(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-         enddo
-         do k=nm,2,-1
-            s3(j,k)=(xe(k)*s3(j,k+1)/am3(k+1)+xf(k))*am3(k)
-         enddo
-!        large scale subsidence
-         do k=2,nm
-            s3(j,k)=s3(j,k)-c(k)*(s3(j,k+1)-s3(j,k))
-         enddo
-      enddo
+  do j=1,j5
+     xf(1)=s3(j,2)/am3(2)
+     do k=2,nm
+        xf(k)=(s3(j,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+     enddo
+     do k=nm,2,-1
+        s3(j,k)=(xe(k)*s3(j,k+1)/am3(k+1)+xf(k))*am3(k)
+     enddo
+!    large scale subsidence
+     do k=2,nm
+        s3(j,k)=s3(j,k)-c(k)*(s3(j,k+1)-s3(j,k))
+     enddo
+  enddo
 
 ! aqueous phase species
 !      if (lct.lt.2) return
 !      if (ndt.lt.2) return
 
-      do kc=1,nkc_l
-         do j=1,j2
-            xf(1)=sl1(j,kc,2)/am3(2)
-!            do k=2,nf
-            do k=2,nm
+  do kc=1,nkc_l
+     do j=1,j2
+        xf(1)=sl1(j,kc,2)/am3(2)
+!        do k=2,nf
+        do k=2,nm
 !            do k=lcl,lct
 !            xf(ndb-1)=sl1(j,kc,ndb)
 !            xf(ndt+1)=sl1(j,kc,ndt)
 !            do k=ndb,ndt
-               xf(k)=(sl1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
+           xf(k)=(sl1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+        enddo
+!        do k=nf,2,-1
+        do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+ &
-     &              xf(k))*am3(k)
-            enddo
-!           large scale subsidence
+           sl1(j,kc,k)=(xe(k)*sl1(j,kc,k+1)/am3(k+1)+xf(k))*am3(k)
+        enddo
+!       large scale subsidence
 !            do k=2,nf
-            do k=2,nm
-               kp=k+1
-               sl1(j,kc,k)=sl1(j,kc,k)-c(k)*(sl1(j,kc,kp)-sl1(j,kc,k))
-            enddo
-         enddo
-      enddo
+        do k=2,nm
+           kp=k+1
+           sl1(j,kc,k)=sl1(j,kc,k)-c(k)*(sl1(j,kc,kp)-sl1(j,kc,k))
+        enddo
+     enddo
+  enddo
 ! aqueous phase ion species
-      do kc=1,nkc_l
-         do j=1,j6
-            xf(1)=sion1(j,kc,2)/am3(2)
-!            do k=2,nf
-            do k=2,nm
+  do kc=1,nkc_l
+     do j=1,j6
+        xf(1)=sion1(j,kc,2)/am3(2)
+!        do k=2,nf
+        do k=2,nm
 !            do k=lcl,lct
 !            xf(ndb-1)=sion1(j,ndb,kc)
 !            xf(ndt+1)=sion1(j,ndt,kc)
 !            do k=ndb,ndt
-               xf(k)=(sion1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
-            enddo
-!            do k=nf,2,-1
-            do k=nm,2,-1
+           xf(k)=(sion1(j,kc,k)/am3(k)+xc(k)*xf(k-1))/xd(k)
+        enddo
+!        do k=nf,2,-1
+        do k=nm,2,-1
 !            do k=lct,lcl,-1
 !            do k=ndt,ndb,-1
-               sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/ &
-     &              am3(k+1)+xf(k))*am3(k)
-            enddo
-!           large scale subsidence
-!            do k=2,nf
-            do k=2,nm
-               kp=k+1
-               sion1(j,kc,k)=sion1(j,kc,k)-c(k)* &
-     &              (sion1(j,kc,kp)-sion1(j,kc,k))
-            enddo
-         enddo
-      enddo
+           sion1(j,kc,k)=(xe(k)*sion1(j,kc,k+1)/am3(k+1)+xf(k))*am3(k)
+        enddo
+!       large scale subsidence
+!        do k=2,nf
+        do k=2,nm
+           kp=k+1
+           sion1(j,kc,k)=sion1(j,kc,k)-c(k)*(sion1(j,kc,kp)-sion1(j,kc,k))
+        enddo
+     enddo
+  enddo
 
-      end subroutine difc
+end subroutine difc
 
 !
 !--------------------------------------------------------------------
