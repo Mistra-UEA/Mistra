@@ -721,6 +721,10 @@ end block data
 
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
+
+! External function:
+  real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
+
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
@@ -775,8 +779,7 @@ end block data
       character *1 fogtype
       character *10 fname
       data xmol2 /18./
-! p21 after magnus formula
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
+
 ! constants for aerosol distributions after jaenicke (1988)
 ! 3 modes j=1,2,3
 ! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
@@ -2169,7 +2172,7 @@ subroutine difm (dt)
 ! Local scalars:
   integer :: k, kp      ! running indices
   real (kind=dp) :: fdt
-  real (kind=dp) :: p21, tt
+  real (kind=dp), external :: p21
 
 ! Local arrays:
   real (kind=dp) :: c(n)
@@ -2199,9 +2202,6 @@ subroutine difm (dt)
 
   common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
   real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
-
-! statement function
-  p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
 
 ! == End of declarations =======================================================
 
@@ -2991,6 +2991,10 @@ end subroutine difc
 ! lower boundary condition for water surface
 ! constant temperature and saturation specific humidity
 
+! Local scalars:
+  real (kind=dp) :: pp21 ! p21(tw)
+  real (kind=dp), external :: p21
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -3012,7 +3016,7 @@ end subroutine difc
 !      tw=tw-5.787d-6*dt
 !      tw=tw-6.94444d-6*dt
       t(1)=tw
-      pp21=610.7*dexp(17.15*(tw-273.15)/(tw-38.33))
+      pp21=p21(tw)
 !      xm1(1)=0.62198*pp21/(p(1)-0.37802*pp21)
 !      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# INDOEX
 !      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# Appledore
@@ -3069,6 +3073,7 @@ end subroutine difc
 ! mesoscale meteorological modelling, chapter 11.
       logical l1
 
+      real (kind=dp), external :: p21  ! saturation vapour pressure
       real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -3101,7 +3106,6 @@ end subroutine difc
       parameter (sigma=5.6697d-8)
       parameter (al31=2.835d+6)
       parameter (t0=273.15)
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
       cm(pp)=0.62198*pp/(ps-0.37802*pp)
       rrho=rho(1)
       uu=u(2)
@@ -3431,6 +3435,8 @@ end subroutine difc
       end interface
 
       logical chem!,chmic ! jjb defined below, but unused
+      real (kind=dp), external :: p21
+
       common /cb11/ totrad (mb,n)
       double precision totrad
 
@@ -3488,8 +3494,7 @@ end subroutine difc
 !         xm2n=xm2(k) ! jjb variable unreferenced
          pp=p(k)
          if (feu(k).ge.0.7) goto 2000
-         p21=610.7*dexp(17.15*(tn-273.15)/(tn-38.33))
-         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21)
+         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21(tn))
          call equil (1,k)
          go to 1000
  2000    continue
@@ -3577,8 +3582,7 @@ end subroutine difc
          talt(k)=to
          xm1(k)=xm1o
          xm1a(k)=xm1o
-         p21=610.7*dexp(17.15*(to-273.15)/(to-38.33))
-         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21)
+         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21(to))
          dfddt(k)=(feu(k)-feualt)/dt
          xm2(k)=0.
          do ia=1,nka
@@ -3882,6 +3886,7 @@ end subroutine equil
 
       double precision, external :: diff_wat_vap
       double precision, external :: therm_conduct_air
+      real (kind=dp), external :: p21  ! saturation vapour pressure
       real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
       real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
 
@@ -3925,7 +3930,6 @@ end subroutine equil
 ! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
 ! all formulas and constants after Pruppacher and Klett Chapter 13.
 ! droplet growth equation after Davies, J. Atmos. Sci., 1987
-      p21(t)=610.7*exp(17.15*(t-273.15)/(t-38.33))
       zxl21=xl21(t)
       xldcp=zxl21/cp
 
@@ -5344,6 +5348,8 @@ end subroutine equil
       implicit double precision (a-h,o-z)
       logical BL_box
 
+      real(kind=dp), external :: p21
+
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -5376,9 +5382,7 @@ end subroutine equil
       endif
       t(n_bl)  = t0
       xm1(n_bl)= xm10
-! p21 after magnus formula
-      p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21)
+      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
       print *,"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
 
 ! for strange reasons it didn't work to init the whole Mistra column and
@@ -5529,10 +5533,7 @@ end subroutine equil
          else
             call set_box_gas (nlevbox,n_bl)
             call set_box_lev_a (nlevbox,n_bl)
-! p21 after magnus formula
-            p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))* &
-     &           p21)
+            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
             call equil (1,n_bl)
             if (xph3.eq.1..or.xph4.eq.1.)  &
      &           call set_box_lev_t (nlevbox,n_bl)
@@ -5549,9 +5550,7 @@ end subroutine equil
 !     put SINUS here, t0 xm10
 !      t(n_bl)    = xsinus * t0        ! temp [K]
 !      xm1(n_bl)  = xsinus * xm10      ! spec humidity [kg/kg]
-!c p21 after magnus formula
-!      p21=610.7*dexp(17.15*(t(n_bl)-273.15)/(t(n_bl)-38.33))
-!      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21)
+!      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
 
 !----------tests from run bug_fix_n: str.f SR surf0 (see also SST.f in bug_fix_n)
 !      common /tw_0/ tw0
@@ -6338,6 +6337,32 @@ function xl21(temperature)
 end function xl21
 
 
+!
+!--------------------------------------------------------------------------
+!
+
+! Compute the saturation water vapour pressure as a function of temperature
+!  after Magnus formula
+function p21(ttt)
+
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  ! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: ttt         ! temperature, in [K]
+
+! Local scalars:
+  real(kind=dp)             :: p21         ! saturation vapour pressure, in [Pa]
+!- End of header ------------------------------------------------------------
+
+  p21 = 610.7_dp * exp(17.15_dp*(ttt-273.15_dp)/(ttt-38.33_dp))
+
+end function p21
 !
 !--------------------------------------------------------------------------
 !
