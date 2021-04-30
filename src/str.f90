@@ -36,7 +36,12 @@
 !       |_____SR equil (case 0)
 !       |      |_____FN rgl
 
-! ... if (mic)
+! TIME LOOP
+! ...   |_____SR difm
+!              |_____SR atk1
+!     if (chem)
+!       |_____SR difc
+!     if (mic)
 !       |_____SR difp
 !       |_____SR kon
 !       |      |    _SR equil (case 1)   ! if rH < 70%
@@ -298,7 +303,7 @@ program mistra
 ! if w-field variable in time call wfield
 !   WARNING: check this routine before using, it is not the same as latest version used by Bott
 !         call wfield
-           
+
 ! turbulent exchange of thermodynamic variables
            call difm (dd)
            if (chem) call difc (dd)   ! turbulent exchange of chemical species
@@ -2369,7 +2374,7 @@ subroutine difp (dt)
 
 ! == End of declarations =======================================================
 
-! solution of the diffusive equation for particles 
+! solution of the diffusive equation for particles
 !-------------------------------------------------
 
 ! turbulent exchange of aerosol and droplets with 'k_h' (atkh)
@@ -3064,6 +3069,8 @@ end subroutine difc
 ! mesoscale meteorological modelling, chapter 11.
       logical l1
 
+      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -3095,7 +3102,6 @@ end subroutine difc
       parameter (al31=2.835d+6)
       parameter (t0=273.15)
       p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
-      al21(tt)=3.1387818d+06-2335.5*tt
       cm(pp)=0.62198*pp/(ps-0.37802*pp)
       rrho=rho(1)
       uu=u(2)
@@ -3137,9 +3143,9 @@ end subroutine difc
 ! latent microturbulent enthalpy flux
 ! ajs is water flux due to droplet sedimentation;
       if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-al21(ts))*ajs
+      ajl=al31*ajq-(al31-xl21(ts))*ajs
       else
-      ajl=al21(ts)*ajq
+      ajl=xl21(ts)*ajq
       endif
 ! sensible microturbulent enthalpy flux
       ajt=rrho*cp*ust*tst
@@ -3189,7 +3195,7 @@ end subroutine difc
 !    & bs3*aks/eb1*(eb1/ebs)**bs3)*rhow
 !     djmde=dmin1(djmde,0.)
 ! coefficients for solution of linear equation system
-      x0=al21(ts)
+      x0=xl21(ts)
       f1e=djbde+x0*djqde
       f1t=djbdt-2335.5*ajq+x0*djqdt+djtdt-4.*sigma*ts*ts*ts
       f2e=djqde+djmde
@@ -3219,9 +3225,9 @@ end subroutine difc
       ajb=anu*(tb(2)-ts)/dzb(1)
       ajq=rrho*ust*qst
       if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-al21(ts))*ajs
+      ajl=al31*ajq-(al31-xl21(ts))*ajs
       else
-      ajl=al21(ts)*ajq
+      ajl=xl21(ts)*ajq
       endif
       ajt=rrho*cp*ust*tst
       ajm=rak1*((psi2-psi1)/dzb(1)-1.)
@@ -3581,7 +3587,7 @@ end subroutine difc
                ff(jt,ia,k)=ffk(jt,ia)
             enddo
          enddo
-!         xl21=3138708.-2339.4*tn ! jjb variable unreferenced
+
          dtcon(k)=(to-tn)/dt
 ! aerosol chemistry:
 !      go to 1000
@@ -3876,6 +3882,8 @@ end subroutine equil
 
       double precision, external :: diff_wat_vap
       double precision, external :: therm_conduct_air
+      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+      real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
@@ -3918,8 +3926,8 @@ end subroutine equil
 ! all formulas and constants after Pruppacher and Klett Chapter 13.
 ! droplet growth equation after Davies, J. Atmos. Sci., 1987
       p21(t)=610.7*exp(17.15*(t-273.15)/(t-38.33))
-      xl21=3138708.-2339.4*t
-      xldcp=xl21/cp
+      zxl21=xl21(t)
+      xldcp=zxl21/cp
 
 !      xka=4.38e-03+7.1e-05*t ! (13-18a) converted ?
       xka=therm_conduct_air(t)
@@ -3932,7 +3940,7 @@ end subroutine equil
       deltat=2.7*xl
       rho=p/(r0*t*(1+0.61*xm1))
       rho21=p21(t)/(r1*t)
-      rho21s=(xl21/(r1*t)-1.)*rho21/t
+      rho21s=(zxl21/(r1*t)-1.)*rho21/t
       a0=a0m/t
       xdv0=xdv*sqrt(2.*pi/(r1*t))/3.6e-08
       xka0=xka*sqrt(2.*pi/(r0*t))/(7.d-07*rho*cp)
@@ -3955,7 +3963,7 @@ end subroutine equil
             sr(jt,ia)=max(0.1d0,exp(a0/rk-b0m(ia)*en(ia)/ew(jt)))
             xdvs=xdv/(rk/(rk+deltav)+xdv0/rk)
             xkas=xka/(rk/(rk+deltat)+xka0/rk)
-            x1=rhow*(xl21+xkas/(xdvs*rho21s*sr(jt,ia)))
+            x1=rhow*(zxl21+xkas/(xdvs*rho21s*sr(jt,ia)))
             cd(jt,ia)=3.d+12*rho21*xkas/(x1*rk*rk*rho21s*sr(jt,ia))
             if (kr0.eq.3.and.rn(ia).lt.0.5) kr0=2
             rad=0.
@@ -6304,4 +6312,32 @@ end subroutine equil
 !--------------------------------------------------------------------------
 !
 
+! Compute the latent heat of vaporisation as a function of temperature
+function xl21(temperature)
 
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Function arguments
+  ! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: temperature         ! in [K]
+
+! Local parameters:
+  real(kind=dp)             :: ppA = 3138708._dp   ! in J/kg
+  real(kind=dp)             :: ppB = -2339.4_dp    ! in J/kg/K
+! Local scalars:
+  real(kind=dp)             :: xl21                ! in J/kg
+!- End of header ------------------------------------------------------------
+
+  xl21 = ppA + ppB*temperature
+
+end function xl21
+
+
+!
+!--------------------------------------------------------------------------
+!
