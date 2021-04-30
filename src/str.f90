@@ -301,7 +301,6 @@ program mistra
            
 ! turbulent exchange of thermodynamic variables, particles and
 ! chemical species
-!         print*,'call difm'
            call difm (dd)
            if (chem) call difc (dd)
 ! microphysics
@@ -2127,150 +2126,187 @@ end subroutine wfield
 !-------------------------------------------------------------------
 !
 
-      subroutine difm (dt)
-! fully implicit procedure for the solution of the diffusion equations
-! after Roache, 1972: Computational fluid dynamics, Appendix A.
-! all quantities are similarly defined with a(k) --> xa(k), etc.
-! except xd(k) which has another meaning than d(k) of Roache's program.
-! dirichlet conditions at the surface and at the top of the atmosphere
+subroutine difm (dt)
+!
+! Description:
+! -----------
+  ! fully implicit procedure for the solution of the diffusion equations
+  ! after Roache, 1972: Computational fluid dynamics, Appendix A.
+  ! all quantities are similarly defined with a(k) --> xa(k), etc.
+  ! except xd(k) which has another meaning than d(k) of Roache's program.
+  ! dirichlet conditions at the surface and at the top of the atmosphere
 
-      USE constants, ONLY : &
+! Declarations :
+! ------------
+! Modules used:
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     r0               ! Specific gas constant of dry air, in J/(kg.K)
+       r0               ! Specific gas constant of dry air, in J/(kg.K)
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nm, &
-     &     nka
+       n,                   &
+       nm,                  &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      parameter (fcor=1.d-4)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Subroutine arguments
+  real (kind=dp), intent(in)  :: dt          ! fractional timestep
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+! Local parameters:
+  real (kind=dp), parameter :: fcor=1.e-4_dp ! mean coriolis parameter (1/s)
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+! Local scalars:
+  integer :: k, kp      ! running indices
+  real (kind=dp) :: fdt
+  real (kind=dp) :: p21, tt
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! Local arrays:
+  real (kind=dp) :: c(n)
 
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+! Common blocks:
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      dimension c(n)
-      p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
-      tke(1)=dmax1(1.d-06,3.2537*ustern**2)
-      do k=1,n
-         rho(k)=p(k)/(r0*(t(k)*(1.+0.61*xm1(k))))
-         theta(k)=t(k)*thet(k)
-         tke(k)=dmax1(1.d-05,tke(k)+tkep(k)*dt)
-         c(k)=w(k)*dt/deta(k)
-      enddo
-! exchange coefficients
-      call atk1
-! turbulent exchange with k_m:
-      xa(1)=atkm(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atkm(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb46/ ustern,gclu,gclt
+  real (kind=dp) :: ustern, gclu, gclt
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
+  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
+  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+
+! statement function
+  p21(tt)=610.7*dexp(17.15*(tt-273.15)/(tt-38.33))
+
+! == End of declarations =======================================================
+
+! update of prognostic variables
+  tke(1)=max(1.e-06_dp,3.2537_dp*ustern**2)
+  do k=1,n
+     rho(k)=p(k)/(r0*(t(k)*(1._dp+0.61_dp*xm1(k))))
+     theta(k)=t(k)*thet(k)
+     tke(k)=max(1.e-05_dp,tke(k)+tkep(k)*dt)
+     c(k)=w(k)*dt/deta(k)
+  enddo
+
+! calculation of turbulent exchange coefficients
+  call atk1
+
+! -----------------------------------------------------------------------------
+
+! solution of the diffusive equations
+!------------------------------------
+
+! turbulent exchange with 'k_m' (atkm):
+  xa(1)=atkm(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atkm(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+
 ! u-component of horizontal wind field
-      fdt=fcor*dt
-      xf(1)=0.
-      do k=2,nm
-         oldu(k)=u(k)
-         xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         u(k)=xe(k)*u(k+1)+xf(k)
-      enddo
-! v-component of the horizontal wind field
-      do k=2,nm
-         xf(k)=(v(k)-fdt*(oldu(k)-ug)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         v(k)=xe(k)*v(k+1)+xf(k)
-      enddo
-! turbulent kinetic energy
-      xa(1)=atke(1)*dt/(detw(1)*deta(1))
-      xe(1)=0.
-      do k=2,nm
-         xa(k)=atke(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
-      xf(1)=tke(1)
-      do k=2,nm
-         xf(k)=(tke(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         tke(k)=xe(k)*tke(k+1)+xf(k)
-      enddo
-! turbulent exchange with k_h:
-      xa(1)=atkh(1)*dt/(detw(1)*deta(1))
-      do k=2,nm
-         xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-         xc(k)=xa(k-1)*detw(k-1)/detw(k)
-         xb(k)=1.+xa(k)+xc(k)
-         xd(k)=xb(k)-xc(k)*xe(k-1)
-         xe(k)=xa(k)/xd(k)
-      enddo
-! specific humidity
-      xf(1)=xm1(1)
-      do k=2,nm
-         xf(k)=(xm1(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         xm1(k)=xe(k)*xm1(k+1)+xf(k)
-      enddo
-! new temperature obtained from potential temperature
-      xf(1)=theta(1)
-      do k=2,nm
-         xf(k)=(theta(k)+xc(k)*xf(k-1))/xd(k)
-      enddo
-      do k=nm,2,-1
-         theta(k)=xe(k)*theta(k+1)+xf(k)
-      enddo
-! large scale subsidence
-      do k=2,nm
-         kp=k+1
-         theta(k)=theta(k)-c(k)*(theta(kp)-theta(k))
-         u(k)=u(k)-c(k)*(u(kp)-u(k))
-         v(k)=v(k)-c(k)*(v(kp)-v(k))
-         xm1(k)=xm1(k)-c(k)*(xm1(kp)-xm1(k))
-         tke(k)=tke(k)-0.5*(c(k)+c(k+1))*(tke(kp)-tke(k))
-      enddo
-      do k=2,nm
-         t(k)=theta(k)*theti(k)
-         feu(k)=xm1(k)*p(k)/((0.62198+0.37802*xm1(k))*p21(t(k)))
-      enddo
+  fdt=fcor*dt
+  xf(1)=0._dp
+  do k=2,nm
+     oldu(k)=u(k)
+     xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     u(k)=xe(k)*u(k+1)+xf(k)
+  enddo
 
-      end subroutine difm
+! v-component of the horizontal wind field
+  do k=2,nm
+     xf(k)=(v(k)-fdt*(oldu(k)-ug)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     v(k)=xe(k)*v(k+1)+xf(k)
+  enddo
+
+! turbulent kinetic energy with 'k_e' (atke):
+  xa(1)=atke(1)*dt/(detw(1)*deta(1))
+  xe(1)=0._dp
+  do k=2,nm
+     xa(k)=atke(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+  xf(1)=tke(1)
+  do k=2,nm
+     xf(k)=(tke(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     tke(k)=xe(k)*tke(k+1)+xf(k)
+  enddo
+
+! turbulent exchange with 'k_h' (atkh):
+  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  do k=2,nm
+     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
+     xb(k)=1._dp+xa(k)+xc(k)
+     xd(k)=xb(k)-xc(k)*xe(k-1)
+     xe(k)=xa(k)/xd(k)
+  enddo
+
+! specific humidity
+  xf(1)=xm1(1)
+  do k=2,nm
+     xf(k)=(xm1(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     xm1(k)=xe(k)*xm1(k+1)+xf(k)
+  enddo
+! new temperature obtained from potential temperature
+  xf(1)=theta(1)
+  do k=2,nm
+     xf(k)=(theta(k)+xc(k)*xf(k-1))/xd(k)
+  enddo
+  do k=nm,2,-1
+     theta(k)=xe(k)*theta(k+1)+xf(k)
+  enddo
+
+! large scale subsidence
+  do k=2,nm
+     kp=k+1
+     theta(k)=theta(k)-c(k)*(theta(kp)-theta(k))
+     u(k)=u(k)-c(k)*(u(kp)-u(k))
+     v(k)=v(k)-c(k)*(v(kp)-v(k))
+     xm1(k)=xm1(k)-c(k)*(xm1(kp)-xm1(k))
+     tke(k)=tke(k)-0.5_dp*(c(k)+c(k+1))*(tke(kp)-tke(k))
+  enddo
+  do k=2,nm
+     t(k)=theta(k)*theti(k)
+     feu(k)=xm1(k)*p(k)/((0.62198_dp+0.37802_dp*xm1(k))*p21(t(k)))
+  enddo
+
+end subroutine difm
 
 !
 !----------------------------------------------------------------------
@@ -2310,7 +2346,7 @@ end subroutine wfield
       integer :: nar
 
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
 
       dimension c(n)
 
