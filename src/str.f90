@@ -312,14 +312,13 @@ program mistra
            if (mic) then
               call difp (dd)          ! turbulent exchange of particles
 ! condensation/evaporation, update of chemical concentrations
-!              print*,'call kon'
               call kon (dd,chem)
 ! gravitational settling of particles
 !              print*,'call sedp'
               call sedp (dd)
 ! put aerosol into equilibrium with current rel hum for k>nf
 !              print*,'call equil'
-              call equil (2,k)
+              call equil (2)
            endif
 ! put aerosol into equilibrium with current rel hum
            if (.not.mic) call equil (1,n_bl)
@@ -3396,267 +3395,323 @@ end subroutine difc
 !-------------------------------------------------------------
 !
 
-      subroutine kon (dt,chem)
+subroutine kon (dt,chem)
+!
+! Description:
+! -----------
+  ! Driving routine for the calculation  of the diffusional droplet growth
+  ! by condensation. Formulation for explicit cloud microphysics with
+  ! two-dimensional droplet and aerosol distribution
 
-! diffusional droplet growth by condensation
 
-!     jjb work done
-!      removed one unused parameter; use module instead
-!      removed k0=k, used only in equil argument. For the sake of clarity
+! Author:
+! ------
+  !    Andreas Bott
+  !    Roland von Glasow (chemistry part)
 
+
+! Modifications :
+! -------------
+  !     ?        Josue Bock  corrected initialisation, nkc_l replaced by nkc
+  !
+
+  !     jjb work done
+  !      removed one unused parameter; use module instead
+  !      removed k0=k, used only in equil argument. For the sake of clarity
+
+  ! 01-May-2021  Josue Bock  remove potot, computed but unused
+  !                          corrected the array size in blck07 and blck08: nf+1 instead of n
+  !                            (note that indexes 2:nf only are used in SR konc)
+  !                          potential bugfix: compute "chemical" arrays whatever rH (<=70% or >70%)
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
 
 !      USE config, ONLY :
 !     &     nkc_l
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc, &
-     &     mb
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc, &
+       mb
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      interface
-         subroutine equil (ncase,kk)
-           integer,           intent(in)  :: ncase
-           integer, optional, intent(in)  :: kk    ! model level for calculation
-         end subroutine equil
-      end interface
+! Interface (required for SR equil, which has an optional argument)
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
 
-      logical chem!,chmic ! jjb defined below, but unused
-      real (kind=dp), external :: p21
+! Subroutine arguments
+  logical,       intent(in) :: chem
+  real (kind=dp),intent(in) :: dt
 
-      common /cb11/ totrad (mb,n)
-      double precision totrad
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: z4pi3 = 4._dp * pi / 3._dp
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Local scalars:
+  integer :: ia, ib, jt, k
+  real (kind=dp), external :: p21
+  !real (kind=dp) :: potot(nkc,n)
+  ! JJB temporary, check if my bugfix is justified or not
+  logical :: lfeu, lcheck
+  ! end JJB temproray
 
-      common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
+! Common blocks:
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb48/ sk,sl,dtrad(n),dtcon(n)
+  real (kind=dp) :: sk, sl, dtrad, dtcon
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
-     &              xm1o,xm1n,kr
-      double precision ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
-      integer kr
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck06/ kw(nka),ka
-      common /blck07/ part_o_a(nka,n),part_o_d(nka,n), &
-     &                part_n_a(nka,n),part_n_d(nka,n),pntot(nkc,n)
-      common /blck08/ vol1_a(nka,n),vol1_d(nka,n),vol2(nkc,n)
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
-!     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      dimension potot(nkc,n)
-      do 1000 k=2,nf+1
-! initialize
-         do ia=1,nka
-            vol1_a(ia,k)=0.
-            vol1_d(ia,k)=0.
-            part_o_a(ia,k)=0.
-            part_o_d(ia,k)=0.
-            part_n_a(ia,k)=0.
-            part_n_d(ia,k)=0.
-         enddo
-!        do kc=1,nkc_l ! jjb no reason to initialise only until nkc_l
-         do kc=1,nkc
-            vol2(kc,k)=0.
-            potot(kc,k)=0.
-            pntot(kc,k)=0.
-         enddo
-         dtcon(k)=0.
-         tn=t(k)
-         xm1n=xm1(k)
-!         xm2n=xm2(k) ! jjb variable unreferenced
-         pp=p(k)
-         if (feu(k).ge.0.7) goto 2000
-         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21(tn))
-         call equil (1,k)
-         go to 1000
- 2000    continue
-         dfdt=dfddt(k)
-         to=talt(k)
-         xm1o=xm1a(k)
-         feualt=feu(k)
-         do ib=1,mb
-            totr(ib)=totrad(ib,k)
-         enddo
-         kr=nar(k)
-         do ia=1,nka
-            do jt=1,nkt
-               ffk(jt,ia)=ff(jt,ia,k)
-            enddo
-         enddo
-!         chmic=chem.and.(xm2(k).gt.1.d-05)
-! aerosol chemistry:
-!      go to 2010
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
+  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
+                   xm1o,xm1n,kr
+  real (kind=dp) :: ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
+  integer :: kr
+
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &              ! old aerosol and droplet
+                  part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1) ! new aerosol and droplet, total per chem bin
+  real (kind=dp) :: part_o_a, part_o_d, part_n_a, part_n_d, pntot
+  common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
+  real (kind=dp) :: vol1_a, vol1_d, vol2
+
+! == End of declarations =======================================================
+
+! Initialise arrays for chemistry
+  if (chem) then
+     ! (nka,nf+1) arrays
+     vol1_a(:,:)=0._dp
+     vol1_d(:,:)=0._dp
+     part_o_a(:,:)=0._dp
+     part_o_d(:,:)=0._dp
+     part_n_a(:,:)=0._dp
+     part_n_d(:,:)=0._dp
+     ! (nkc,nf+1) arrays
+     vol2(:,:)=0._dp
+     !potot(:,:)=0._dp
+     pntot(:,:)=0._dp
+     ! JJB temproray
+     lfeu = .false.
+     lcheck = .false.
+     ! end JJB temproray
+  end if
+
+  kloop: do k=2,nf+1
+     dtcon(k) = 0._dp
+     ! set local variables
+     tn   = t(k)
+     xm1n = xm1(k)
+     pp   = p(k)
+     ffk(:,:) = ff(:,:,k) ! jjb: moved from below (rH>70% case) for chem calculations
+
+     ! Compute particle/volume for chemistry before
+     !   (this was done only in the rH>0.7 case, now done whatever the case)
+     if (chem) then
+
 ! aerosol + cloud chemistry:
 ! vol2 and vol1 old liquid volume in class (1-nkc) and row/class (1-nkc,1-nka)
 ! (um^3/cm^3), used in SR konc to shift moles from aerosol to drop
 ! and vice versa.
 ! part_o and part_n old and new part. conc. in row/class (1-nkc,1-nka) (cm^-3)
 ! take care if non-soluble parts are in aerosol
-!      if (.not.chmic) go to 2010
-         if (.not.chem) go to 2010
-!         xpi=4./3.*3.1415927
-         xpi=4./3.*pi
-! small (dry) aerosol: aerosol (1) and droplet (3)
-         do ia=1,ka
-            do jt=1,kw(ia)
-               vol1_a(ia,k)=vol1_a(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_a(ia,k)=part_o_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               vol1_d(ia,k)=vol1_d(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_d(ia,k)=part_o_d(ia,k)+ffk(jt,ia)
-            enddo
-            vol2(1,k)=vol2(1,k)+vol1_a(ia,k)
-            vol2(3,k)=vol2(3,k)+vol1_d(ia,k)
-            potot(1,k)=potot(1,k)+part_o_a(ia,k)
-            potot(3,k)=potot(3,k)+part_o_d(ia,k)
-         enddo
-! large (dry) aerosol: aerosol (2) and droplet (4)
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               vol1_a(ia,k)=vol1_a(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_a(ia,k)=part_o_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               vol1_d(ia,k)=vol1_d(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_d(ia,k)=part_o_d(ia,k)+ffk(jt,ia)
-            enddo
-            vol2(2,k)=vol2(2,k)+vol1_a(ia,k)
-            vol2(4,k)=vol2(4,k)+vol1_d(ia,k)
-            potot(2,k)=potot(2,k)+part_o_a(ia,k)
-            potot(4,k)=potot(4,k)+part_o_d(ia,k)
-         enddo
-! old version:
-!      if (.not.chmic) go to 2010
-!      ap1o(k)=0.
-!      ap2o(k)=0.
-!      do ia=1,nka
-!         apo(k,ia)=0.
-!         do jt=1,kg
-!            apo(k,ia)=apo(k,ia)+ffk(jt,ia)
-!         enddo
-!         do jt=kgp,kd
-!            ap1o(k)=ap1o(k)+ffk(jt,ia)
-!         enddo
-!         do jt=kdp,nkt
-!            ap2o(k)=ap2o(k)+ffk(jt,ia)
-!         enddo
-!      enddo
- 2010    continue
+
+        ! small (dry) aerosol: aerosol (1) and droplet (3)
+        do ia=1,ka
+           ! aerosol: jt=1,kw(ia)
+           vol1_a(ia,k)   = sum( ffk(1:kw(ia),ia) * z4pi3 * rq(1:kw(ia),ia)**3 )
+           part_o_a(ia,k) = sum( ffk(1:kw(ia),ia) )
+           ! droplets: jt=kw(ia)+1,nkt
+           vol1_d(ia,k)   = sum( ffk(kw(ia)+1:nkt,ia) * z4pi3 * rq(kw(ia)+1:nkt,ia)**3 )
+           part_o_d(ia,k) = sum( ffk(kw(ia)+1:nkt,ia) )
+        end do
+        vol2(1,k) = sum(vol1_a(1:ka,k))
+        vol2(3,k) = sum(vol1_d(1:ka,k))
+        !potot(1,k) = sum(part_o_a(1:ka,k))
+        !potot(3,k) = sum(part_o_d(1:ka,k))
+
+        ! large (dry) aerosol: aerosol (2) and droplet (4)
+        do ia=ka+1,nka
+           vol1_a(ia,k)   = sum( ffk(1:kw(ia),ia) * z4pi3 * rq(1:kw(ia),ia)**3)
+           part_o_a(ia,k) = sum( ffk(1:kw(ia),ia) )
+           vol1_d(ia,k)   = sum( ffk(kw(ia)+1:nkt,ia) * z4pi3 * rq(kw(ia)+1:nkt,ia)**3)
+           part_o_d(ia,k) = sum( ffk(kw(ia)+1:nkt,ia) )
+        end do
+        vol2(2,k) = sum(vol1_a(ka+1:nka,k))
+        vol2(4,k) = sum(vol1_d(ka+1:nka,k))
+        !potot(2,k) = sum(part_o_a(ka+1:nka,k))
+        !potot(4,k) = sum(part_o_d(ka+1:nka,k))
+     end if
+
+! dry case: update of humidified aerosol with Koehler curve
+!----------------------------------------------------------
+     if (feu(k).lt.0.7_dp) then
+        feu(k)=xm1n*pp/((0.62198_dp + 0.37802_dp * xm1n)*p21(tn))
+        call equil (1,k)
+        if (chem) then
+           ! equil update directly ff array; for chemistry calculations below, update ffk
+           ffk(:,:) = ff(:,:,k)
+           ! JJB temproray
+           lfeu = .true.
+           ! end JJB temproray
+        end if
+
+
+! moist case, calculate condensational droplet growth
+! ---------------------------------------------------
+     else
+        ! JJB temproray
+        lfeu = .false.
+        ! end JJB temproray
+
+! set input values for condensation calculation
+        dfdt   = dfddt(k)
+        to     = talt(k)
+        xm1o   = xm1a(k)
+        feualt = feu(k)
+        ! radiation effect
+        do ib=1,mb
+           totr(ib)=totrad(ib,k)
+        enddo
+        kr=nar(k)
+        ! jjb: moved above for chem calculations
+        !do ia=1,nka
+        !    do jt=1,nkt
+        !       ffk(jt,ia)=ff(jt,ia,k)
+        !    enddo
+        ! enddo
+
 ! condensation and evaporation of droplets
 ! to: temperature after condensation of last timestep;
 ! tn: temperature before condensation of current timestep;
 ! tn = to + diffusion, radiation etc.
 ! same with xm1o and xm1n
-         call subkon (dt)
+
+        call subkon (dt)
+
 ! new values
-         t(k)=to
-         talt(k)=to
-         xm1(k)=xm1o
-         xm1a(k)=xm1o
-         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21(to))
-         dfddt(k)=(feu(k)-feualt)/dt
-         xm2(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xm2(k)=xm2(k)+ffk(jt,ia)*e(jt)
-               ff(jt,ia,k)=ffk(jt,ia)
-            enddo
-         enddo
+        t(k)     = to
+        talt(k)  = to
+        xm1(k)   = xm1o
+        xm1a(k)  = xm1o
+        feu(k)   = xm1o*pp/((0.62198_dp + 0.37802_dp * xm1o)*p21(to))
+        dfddt(k) = (feu(k)-feualt)/dt
+        xm2(k) = 0._dp
+        do ia=1,nka
+           do jt=1,nkt
+              xm2(k) = xm2(k)+ffk(jt,ia)*e(jt)
+              ff(jt,ia,k) = ffk(jt,ia)
+           enddo
+        enddo
+        dtcon(k)=(to-tn)/dt
+     end if
 
-         dtcon(k)=(to-tn)/dt
-! aerosol chemistry:
-!      go to 1000
-! aerosol + cloud chemistry:
-         if (.not.chem) go to 1000
-! small (dry) aerosol: aerosol (1) and droplet (3)
-         do ia=1,ka
-            do jt=1,kw(ia)
-               part_n_a(ia,k)=part_n_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               part_n_d(ia,k)=part_n_d(ia,k)+ffk(jt,ia)
-            enddo
-            pntot(1,k)=pntot(1,k)+part_n_a(ia,k)
-            pntot(3,k)=pntot(3,k)+part_n_d(ia,k)
-         enddo
-! large (dry) aerosol: aerosol (2) and droplet (4)
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               part_n_a(ia,k)=part_n_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               part_n_d(ia,k)=part_n_d(ia,k)+ffk(jt,ia)
-            enddo
-            pntot(2,k)=pntot(2,k)+part_n_a(ia,k)
-            pntot(4,k)=pntot(4,k)+part_n_d(ia,k)
-         enddo
+     if (chem) then
+        ! small (dry) aerosol: aerosol (1) and droplet (3)
+        do ia=1,ka
+           part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
+           part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
+           ! JJB temporary check
+           if (lfeu) then
+              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
+                 print*,part_n_a(ia,k),part_o_a(ia,k)
+                 lcheck=.true.
+              end if
+              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
+                 print*,part_n_d(ia,k),part_o_d(ia,k)
+                 lcheck=.true.
+              end if
+           end if
+           ! end JJB
+        end do
+        pntot(1,k)=sum(part_n_a(1:ka,k))
+        pntot(3,k)=sum(part_n_d(1:ka,k))
 
+        ! large (dry) aerosol: aerosol (2) and droplet (4)
+        do ia=ka+1,nka
+           part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
+           part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
+           ! JJB temporary check
+           if (lfeu) then
+              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
+                 print*,part_n_a(ia,k),part_o_a(ia,k)
+                 lcheck=.true.
+              end if
+              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
+                 print*,part_n_d(ia,k),part_o_d(ia,k)
+                 lcheck=.true.
+              end if
+           end if
+           ! end JJB
+        enddo
+        pntot(2,k)=sum(part_n_a(ka+1:nka,k))
+        pntot(4,k)=sum(part_n_d(ka+1:nka,k))
+     endif
 
-! old version:
-!      if (.not.chmic) go to 1000
-!      ap2n(k)=0.
-!      do ia=1,nka
-!         apn(k,ia)=0.
-!         do jt=1,kg
-!            apn(k,ia)=apn(k,ia)+ffk(jt,ia)
-!         enddo
-!         do jt=kdp,nkt
-!            ap2n(k)=ap2n(k)+ffk(jt,ia)
-!         enddo
-!      enddo
- 1000 continue
+  end do kloop
+
 ! cloudy region: lowest (lcl) and highest (lct) cloud layer
-      do k=nf+1,1,-1
-         lct=k
-         if (xm2(k).gt.1.d-05) go to 2030
-      enddo
-      lcl=1
-      lct=1
-      if (chem) call konc
-      return
+  do k=nf+1,1,-1
+     lct=k
+     if (xm2(k).gt.1.e-5_dp) exit
+  enddo
+  do k=1,lct
+     lcl=k
+     if (xm2(k).gt.1.e-5_dp) exit
+  enddo
 
- 2030 continue
-      do k=1,lct
-         lcl=k
-         if (xm2(k).gt.1.d-05) go to 2040
-      enddo
- 2040 continue
+  ! end JJB temproray
+  if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  ! end JJB temproray
+
 ! update chemical species
-! aerosol chemistry:
-!      if (chem.and.lct.gt.lcl) call konc
-! aerosol + cloud chemistry:
-      if (chem) call konc
+  if (chem) call konc
 
-      end subroutine kon
+
+
+end subroutine kon
 
 !
 !-------------------------------------------------------------
