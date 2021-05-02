@@ -1211,7 +1211,7 @@ end block data
 !      scal=1.36
 ! ln(10)=2.3025851  ln(x)=log(10)*log(x)
 !      dlgew=dlog10(scal)
-      dlne=2.3025851*dlgew
+      dlne = 2.3025851_dp * dlgew
 !      ax=2.d0**(1.0/scal)
       ew(1)=ewmin*ax
       e(1)=0.5*(ew(1)+ewmin)
@@ -3905,186 +3905,221 @@ end subroutine equil
 !-------------------------------------------------------------
 !
 
-      subroutine subkon (dt)
-! core of microphysics: growth in 2D particle grid
+subroutine subkon (dt)
+!
+! Description:
+! -----------
+  !  Calculation of the diffusional droplet growth by condensation. 
+  !  Formulation for explicit cloud microphysics with two-dimensional droplet
+  !  and aerosol distribution.
+  !  All formulas and constants after Pruppacher and Klett Chapter 13.
+  !  Droplet growth equation after Davies, J. Atmos. Sci., 1987
 
-! jjb work done:
-!     - reindexed all (nka,nkt) arrays for computing efficiency
-!     - defined water diffusivity as an external function
+!
+! Variables:
+! -----------
+  ! xl21 latent heat of evaporation; p21t water vapor pressure at satur.
+  ! xl mean free path;
+  ! deltav water vapor jump; deltat temperature jump
+  ! xdvs,xkas diffusivity, conductivity corrected for small droplets
+  ! xdv0, xka0 factors used for calculating xdvs and xkas.
+  ! all terms in MKSA units only droplet mass and radius in mg and microns
+  ! a0[microns]=2*sigma/(r1*rhow*t)*1.e6; sigma=76.1e-3=surface tension
+  ! b0 solution term of koehler equation: b0=xnue*xmol2/xmol3*xa*ma/mw
+  ! xnue: number of ions; xmol2 (xol3) mol masses of pure water (aerosols)
+  ! xa volume fraction of soluble to unsoluble part of aerosol
+  ! mw (ma) masses of water (aerosol nucleus)
+  ! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
 
-      USE constants, ONLY : &
+
+! Modifications :
+! -------------
+  ! jjb work done:
+  !     - reindexed all (nka,nkt) arrays for computing efficiency
+  !     - defined water diffusivity as an external function
+  !     - bugfix: residue (res) was not initialised. Ok if compiler sets all variables=0
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp, &                   ! Specific heat of dry air, in J/(kg.K)
-     &     pi, &
-     &     r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
-     &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
-     &     rhow                  ! Water density [kg/m**3]
+       cp, &                   ! Specific heat of dry air, in J/(kg.K)
+       pi, &
+       r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
+       r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
+       rhow                    ! Water density [kg/m**3]
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     jptaerrad, &
-     &     nka, &
-     &     nkt, &
-     &     mb
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       jptaerrad, &
+       nka, &
+       nkt, &
+       mb
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      ! jjb declarations
-      integer :: kr0
+  implicit none
 
-      double precision :: xdv ! diffusivity of water vapour in air in [m2/s]
-      double precision :: xka ! thermal conductivity of air in [J/(m*s*K)]
+! Subroutine arguments
+  real (kind=dp),intent(in) :: dt
 
-      double precision, external :: diff_wat_vap
-      double precision, external :: therm_conduct_air
-      real (kind=dp), external :: p21  ! saturation vapour pressure
-      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
-      real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
+! Local scalars
+  integer :: ia, ib0, ib, itk, jt, jtp, kr0
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: xldcp, xka, xdv, xl, &
+       xdvs, xkas, &
+       deltav, deltat, &
+       rho, rho21, rho21s,&
+       a0, xdv0, xka0, &
+       de0, dep, de0p, &
+       rk, x1, aa0, aa, &
+       rad, p1, &
+       feuneu, fquer, fqa, &
+       dwsum, dmsum, dtsum, &
+       resold, res, dres
 
-      common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
-     &              qext(18,nkt,nka,jptaerrad), &
-     &              asym(18,nkt,nka,jptaerrad)
-      double precision qabs,qext,asym
+  real (kind=dp), external :: diff_wat_vap
+  real (kind=dp), external :: therm_conduct_air
+  real (kind=dp), external :: p21  ! saturation vapour pressure
+  real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+  real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+! Local arrays
+  real (kind=dp) :: cd(nkt,nka),cr(nkt,nka),sr(nkt,nka),falt(nkt,nka),c(nkt)
+  real (kind=dp) :: psi(nkt),u(nkt)
 
-      common /cb51/ dlgew,dlgenw,dlne
-      real (kind=dp) :: dlgew, dlgenw, dlne
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      double precision :: psi(nkt),u(nkt)
+  common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
+                qext(18,nkt,nka,jptaerrad), &
+                asym(18,nkt,nka,jptaerrad)
+  real (kind=dp) :: qabs,qext,asym
 
-      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,p,t,tn,xm1,xm1n,kr
-      double precision ffk, totr, dfdt, feualt, p, t, tn, xm1, xm1n
-      integer kr
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      dimension cd(nkt,nka),cr(nkt,nka),sr(nkt,nka),falt(nkt,nka),c(nkt)
+  common /cb51/ dlgew,dlgenw,dlne
+  real (kind=dp) :: dlgew, dlgenw, dlne
 
+  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,p,t,tn,xm1,xm1n,kr
+  real (kind=dp) :: ffk, totr, dfdt, feualt, p, t, tn, xm1, xm1n
+  integer :: kr
 
-! xl21 latent heat of evaporation; p21t water vapor pressure at satur.
-! xl mean free path;
-! deltav water vapor jump; deltat temperature jump
-! xdvs,xkas diffusivity, conductivity corrected for small droplets
-! xdv0, xka0 factors used for calculating xdvs and xkas.
-! all terms in MKSA units only droplet mass and radius in mg and microns
-! a0[microns]=2*sigma/(r1*rhow*t)*1.e6; sigma=76.1e-3=surface tension
-! b0 solution term of koehler equation: b0=xnue*xmol2/xmol3*xa*ma/mw
-! xnue: number of ions; xmol2 (xol3) mol masses of pure water (aerosols)
-! xa volume fraction of soluble to unsoluble part of aerosol
-! mw (ma) masses of water (aerosol nucleus)
-! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
-! all formulas and constants after Pruppacher and Klett Chapter 13.
-! droplet growth equation after Davies, J. Atmos. Sci., 1987
-      zxl21=xl21(t)
-      xldcp=zxl21/cp
+! == End of declarations =======================================================
 
-!      xka=4.38e-03+7.1e-05*t ! (13-18a) converted ?
-      xka=therm_conduct_air(t)
+  zxl21  = xl21(t)
+  xldcp  = zxl21/cp
+  xka    = therm_conduct_air(t)
+  xdv    = diff_wat_vap(t,p)
+  xl     = 24.483_dp *t/p        ! P&K eq. (10-140) but T0=273.15, mistake?
+  deltav = 1.3_dp * xl
+  deltat = 2.7_dp * xl
+  rho    = p/(r0*t*(1._dp + 0.61_dp * xm1))
+  rho21  = p21(t)/(r1*t)
+  rho21s = (zxl21/(r1*t)-1._dp)*rho21/t
+  a0     = a0m/t
+  xdv0   = xdv*sqrt(2._dp*pi/(r1*t)) / 3.6e-08_dp
+  xka0   = xka*sqrt(2._dp*pi/(r0*t)) / (7.e-07_dp * rho * cp)
+  kr0    = kr
 
-!      xdv=4.0122e-05/p*t**1.94
-      xdv=diff_wat_vap(t,p)
+  if (totr(1).lt.1._dp) then
+     ib0=7                  ! solar bands excluded, IR only
+  else
+     ib0=1
+  end if
 
-      xl=24.483*t/p ! (10-140 ?)
-      deltav=1.3*xl
-      deltat=2.7*xl
-      rho=p/(r0*t*(1+0.61*xm1))
-      rho21=p21(t)/(r1*t)
-      rho21s=(zxl21/(r1*t)-1.)*rho21/t
-      a0=a0m/t
-      xdv0=xdv*sqrt(2.*pi/(r1*t))/3.6e-08
-      xka0=xka*sqrt(2.*pi/(r0*t))/(7.d-07*rho*cp)
-      kr0=kr
+  do ia=1,nka
+     do jt=1,nkt
+        jtp=min(jt+1,nkt)
+        de0=dew(jt)
+        dep=dew(jtp)
+        de0p=de0+dep
 
-      if (totr(1).lt.1.) then
-         ib0=7                  ! solar bands excluded, IR only
-      else
-         ib0=1
-      end if
+        rk = rw(jt,ia)
+        sr(jt,ia) = max(0.1_dp, exp(a0 / rk - b0m(ia) * en(ia) / ew(jt)))
+        xdvs = xdv / (rk / (rk + deltav) + xdv0 / rk)
+        xkas = xka / (rk / (rk + deltat) + xka0 / rk)
+        x1 = rhow * (zxl21 + xkas / (xdvs * rho21s * sr(jt,ia)))
+        cd(jt,ia) = 3.e12_dp * rho21 * xkas / (x1 * rk * rk * rho21s * sr(jt,ia))
+        if (kr0.eq.3.and.rn(ia).lt.0.5_dp) kr0=2 ! jjb need investigation /!\ bug: once changed, will not change again to its original value
+        rad=0._dp
+        do ib=ib0,mb
+           rad = rad + totr(ib) * (qabs(ib,jt,ia,kr0)  * de0 + &
+                                   qabs(ib,jtp,ia,kr0) * dep) / de0p
+        enddo
+        cr(jt,ia) = rad * 7.5e5_dp / (rk * x1) - rhow * 4190._dp * (tn-t)/(dt*x1)
+     enddo
+  enddo
+  falt(:,:) = ffk(:,:)
 
-      do ia=1,nka
-         do jt=1,nkt
-            jtp=min(jt+1,nkt)
-            de0=dew(jt)
-            dep=dew(jtp)
-            de0p=de0+dep
+  feuneu=feualt+dfdt*dt
+  if (feualt.lt.0.95_dp) then
+     feuneu=xm1n*p/(p21(tn)*(.62198_dp + .37802_dp * xm1n))
+  end if
+  fquer=0.5_dp * (feuneu+feualt)
+  ! Initialisation
+  res = 0._dp ! residue
+  aa0 = 1._dp / dt
 
-            rk=rw(jt,ia)
-            sr(jt,ia)=max(0.1d0,exp(a0/rk-b0m(ia)*en(ia)/ew(jt)))
-            xdvs=xdv/(rk/(rk+deltav)+xdv0/rk)
-            xkas=xka/(rk/(rk+deltat)+xka0/rk)
-            x1=rhow*(zxl21+xkas/(xdvs*rho21s*sr(jt,ia)))
-            cd(jt,ia)=3.d+12*rho21*xkas/(x1*rk*rk*rho21s*sr(jt,ia))
-            if (kr0.eq.3.and.rn(ia).lt.0.5) kr0=2
-            rad=0.
-            do ib=ib0,mb
-               rad=rad+totr(ib)*(qabs(ib,jt,ia,kr0)*de0+ &
-     &             qabs(ib,jtp,ia,kr0)*dep)/de0p
-            enddo
-            cr(jt,ia)=rad*7.5e05/(rk*x1)-rhow*4190.*(tn-t)/(dt*x1)
-         enddo
-      enddo
-      falt(:,:) = ffk(:,:)
+  ! condensation iteration
+  do itk=1,10
+     dwsum=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           psi(jt)=falt(jt,ia)
+           c(jt)=(cd(jt,ia)*(fquer-sr(jt,ia))-cr(jt,ia))/dlne
+        enddo
 
-      feuneu=feualt+dfdt*dt
-      if (feualt.lt.0.95) &
-     & feuneu=xm1n*p/(p21(tn)*(.62198+.37802*xm1n))
-      fquer=0.5*(feuneu+feualt)
-      ! Initialisation
-      res = 0.d0 ! residue
-      aa0=1./dt
-      do itk=1,10
-         dwsum=0.
-         do ia=1,nka
-            do jt=1,nkt
-               psi(jt)=falt(jt,ia)
-               c(jt)=(cd(jt,ia)*(fquer-sr(jt,ia))-cr(jt,ia))/dlne
-            enddo
+        u(1)=max(0._dp,c(1))
+        do jt=2,nkt-1
+           u(jt)=0.5_dp*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
+        enddo
+        u(nkt)=min(0._dp,c(nkt-1))
 
-            u(1)=max(0.d0,c(1))
-            do jt=2,nkt-1
-               u(jt)=0.5*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
-            enddo
-            u(nkt)=min(0.d0,c(nkt-1))
+        call advec (dt,u,psi)
 
-            !print*,'------- New call------',itk,ia
-            call advec (dt,u,psi)
-
-            do jt=1,nkt
-               ffk(jt,ia)=psi(jt) ! jjb
-               dwsum=dwsum+(psi(jt)-falt(jt,ia))*e(jt)
-            enddo
-         enddo
-         dmsum=dwsum/rho
-         dtsum=xldcp*dmsum
-         xm1=xm1n-dmsum
-         t=tn+dtsum
-         p1=xm1*p/(0.62198+0.37802*xm1)
-         feuneu=p1/p21(t)
-         resold=res
-         res=feuneu+feualt-2.*fquer
-!         if (feuneu.lt.0.95.or.abs(res).lt.1.d-06) return
-         if (abs(res).lt.1.d-06) return
+        do jt=1,nkt
+           ffk(jt,ia)=psi(jt)
+           dwsum=dwsum+(psi(jt)-falt(jt,ia))*e(jt)
+        enddo
+     enddo
+     dmsum = dwsum/rho
+     dtsum = xldcp*dmsum
+     xm1   = xm1n-dmsum
+     t     = tn+dtsum
+     p1    = xm1*p/(0.62198_dp + 0.37802_dp * xm1)
+     feuneu = p1/p21(t)
+     resold = res
+     res    = feuneu + feualt - 2._dp * fquer
+     if (abs(res).lt.1.e-6_dp) return
 ! calculation of fquer by Newton-Interpolation
-         dres=res-resold
-         aa=aa0
-         if (itk.gt.1.and.abs(dres).gt.1.d-8) aa=(fqa-fquer)/dres
-         fqa=fquer
-         fquer=fquer+aa*res
-      enddo
-      write (6,6000)
- 6000 format (10x,'no convergence of condensation iteration')
+     dres = res-resold
+     aa = aa0
+     if (itk.gt.1.and.abs(dres).gt.1.e-8_dp) then
+        aa=(fqa-fquer)/dres
+     end if
+     fqa = fquer
+     fquer=fquer+aa*res
+  enddo
 
-      end subroutine subkon
+  write (jpfunout,*)'SR subkon: no convergence of condensation iteration'
+
+end subroutine subkon
 
 !
 !-------------------------------------------------------------
