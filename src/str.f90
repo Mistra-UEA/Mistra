@@ -4125,17 +4125,17 @@ end subroutine subkon
 !-------------------------------------------------------------
 !
 
-      function diff_wat_vap(temperature,pressure)
+function diff_wat_vap(temperature,pressure)
 
-      ! Diffusivity of water vapour in air
-      ! for temperatures between -40 and +40 Celsius
+  ! Diffusivity of water vapour in air
+  ! for temperatures between -40 and +40 Celsius
 
-      ! Dv = 0.211d-4 *(T/T0)**1.94 *(P0/P)
+  ! Dv = 0.211d-4 *(T/T0)**1.94 *(P0/P)
 
-      ! where T0=273.15 K and P0=101325 Pa
+  ! where T0=273.15 K and P0=101325 Pa
 
-      ! see Pruppacher and Klett, Microphysics of clouds and precipitations
-      ! equation (13-3) p. 503, here expressed in MKS units
+  ! see Pruppacher and Klett, Microphysics of clouds and precipitations
+  ! equation (13-3) p. 503, here expressed in MKS units
 
 
 ! Author
@@ -4146,44 +4146,56 @@ end subroutine subkon
 ! -------
 !     12-01-2017
 
-      implicit none
+! Declarations :
+! ------------
+! Modules used:
 
-      double precision :: diff_wat_vap
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
 
-      double precision, intent(in) :: temperature  ! in [K]
-      double precision, intent(in) :: pressure     ! in [Pa]
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      double precision, parameter :: cst=0.211d-4  ! in [m2/s]
-      double precision, parameter :: exponent=1.94
-      double precision, parameter :: T0=273.15     ! in [K]
-      double precision, parameter :: P0=101325     ! in [Pa]
+  implicit none
 
-      double precision, parameter :: cst2=cst*P0/(T0**exponent)
+  real (kind=dp) :: diff_wat_vap
 
-      diff_wat_vap = cst2 * temperature**exponent / pressure
+  real (kind=dp), intent(in) :: temperature     ! in [K]
+  real (kind=dp), intent(in) :: pressure        ! in [Pa]
 
-      if (temperature < T0-40.d0 .or. temperature > T0+40.d0) then
-         print*,'Warning, in FN diff_wat_vap, the parameterisation'
-         print*,'  is valid between -40 and +40 Celsius'
-         print*,'  The temperature is: ',temperature,' K.'
-         print*,'  The parameterisation has nonetheless been used'
-         print*,'  The calculated diffusivity is: ',diff_wat_vap,' m2/s'
-      end if
+  real (kind=dp), parameter :: cst=0.211e-4_dp  ! in [m2/s]
+  real (kind=dp), parameter :: exponent=1.94_dp
+  real (kind=dp), parameter :: T0=273.15_dp     ! in [K]
+  real (kind=dp), parameter :: P0=101325_dp     ! in [Pa]
 
-      end function diff_wat_vap
+  real (kind=dp), parameter :: cst2=cst*P0/(T0**exponent)
+
+  diff_wat_vap = cst2 * temperature**exponent / pressure
+
+  if (temperature < T0-40._dp .or. temperature > T0+40._dp) then
+     write(jpfunout,*)'Warning, in FN diff_wat_vap, the parameterisation'
+     write(jpfunout,*)'  is valid between -40 and +40 Celsius'
+     write(jpfunout,*)'  The temperature is: ',temperature,' K.'
+     write(jpfunout,*)'  The parameterisation has nonetheless been used'
+     write(jpfunout,*)'  The calculated diffusivity is: ',diff_wat_vap,' m2/s'
+  end if
+
+end function diff_wat_vap
 
 !
 !-------------------------------------------------------------
 !
 
-      function therm_conduct_air(temperature)
+function therm_conduct_air(temperature)
 
-      ! Thermal conductivity of air
+  ! Thermal conductivity of air
 
-      ! ka = 1.d-3 * (4.39 + 0.071*T)
+  ! ka = 1.d-3 * (4.39 + 0.071*T)
 
-      ! where T is in K, and ka is in J/(m.s.K)
-      ! see Seinfeld and Pandis 2nd Ed., equation (17.71) p.786
+  ! where T is in K, and ka is in J/(m.s.K)
+  ! see Seinfeld and Pandis 2nd Ed., equation (17.71) p.786
 
 
 ! Author
@@ -4194,54 +4206,71 @@ end subroutine subkon
 ! -------
 !     13-01-2017
 
-      implicit none
+! Declarations :
+! ------------
+! Modules used:
 
-      double precision :: therm_conduct_air
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      double precision, intent(in) :: temperature  ! in [K]
+  implicit none
 
-      double precision, parameter :: cst1 = 4.39d-3
-      double precision, parameter :: cst2 = 7.1d-5
+  real (kind=dp) :: therm_conduct_air
 
-      therm_conduct_air = cst1 + cst2*temperature
+  real (kind=dp), intent(in) :: temperature  ! in [K]
+
+  real (kind=dp), parameter :: cst1 = 4.39e-3_dp
+  real (kind=dp), parameter :: cst2 = 7.1e-5_dp
+
+  therm_conduct_air = cst1 + cst2*temperature
 
 
-      end function therm_conduct_air
+end function therm_conduct_air
 
 !
 !---------------------------------------------------------------------
 !
 
-      subroutine fbil (ij)
+subroutine fbil (ij)
 ! [apparently checking whether particle number is ever negative]
 ! currently never called
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf, &
+       n, &
+       nka, &
+       nkt
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  implicit none
 
-      do k=1,nf+5
-         do ia=1,nka
-            do jt=1,nkt
-               if (ff(jt,ia,k).lt.-0.1) print *,ij,ff(jt,ia,k),k,ia,jt
-            enddo
-         enddo
-      enddo
+! Local scalars
+  integer :: k, ia, jt ! running indices
 
-      end subroutine fbil
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
+  do k=1,nf+5
+     do ia=1,nka
+        do jt=1,nkt
+           if (ff(jt,ia,k).lt.-0.1_dp) then
+              write(jpfunout,*)'SR fbil, negative ff',ij,ff(jt,ia,k),k,ia,jt
+           end if
+        enddo
+     enddo
+  enddo
+
+end subroutine fbil
 
 !
 !-------------------------------------------------------------
