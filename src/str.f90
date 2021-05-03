@@ -39,8 +39,9 @@
 ! TIME LOOP
 ! ...   |_____SR difm
 !              |_____SR atk1
-!     if (chem)
+!      ... if (chem)
 !       |_____SR difc
+!       |
 !     if (mic)
 !       |_____SR difp
 !       |_____SR kon
@@ -315,14 +316,14 @@ program mistra
 ! condensation/evaporation, update of chemical concentrations
               call kon (dd,chem)
 ! gravitational settling of particles
-!              print*,'call sedp'
               call sedp (dd)
 ! put aerosol into equilibrium with current rel hum for k>nf
-!              print*,'call equil'
               call equil (2)
            endif
+
 ! put aerosol into equilibrium with current rel hum
            if (.not.mic) call equil (1,n_bl)
+
 ! radiative heating
            do k=2,nm
               t(k)=t(k)+dtrad(k)*dd
@@ -1572,65 +1573,69 @@ end function rgl
 !-------------------------------------------------------------
 !
 
-      subroutine sedp (dt)
-! gravitational settling of particles with terminal velocity w in m/s
-! for further details on the determination of w see function vterm
+subroutine sedp (dt)
+!
+! Description:
+! -----------
+  ! gravitational settling of particles with terminal velocity w in m/s
+  ! For further details on the determination of w see function vterm
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       nf, &
+       n, &
+       nb, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit double precision (a-h,o-z)
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb58/ c(nf),psi(nf)
-      common /blck06/ kw(nka),ka
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb58/ c(nf),psi(nf)
+  common /blck06/ kw(nka),ka
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
-      ajs=0.
-      c(nf)=0.
-      x3=-deta(2)
+! == End of declarations =======================================================
 
-      do ia=1,nka
-         do jt=1,nkt
+  ajs=0.
+  c(nf)=0._dp
+  x3=-deta(2)
+
+  do ia=1,nka
+     do jt=1,nkt
 !            x4=rq(jt,ia)
 !            ww=-1.25d-4*x4*x4*(1.+8.6d-02/x4)
-            ww=-1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
-            dt0=dt
-            xsum=0.
-            do k=2,nf
-               psi(k)=ff(jt,ia,k)
-               xsum=xsum+psi(k)
-            enddo
-            if (xsum.gt.1.d-06) then
-               x0=0.
+        ww   = -1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
+        dt0  = dt
+        xsum = 0._dp
+        do k=2,nf
+           psi(k) = ff(jt,ia,k)
+           xsum   = xsum + psi(k)
+        enddo
+        
+        if (xsum.gt.1.e-6_dp) then
+           x0 = 0._dp
 ! 3000          dtmax=dmin1(dt0,x3/(ww+w(nf)))
 ! see also SR difp: subsidence treated now consistently (i.e. like for other
 ! tracers): w df/dz instead of d(wf)/dz
@@ -1643,12 +1648,15 @@ end function rgl
                enddo
 ! particle dry deposition velocity in lowest model layer:
                c(2)=dmin1(c(2),dtmax/deta(k)*vd(jt,ia)*(-1.))
-               c(1)=c(2)
-               dt0=dt0-dtmax
-               x1=psi(2)
-               psi(1)=x1
-               if (rq(jt,ia).lt.1.) then
-                  call advsed0
+               c(1)   = c(2)
+               dt0    = dt0 - dtmax
+               x1     = psi(2)
+               psi(1) = x1
+
+! vertical advection of f(ia, jt)
+! simplified upstream advection for small particles
+               if (rq(jt,ia) .lt. 1._dp) then
+                  call advsed0(c, psi)
                else
                   call advsed1
                endif
@@ -4428,11 +4436,10 @@ end subroutine advec
 !-------------------------------------------------------------
 !
 
-      subroutine advsed0
-!     one of many implementations of Bott's advection scheme
+subroutine advsed0 (c, psi)
 
-! advection for sedimentation, upstream procedure
-!
+! Vertical advection for sedimentation, upstream procedure
+
 !     jjb removed declaration of 6 unused variables
 ! changed internal parameter n=nf, misleading since in most places n=nf+50
 ! (obviously, led to a bug when including erroneously "n" from global_params
@@ -4442,28 +4449,38 @@ end subroutine advec
 ! jjb fortran generic functions min and max 15/12/16
 ! jjb checked identical to AB str code
 
-      USE global_params, ONLY : &
+  ! 03-May-2021  Josue Bock  Merge with latest Mistra version from A.Bott:
+  !                           - remove cb58, use arguments instead
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      integer :: i
-      double precision :: fm(nf),fp(nf)
+  implicit none
 
-      common /cb58/ c(nf),y(nf)
-      double precision c, y
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: psi(nf)
+  
+! Local scalars:
+  integer :: i                      ! running index
+  real (kind=dp) :: fm(nf),fp(nf)   ! advection fluxes
 
-! upstream procedure
-      do i=1,nf-1
-         fm(i)=-min(0.d0,c(i))*y(i+1)
-         fp(i)=max(0.d0,c(i))*y(i)
-      end do
-      do i=2,nf-1
-         y(i)=y(i)-fm(i-1)+fp(i-1)+fm(i)-fp(i)
-      end do
+! == End of declarations =======================================================
 
-      end subroutine advsed0
+  do i=1,nf-1
+     fm(i) = -min(0._dp, c(i)) * psi(i+1)
+     fp(i) =  max(0._dp, c(i)) * psi(i)
+  end do
+  do i=2,nf-1
+     psi(i) = psi(i) - fm(i-1) + fp(i-1) + fm(i) - fp(i)
+  end do
+
+end subroutine advsed0
 
 !
 !-------------------------------------------------------------
@@ -5618,10 +5635,10 @@ end subroutine advec
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
       double precision dt, z_box
-      integer n_bl
+      integer :: n_bl
 
 ! Local scalars:
-      integer j
+      integer :: j
       double precision s12old
 
 ! Common blocks
