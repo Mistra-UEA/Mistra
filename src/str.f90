@@ -274,6 +274,7 @@ program mistra
   llinit = .false.
 
   print*,'end initialisation str.f'
+
 ! ====================integration in time=====================
 ! outer time loop: minutes
   do it=it0+1,itmax
@@ -3702,8 +3703,10 @@ subroutine kon (dt,chem)
      if (xm2(k).gt.1.e-5_dp) exit
   enddo
 
-  ! end JJB temproray
-  if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  ! JJB temproray
+  if (chem) then
+     if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  end if
   ! end JJB temproray
 
 ! update chemical species
@@ -3909,7 +3912,7 @@ subroutine subkon (dt)
 !
 ! Description:
 ! -----------
-  !  Calculation of the diffusional droplet growth by condensation. 
+  !  Calculation of the diffusional droplet growth by condensation.
   !  Formulation for explicit cloud microphysics with two-dimensional droplet
   !  and aerosol distribution.
   !  All formulas and constants after Pruppacher and Klett Chapter 13.
@@ -4056,7 +4059,7 @@ subroutine subkon (dt)
         xkas = xka / (rk / (rk + deltat) + xka0 / rk)
         x1 = rhow * (zxl21 + xkas / (xdvs * rho21s * sr(jt,ia)))
         cd(jt,ia) = 3.e12_dp * rho21 * xkas / (x1 * rk * rk * rho21s * sr(jt,ia))
-        if (kr0.eq.3.and.rn(ia).lt.0.5_dp) kr0=2 ! jjb need investigation /!\ bug: once changed, will not change again to its original value
+        if (kr0.eq.3.and.rn(ia).lt.0.5_dp) kr0=2 ! jjb need investigation, maybe a bug: once changed, will not change again to its original value
         rad=0._dp
         do ib=ib0,mb
            rad = rad + totr(ib) * (qabs(ib,jt,ia,kr0)  * de0 + &
@@ -4117,7 +4120,7 @@ subroutine subkon (dt)
      fquer=fquer+aa*res
   enddo
 
-  write (jpfunout,*)'SR subkon: no convergence of condensation iteration'
+  write (jpfunout,*)'warning SR subkon: no convergence of condensation iteration'
 
 end subroutine subkon
 
@@ -4172,6 +4175,8 @@ function diff_wat_vap(temperature,pressure)
 
   real (kind=dp), parameter :: cst2=cst*P0/(T0**exponent)
 
+! == End of declarations =======================================================
+
   diff_wat_vap = cst2 * temperature**exponent / pressure
 
   if (temperature < T0-40._dp .or. temperature > T0+40._dp) then
@@ -4223,155 +4228,18 @@ function therm_conduct_air(temperature)
   real (kind=dp), parameter :: cst1 = 4.39e-3_dp
   real (kind=dp), parameter :: cst2 = 7.1e-5_dp
 
+! == End of declarations =======================================================
+
   therm_conduct_air = cst1 + cst2*temperature
 
 
 end function therm_conduct_air
 
 !
-!---------------------------------------------------------------------
-!
-
-subroutine fbil (ij)
-! [apparently checking whether particle number is ever negative]
-! currently never called
-
-  USE file_unit, ONLY : &
-! Imported Parameters:
-       jpfunout
-
-  USE global_params, ONLY : &
-! Imported Parameters:
-       nf, &
-       n, &
-       nka, &
-       nkt
-
-  USE precision, ONLY : &
-! Imported Parameters:
-       dp
-
-  implicit none
-
-! Local scalars
-  integer :: k, ia, jt ! running indices
-
-  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-  real (kind=dp) :: ff, fsum
-  integer :: nar
-
-  do k=1,nf+5
-     do ia=1,nka
-        do jt=1,nkt
-           if (ff(jt,ia,k).lt.-0.1_dp) then
-              write(jpfunout,*)'SR fbil, negative ff',ij,ff(jt,ia,k),k,ia,jt
-           end if
-        enddo
-     enddo
-  enddo
-
-end subroutine fbil
-
-!
 !-------------------------------------------------------------
 !
 
-      subroutine advec_old (dt)
-! one of many implementations of Bott's advection scheme
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     nkt
-
-       implicit double precision (a-h,o-z)
-
-      parameter (ymin=1.d-32)  !1.d-08
-      common /cb59/ y(nkt),u(nkt)
-      dimension z(nkt)
-      do 1000 i0=1,nkt
-         z(i0)=y(i0)
-         y(i0)=0.0
- 1000    if (z(i0).ge.ymin) go to 2000
-! return if not enough particles:
-      return
-! find lowest (=i0) and highest (=i1) bin where f(i)=y(i) > ymin:
- 2000 do 1010 i1=nkt,i0+1,-1
-         z(i1)=y(i1)
-         y(i1)=0.
- 1010    if (z(i1).ge.ymin) go to 2010
-      go to 2020
- 2010 if (i1-i0.le.1) go to 2020
-      do 1020 i=i0+1,i1-1
-         z(i)=y(i)
- 1020    y(i)=0.
-! do growth/advection calculation only in between smallest and highest bin with sufficient particles
- 2020 do 1030 i=i0,i1
-         if (z(i).lt.ymin) go to 1030
-         k2=0
-         dt1=dt
-         k=i
- 3000    dt0=dmin1(1.d0/(dabs(u(k))+1.d-15),dt1)
-         k1=k
-         x0=float(k)+u(k)*dt0
-         dt1=dt1-dt0
-         if (dt1.le.1.d-07) go to 2030
-         k=k+1
-! avoid index out of bounds (1):
-         if (k.gt.nkt) then
-            k=nkt
-            print *,'SR advec: index out of bounds'
-         endif
-         if (u(k).lt.0.) k=k-2
-! avoid index out of bounds (2):
-         if (k.le.0) then
-            k=1
-            print *,'SR advec: index out of bounds'
-         endif
-         if (k.ne.k2) go to 2040
-         y(k)=y(k)+z(i)
-         go to 1030
- 2040    k2=k1
-         go to 3000
- 2030    k=idint (x0+0.999999d0)
-         c0=x0-float(k-1)
-! "arithmetic if" to choose the correct polynomial
-         if (i-2) 2050,2060,2070
- 2070    if (nkt-1-i) 2050,2060,2080
-! at first and last grid point (i=1,nkt) first order polynomial
-! 2050 x0=c0*(z(i)+.5*(1.-c0)*(z(i+1)-z(i)))
- 2050    x0=c0*z(i)
-         go to 2090
-! at second and second last grid point (i=2,nkt-1) second order polynomial
- 2060    al=1.-2.*c0
-         al2=al*al
-         a0=(26.*z(i)-z(i+1)-z(i-1))/24.
-         a1=(z(i+1)-z(i-1))/16.
-         a2=(z(i+1)+z(i-1)-2.*z(i))/48.
-         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al2*al))
-         go to 2090
-! i=3,nkt-2: fourth order polynomial
- 2080    al=1.-2.*c0
-         al2=al*al
-         al3=al2*al
-         a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i))/1920.
-         a1=(-5.*(z(i+2)-z(i-2))+34.*(z(i+1)-z(i-1)))/384.
-         a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
-         a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
-         a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
-     &        +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
- 2090    x0=dmax1(0.d0,x0)
-         y(k)=y(k)+x0
-         k=max0(k-1,1)
-         y(k)=y(k)+z(i)-x0
- 1030 continue
-
-      end subroutine advec_old
-!
-!-------------------------------------------------------------
-!
-
-      subroutine advec (dt,u,y)
+subroutine advec (dt,u,y)
 
 ! advection of particles for condensational growth
 
@@ -4385,158 +4253,177 @@ end subroutine fbil
 !    - removed archaic forms of Fortran intrinsic functions
 !    - passed y and u as arguments instead of common block (formerly cb59)
 
-      USE global_params, ONLY : &
+  USE config, ONLY : &
+! Imported Routines:
+       abortM
+
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nkt
+       jpfunerr
 
-      implicit none
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nkt
 
-      double precision, intent(in) :: dt
-      double precision, intent(in) :: u(nkt)
-      double precision, intent(inout) :: y(nkt)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      double precision, parameter :: ymin=1.d-32  !1.d-08
+  implicit none
 
-      integer :: i0, i1    ! lowest and highest bin indexes where y(i) >= ymin
-      integer :: i, jt     ! loop indexes
-      integer :: k, k1, k2
-      integer :: k_low, k_high
+  real (kind=dp), intent(in) :: dt        ! fractional timestep
+  real (kind=dp), intent(in) :: u(nkt)    ! advection velocity
+  real (kind=dp), intent(inout) :: y(nkt) ! advected quantity
 
-      double precision :: a0, a1, a2, a3, a4
-      double precision :: al, al2, al3
-      double precision :: c0
-      double precision :: dt0, dt1
-      double precision :: x0
-      double precision :: z(nkt)
+  real (kind=dp), parameter :: ymin=1.e-32_dp ! 1.e-8_dp in Bott
+
+  integer :: i0, i1    ! lowest and highest bin indexes where y(i) >= ymin
+  integer :: i         ! loop index
+  integer :: k, k1, k2 ! integer jump (k) and its previous values when iterated
+  integer :: k_low, k_high
+
+  real (kind=dp) :: a0, a1, a2, a3, a4
+  real (kind=dp) :: al, al2, al3
+  real (kind=dp) :: c0
+  real (kind=dp) :: dt0, dt1
+  real (kind=dp) :: x0       ! floating position, in the nkt-grid, between k-1 and k+1
+  real (kind=dp) :: x1       ! polynomial advection of fractional part
+  real (kind=dp) :: z(nkt)
+
+! == End of declarations =======================================================
+
+! set input values to z, initialize output y
+  z(:) = y(:)
+  y(:) = 0._dp
+
+! find the lowest (=i0) particle class that contains enough (>=ymin) particles
+  i0 = 1
+  do while (z(i0) .lt. ymin)
+     ! return if not enough particles in all nkt classes
+     if (i0 .eq. nkt) return
+     i0 = i0 + 1
+  end do
+
+! find highest (=i1) particle class that contains enough (>=ymin) particles
+  i1 = nkt
+  do while (z(i1) .lt. ymin)
+     i1 = i1 - 1
+  end do
 
 
-! find lowest (=i0) and highest (=i1) bin where y(i) > ymin:
-      i0=0 ! initialise i0 to track the case where no bin has y(i) > ymin
-      do jt=1,nkt
-         z(jt)=y(jt)
-         y(jt)=0.d0
-         if (z(jt)>=ymin) then
-            i0=jt
-            exit
-         end if
-      end do
+! do growth/advection calculation only in between lowest and highest bin with sufficient particles
+  iloop: do i=i0,i1
 
-      ! return if not enough particles in all nkt classes:
-      if (i0==0) return
+     ! if not enough particles in the current bin, skip
+     if (z(i).lt.ymin) cycle iloop
 
-      i1=i0
-      do jt=i0+1,nkt        ! note that if i0=nkt, this loop won't run, on purpose
-         z(jt)=y(jt)
-         y(jt)=0.d0
-         if (z(jt)>=ymin) then
-            i1=jt
-         end if
-      end do
+     k2  = 0
+     dt0 = 0  ! this one does not need to be initialised, just prevent forcheck to complain [313 I]
+     dt1 = dt
+     k   = i
 
+     if(abs(u(k))>0._dp) then
+        dt0=min(1._dp/(abs(u(k))),dt1)
+     else ! u(k) = 0.d0
+        y(k)=y(k)+z(i)
+        cycle iloop
+     end if
+     x0=float(k)+u(k)*dt0           ! from dt0 definition above, x0 will lie in the [k-1 ; k+1] interval
+     dt1=dt1-dt0
+     k1 = k
 
-! do growth/advection calculation only in between smallest and highest bin with sufficient particles
-      iloop: do i=i0,i1
+! calculate integer jump of droplet class
+     do while (dt1 .gt. 1.e-7_dp)
+        if (u(k) < 0._dp) then
+           k = k-1             ! evaporation
+        else                       ! u(k) > 0, the case u(k)==0 has already be excluded
+           k = k+1             ! condensation
+        end if
 
-         ! not enough particles in the current bin
-         if (z(i).lt.ymin) cycle
+        ! u change of sign between two adjacent class
+        if (k==k2) then
+           ! jjb maybe something needed here. Amongst both options (k2=k or k1) should always k2 be the one chosen?
+           y(k)=y(k)+z(i)
+           cycle iloop ! cycle external i loop
+        end if
 
-         k2=0
-         dt1=dt
-         k=i
-         do
-            k1=k
+        ! save the last two values of k
+        k2 = k1
+        k1 = k
 
-            if(abs(u(k))>0.d0) then
-               dt0=min(1.d0/(abs(u(k))),dt1)
-            else ! u(k) = 0.d0
-               y(k)=y(k)+z(i)
-               cycle iloop
-            end if
+        if(abs(u(k))>0._dp) then
+           dt0=min(1._dp/(abs(u(k))),dt1)
+        else ! u(k) = 0.d0
+           y(k)=y(k)+z(i)
+           cycle iloop
+        end if
+        x0=float(k)+u(k)*dt0
+        dt1=dt1-dt0
 
-            x0=float(k)+u(k)*dt0
+     end do
 
-            dt1=dt1-dt0
-            if (dt1.le.1.d-07) exit
+     k_low  = int(floor(x0))
+     k_high = k_low + 1
 
-! update k:
-            ! the new k can be:
-            !   k_new = k_old - 1   if u(k_old) <0,
-            !   k_new = k_old       if u(k_old) is small,
-            !   k_new = k_old + 1   if u(k_old) is large.
-            ! but practically, the case k_new = k_old has already exited the loop (dt1 case above)
-            k=int(floor(x0))
+     c0 = x0 - float(k_low) ! = x0 - floor(x0)
 
-            if (k==k2) then ! avoid inifinite loop (would happen if two adjacent class have opposite sign for u)
-               y(k)=y(k)+z(i)
-               cycle iloop ! cycle external i loop
-            end if
+     ! Check these final indexes
+     !  (k_high is actually used only if c0 > 0.)
+     if (k_low .lt. 1 .or. (k_high .gt. nkt .and. c0 > 0._dp) ) then
+        write(jpfunerr,*)i,k_low,k_high,x0,c0,dt
+        write(jpfunerr,*)u(max(1,k_low):min(nkt,k_high))
+        call abortM('SR advec: error with k_high or k_low')
+     end if
 
-            if (k.lt.1) then
-               k=1
-               print *,'SR advec: index out of bounds (2)',i
-            else if (k.gt.nkt) then
-               k=nkt
-               print *,'SR advec: index out of bounds (1)',i
-            endif
+     ! General case: polynomial advection for fractional part of courant number
+     if (c0 > 0._dp) then
 
-            k2=k1
-         end do
+        if (i==1 .or. i==nkt) then
+           ! at first and last grid point (i=1,nkt): first order polynomial
+           x1 = c0 * z(i)
+        else if (i==2 .or. i==nkt-1) then
+           ! at second and second last grid point (i=2,nkt-1): second order polynomial
+           al  = 1._dp - 2._dp * c0
+           al2 = al * al
+           a0  = (26._dp * z(i) - z(i+1) - z(i-1)) / 24._dp
+           a1  = (z(i+1) - z(i-1)) / 16._dp
+           a2  = (z(i+1) + z(i-1) - 2._dp * z(i)) / 48._dp
+           x1  = min(z(i), a0*c0 + a1*(1._dp-al2) + a2*(1._dp-al2*al))
+        else
+           ! i=3,nkt-2: fourth order polynomial
+           al  = 1._dp - 2._dp * c0
+           al2 = al  * al
+           al3 = al2 * al
+           a0  = (9._dp*(z(i+2)+z(i-2))-116._dp*(z(i+1)+z(i-1))+2134._dp*z(i)) / 1920._dp
+           a1  = (-5._dp*(z(i+2)-z(i-2))+34._dp*(z(i+1)-z(i-1))) / 384._dp
+           a2  = (-z(i+2)+12._dp*(z(i+1)+z(i-1))-22._dp*z(i)-z(i-2)) / 384._dp
+           a3  = (z(i+2)-2._dp*(z(i+1)-z(i-1))-z(i-2)) / 768._dp
+           a4  = (z(i+2)-4._dp*(z(i+1)+z(i-1))+6._dp*z(i)+z(i-2)) / 3840._dp
+           x1  = min(z(i),a0*c0+a1*(1._dp-al2)+a2*(1.d0-al3) &
+                           +a3*(1._dp-al2*al2)+a4*(1._dp-al2*al3))
+        end if
 
-         k_low = int(floor(x0))
-         k_high = k_low + 1
+        x1 = max(0._dp,x1)
 
-         c0 = x0 - float(k_low) ! = x0 - floor(x0)
+        y(k_low)  = y(k_low) + z(i) - x1
+        y(k_high) = y(k_high)+ x1
 
-         if (c0 < 0.) then
-            print*,'c0 is negative',i,k_low,k_high,dt0,dt1,x0,c0
-            stop 'SR advec: error with c0'
-         else if (c0 == 0.d0) then
-            ! This case will happen in two situations:
-            !   - if u(k)*dt0 is exactly = +/- 1.000d0 (this really happen sometimes)
-            !   - if u(k)*dt0 is so small that it has been numerically rounded to 0.
-            !     (very unlikely, would imply that u(k) ~ tiny(0.d0) and dt1 ~ [1.1e-7 -- 1.e-1] )
-            y(k)=y(k)+z(i)
-            cycle iloop
-         end if
-         if (k_high .gt. nkt .or. k_low .lt. 1) then
-            print*,k_high,k_low,x0,c0,i
-            stop 'SR advec: error with k_high or k_low'
-         end if
+     else ! c0 == 0.d0
+        ! This case will happen in two situations:
+        !   - if u(k)*dt0 is exactly = +/- 1.000d0 (this really happen sometimes)
+        !   - if u(k)*dt0 is so small that it has been numerically rounded to 0.
+        !     (very unlikely, would imply that u(k) ~ tiny(0.d0) and dt1 ~ [1.1e-7 -- 1.e-1] )
 
-         if (i==1 .or. i==nkt) then
-            ! at first and last grid point (i=1,nkt): first order polynomial
-            x0=c0*z(i)
-         else if (i==2 .or. i==nkt-1) then
-            ! at second and second last grid point (i=2,nkt-1): second order polynomial
-            al=1.-2.*c0
-            al2=al*al
-            a0=(26.*z(i)-z(i+1)-z(i-1))/24.
-            a1=(z(i+1)-z(i-1))/16.
-            a2=(z(i+1)+z(i-1)-2.*z(i))/48.
-            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al2*al))
-         else
-            ! i=3,nkt-2: fourth order polynomial
-            al=1.-2.*c0
-            al2=al*al
-            al3=al2*al
-            a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i)) &
-     &         /1920.
-            a1=(-5.*(z(i+2)-z(i-2))+34.*(z(i+1)-z(i-1)))/384.
-            a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
-            a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
-            a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
-     &           +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
-         end if
+        ! In this case, computing polynomial expression is not necessary, it would
+        ! lead to x1 = 0
+        y(k_low)=y(k_low)+z(i)
 
-         x0=max(0.d0,x0)
+     end if
 
-         y(k_low)  = y(k_low) + z(i) - x0
-         y(k_high) = y(k_high)+ x0
+  end do iloop
 
-      end do iloop
+end subroutine advec
 
-      end subroutine advec
 !
 !-------------------------------------------------------------
 !
@@ -6202,7 +6089,7 @@ end subroutine fbil
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist_old
+      subroutine oneD_dist
 !  calculate 1D size distribution of 2D particles dist.
 
       USE constants, ONLY : &
@@ -6308,14 +6195,14 @@ end subroutine fbil
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist_old
+      end subroutine oneD_dist
 
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist
+      subroutine oneD_dist_new
 !  calculate 1D size distribution of 2D particles dist.
 
 ! jjb rewritten, but needs improvements.
@@ -6423,7 +6310,7 @@ end subroutine fbil
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist
+      end subroutine oneD_dist_new
 
 
 !
