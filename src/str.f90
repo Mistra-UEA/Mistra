@@ -20,6 +20,13 @@
 !
 ! str.f : main, meteo-init, microphysics, turbulence
 
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
 ! box = .true. is option to run model in one level only
 !     so far without dynamics, microphysics and radiation.
 !     Only the photolysis rates are updated and T, rh, ..
@@ -59,6 +66,8 @@
 !       |_____SR equil (case 2: levels nf+1 -> n)
 !
 !
+
+! == End of header =============================================================
 
 program mistra
 
@@ -551,6 +560,19 @@ end block data
       subroutine openm (fogtype)
 ! input/output files
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
       USE config, ONLY : cinpdir
 
       implicit none
@@ -622,6 +644,19 @@ end block data
 
       subroutine openc (fogtype,nuc)
 ! input/output files of chemical species
+
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       character *10 fname
       character *1 fogtype
       logical nuc
@@ -700,6 +735,19 @@ end block data
 !
 
       subroutine initm (iaertyp,fogtype) !change also SR surf0 !_aerosol_nosub
+
+
+! Author:
+! ------
+  !    Andreas Bott, RvG
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 
       USE constants, ONLY : &
 ! Imported Parameters:
@@ -1075,6 +1123,19 @@ end block data
 
       subroutine grid
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
       USE constants, ONLY : &
 ! Imported Parameters:
      &     pi, &
@@ -1274,6 +1335,19 @@ end block data
 
       subroutine startm (fogtype)
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -1381,6 +1455,19 @@ end block data
 !
 
       subroutine startc (fogtype)
+
+
+! Author:
+! ------
+  !    Andreas Bott, RvG
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 
       USE gas_common, ONLY : &
      &     s1, &
@@ -1580,6 +1667,18 @@ subroutine sedp (dt)
   ! gravitational settling of particles with terminal velocity w in m/s
   ! For further details on the determination of w see function vterm
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        nf, &
@@ -1594,6 +1693,8 @@ subroutine sedp (dt)
        dp
 
   implicit double precision (a-h,o-z)
+
+  real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
@@ -1612,7 +1713,6 @@ subroutine sedp (dt)
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb58/ c(nf),psi(nf)
   common /blck06/ kw(nka),ka
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
@@ -1658,7 +1758,7 @@ subroutine sedp (dt)
                if (rq(jt,ia) .lt. 1._dp) then
                   call advsed0(c, psi)
                else
-                  call advsed1
+                  call advsed1(c, psi)
                endif
                x0=x0+psi(1)-x1
                if (dt0.gt.0.1) go to 3000
@@ -1894,10 +1994,10 @@ subroutine sedp (dt)
       implicit double precision (a-h,o-z)
 !      double precision dt,f,fsum,c,psi,detw,deta,eta,etw
 
+  real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb58/ c(nf),psi(nf)
       common /blck11/ rc(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -1936,7 +2036,7 @@ subroutine sedp (dt)
             c(1)=c(2)
             x1=psi(2)
             psi(1)=x1
-            call advsed1
+            call advsed1(c,psi)
             x0=x0+psi(1)-x1
             if (dt0.gt.0.1) go to 3000
             do k=2,nf-1
@@ -1976,7 +2076,7 @@ subroutine sedp (dt)
             c(1)=c(2)
             x1=psi(2)
             psi(1)=x1
-            call advsed1
+            call advsed1(c,psi)
             x0=x0+psi(1)-x1
             if (dt0.gt.0.1) go to 3010
             do k=2,nf-1
@@ -2151,6 +2251,18 @@ subroutine difm (dt)
   ! all quantities are similarly defined with a(k) --> xa(k), etc.
   ! except xd(k) which has another meaning than d(k) of Roache's program.
   ! dirichlet conditions at the surface and at the top of the atmosphere
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
 ! Declarations :
 ! ------------
@@ -2337,6 +2449,18 @@ subroutine difp (dt)
   ! (#/cm^3 --> #/mol)
 
 
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
 ! Declarations :
 ! ------------
 ! Modules used:
@@ -2458,8 +2582,19 @@ subroutine difc (dt)
 ! of chemical species
 ! for further details see subroutine difm
 
+
+! Author:
+! ------
+  !    Andreas Bott, Roland von Glasow
+
+
+! Modifications :
+! -------------
+  !
 ! jjb work done: removal of unused arguments
 !     missing declarations and implicit none
+
+! == End of header =============================================================
 
   USE config, ONLY : &
        nkc_l
@@ -2514,7 +2649,8 @@ subroutine difc (dt)
   common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
   real (kind=dp) :: xa, xb, xc, xd, xe, xf, oldf
 
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
+
 
 ! calculation of exchange coefficients
   xa(1)=atkh(1)*dt/(detw(1)*deta(1))
@@ -2626,6 +2762,18 @@ end subroutine difc
       subroutine atk0
 ! calculation of exchange coefficients, mixing length etc at model start
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -2657,6 +2805,8 @@ end subroutine difc
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+! == End of declarations =======================================================
 
 ! mixing length
       xl(1)=0.
@@ -2699,6 +2849,18 @@ end subroutine difc
 !
 
       subroutine atk1
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -2759,6 +2921,7 @@ end subroutine difc
 ! statement functions
       qsatur(esat,ppp)=0.62198*esat/(ppp-0.37802*esat)
       vapsat(ttt)=610.7*dexp(17.15*(ttt-273.15)/(ttt-38.33))
+! == End of declarations =======================================================
       if (lct.le.lcl+2) then
 !
 ! cloud free situation
@@ -2935,6 +3098,7 @@ end subroutine difc
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
       real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+! == End of declarations =======================================================
 ! soil temperature
       xe(1)=0.
       x0=dmax1(eb(1),ebc)
@@ -3020,6 +3184,7 @@ end subroutine difc
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! == End of declarations =======================================================
 
 !      tw=tw-5.787d-6*dt
 !      tw=tw-6.94444d-6*dt
@@ -3115,6 +3280,7 @@ end subroutine difc
       parameter (al31=2.835d+6)
       parameter (t0=273.15)
       cm(pp)=0.62198*pp/(ps-0.37802*pp)
+! == End of declarations =======================================================
       rrho=rho(1)
       uu=u(2)
       vv=v(2)
@@ -3317,7 +3483,16 @@ end subroutine difc
 ! Description:
 !    interpolation of clarke functions by means of tabulated values
 !    u: clarke function for momentum; tq: for temperature, humidity etc.
-!
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
 
 !
 ! History:
@@ -3333,9 +3508,9 @@ end subroutine difc
 !
 ! 1.0       ?        Original code used in Mistra v741             <Andreas Bott>
 !
-! Code Description:
-!   Language:          Fortran 77 (with Fortran 90 features)
 !
+! == End of header =============================================================
+
 ! Declarations:
 
       implicit none
@@ -3354,7 +3529,7 @@ end subroutine difc
 ! Common blocks:
       common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
 
 ! xzpdl tabled values range from -5.5 to 3.0. Here, zpdla is forced to be within this range
       zpdla=dmax1(zpdl,-5.5d0)
@@ -3926,6 +4101,12 @@ subroutine subkon (dt)
   !  All formulas and constants after Pruppacher and Klett Chapter 13.
   !  Droplet growth equation after Davies, J. Atmos. Sci., 1987
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
 !
 ! Variables:
 ! -----------
@@ -4254,6 +4435,18 @@ subroutine advec (dt,u,y)
 ! one of many implementations of Bott's advection scheme
 ! specific for 2D particle spectrum
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! jjb work done
 !    - removed arithmetic if for polynomial order (1, 2 or 4) at the end
 !    - rewritten using up to date features: do, do while, exit and cycle
@@ -4436,9 +4629,21 @@ end subroutine advec
 !-------------------------------------------------------------
 !
 
-subroutine advsed0 (c, psi)
+subroutine advsed0 (c, y)
 
 ! Vertical advection for sedimentation, upstream procedure
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
 !     jjb removed declaration of 6 unused variables
 ! changed internal parameter n=nf, misleading since in most places n=nf+50
@@ -4464,20 +4669,21 @@ subroutine advsed0 (c, psi)
 
 ! Subroutine arguments
   real (kind=dp), intent(in)    :: c(nf)
-  real (kind=dp), intent(inout) :: psi(nf)
+  real (kind=dp), intent(inout) :: y(nf)
   
 ! Local scalars:
   integer :: i                      ! running index
+! Local arrays:
   real (kind=dp) :: fm(nf),fp(nf)   ! advection fluxes
 
 ! == End of declarations =======================================================
 
   do i=1,nf-1
-     fm(i) = -min(0._dp, c(i)) * psi(i+1)
-     fp(i) =  max(0._dp, c(i)) * psi(i)
+     fm(i) = -min(0._dp, c(i)) * y(i+1)
+     fp(i) =  max(0._dp, c(i)) * y(i)
   end do
   do i=2,nf-1
-     psi(i) = psi(i) - fm(i-1) + fp(i-1) + fm(i) - fp(i)
+     y(i) = y(i) - fm(i-1) + fp(i-1) + fm(i) - fp(i)
   end do
 
 end subroutine advsed0
@@ -4486,7 +4692,22 @@ end subroutine advsed0
 !-------------------------------------------------------------
 !
 
-      subroutine advsed1
+subroutine advsed1 (c, y)
+
+! Vertical advection of quantity psi with the positive definite advection
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! area preserving flux form; Bott (1989): Monthly Weather Review.
 ! fourth order monotone version.
 ! y(i) is transport quantity, input and output.
@@ -4506,121 +4727,177 @@ end subroutine advsed0
 ! Thus, fm(i) is flux from gridbox i+1 into gridbox i for c(i)<0,
 ! fp(i) is flux from gridbox i into gridbox i+1 for c(i)>0.
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb58/ c(nf),y(nf)
-      dimension a0(nf),a1(nf),a2(nf),a3(nf),a4(nf),fm(nf)
-      a0(2)=(26.*y(2)-y(3)-y(1))/24.
-      a1(2)=(y(3)-y(1))/16.
-      a2(2)=(y(3)+y(1)-2.*y(2))/48.
-      a3(2)=0.
-      a4(2)=0.
-      do i=3,nf-2
-         a0(i)=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1)) &
-     &         +2134.*y(i))/1920.
-         a1(i)=(-5.*(y(i+2)-y(i-2))+34.*(y(i+1)-y(i-1)))/384.
-         a2(i)=(-y(i+2)+12.*(y(i+1)+y(i-1))-22.*y(i)-y(i-2))/384.
-         a3(i)=(y(i+2)-2.*(y(i+1)-y(i-1))-y(i-2))/768.
-         a4(i)=(y(i+2)-4.*(y(i+1)+y(i-1))+6.*y(i)+y(i-2))/3840.
-      enddo
-      a0(nf-1)=(26.*y(nf-1)-y(nf)-y(nf-2))/24.
-      a1(nf-1)=(y(nf)-y(nf-2))/16.
-      a2(nf-1)=(y(nf)+y(nf-2)-2.*y(nf-1))/48.
-      a3(nf-1)=0.
-      a4(nf-1)=0.
-      cl=-c(nf-1)
-      fm(nf-1)=dmin1(y(nf),cl*(y(nf)-(1.-cl)*(y(nf)-y(nf-1))*0.5))
-      clm=cl
-      do i=nf-1,2,-1
-         cl=clm
-         clm=-c(i-1)
-         x1=1.-2.*cl
-         x2=x1*x1
-         x3=x1*x2
-         ymin=dmin1(y(i),y(i+1))
-         ymax=dmax1(y(i),y(i+1))
-         fmim=dmax1(0.d0,a0(i)*cl-a1(i)*(1.-x2)+a2(i)*(1.-x3) &
-     &        -a3(i)*(1.-x1*x3)+a4(i)*(1.-x2*x3))
-         fmim=dmin1(fmim,y(i)-ymin+fm(i))
-         fmim=dmax1(fmim,y(i)-ymax+fm(i))
-         fmim=dmax1(0.d0,fmim-(cl-clm)*y(i))
-         w=y(i)/dmax1(fmim+1.d-15,y(i))
-         fm(i-1)=fmim*w
-      enddo
-      y(1)=y(1)+fm(1)
-      do i=2,nf-1
-         y(i)=y(i)-fm(i-1)+fm(i)
-      enddo
-      y(nf)=y(nf)-fm(nf-1)
+  implicit none
 
-      end subroutine advsed1
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: y(nf)
+  
+! Local scalars:
+  integer :: i                      ! running index
+  real (kind=dp) :: cl, clm
+  real (kind=dp) :: fmim
+  real (kind=dp) :: w, x1, x2, x3
+  real (kind=dp) :: ymin, ymax
+! Local arrays:
+  real (kind=dp) :: a0(2:nf-1),a1(2:nf-1),a2(2:nf-1),a3(2:nf-1),a4(2:nf-1)
+  real (kind=dp) :: fm(nf-1)
+
+! == End of declarations =======================================================
+
+  a0(2)=(26._dp * y(2) - y(3) - y(1)) / 24._dp
+  a1(2)=(y(3) - y(1)) / 16._dp
+  a2(2)=(y(3) + y(1) - 2._dp * y(2)) / 48._dp
+  a3(2)=0._dp
+  a4(2)=0._dp
+  do i=3,nf-2
+     a0(i)=(9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1)) &
+              +2134._dp*y(i))/1920._dp
+     a1(i)=(-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
+     a2(i)=(-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
+     a3(i)=(y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
+     a4(i)=(y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
+  enddo
+  a0(nf-1)=(26._dp*y(nf-1)-y(nf)-y(nf-2))/24._dp
+  a1(nf-1)=(y(nf)-y(nf-2))/16._dp
+  a2(nf-1)=(y(nf)+y(nf-2)-2._dp*y(nf-1))/48._dp
+  a3(nf-1)=0._dp
+  a4(nf-1)=0._dp
+  cl=-c(nf-1)
+  fm(nf-1)=min(y(nf),cl*(y(nf)-(1._dp-cl)*(y(nf)-y(nf-1))*0.5_dp))
+  clm=cl
+  do i=nf-1,2,-1
+     cl=clm
+     clm=-c(i-1)
+     x1 = 1._dp - 2._dp * cl
+     x2 = x1 * x1
+     x3 = x1 * x2
+     ymin=min(y(i),y(i+1))
+     ymax=max(y(i),y(i+1))
+     fmim=max(0.d0,a0(i)*cl-a1(i)*(1._dp-x2)+a2(i)*(1._dp-x3) &
+     &        -a3(i)*(1._dp-x1*x3)+a4(i)*(1._dp-x2*x3))
+     fmim=min(fmim,y(i)-ymin+fm(i))
+     fmim=max(fmim,y(i)-ymax+fm(i))
+     fmim=max(0._dp,fmim-(cl-clm)*y(i))
+     w=y(i)/max(fmim+1.e-15_dp,y(i))
+     fm(i-1)=fmim*w
+  enddo
+      
+! new values of y
+  y(1) = y(1) + fm(1)
+  do i=2,nf-1
+     y(i) = y(i) - fm(i-1) + fm(i)
+  enddo
+  y(nf) = y(nf) - fm(nf-1)
+
+end subroutine advsed1
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine advseda
-! one of many implementations of Bott's advection scheme
+subroutine advseda (c, y)
+! Vertical advection of quantity y with the positive definite advection
+! scheme after Bott (1989).
 
-! jjb arithmetic do replaced by do / enddo 15/12/2016
 
-      USE global_params, ONLY : &
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb58/ c(nf),y(nf)
-      dimension flux(nf)
-      do i=1,nf
-         flux(i)=0.
-      end do
-      a0=(26.*y(2)-y(3)-y(1))/24.
-      a1=(y(3)-y(1))/16.
-      a2=(y(3)+y(1)-2.*y(2))/48.
-      cl=-c(1)
-      x1=1.-2.*cl
-      x2=x1*x1
-      fm=dmax1(0.d0,a0*cl-a1*(1.d0-x2)+a2*(1.d0-x1*x2))
-      w=y(2)/dmax1(fm+1.d-15,a0+2.*a2)
-      flux(1)=fm*w
-      do i=3,nf-2
-         a0=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1))+2134.*y(i))/1920.
-         a1=(-5.*(y(i+2)-y(i-2))+34.*(y(i+1)-y(i-1)))/384.
-         a2=(-y(i+2)+12.*(y(i+1)+y(i-1))-22.*y(i)-y(i-2))/384.
-         a3=(y(i+2)-2.*(y(i+1)-y(i-1))-y(i-2))/768.
-         a4=(y(i+2)-4.*(y(i+1)+y(i-1))+6.*y(i)+y(i-2))/3840.
-         cl=-c(i-1)
-         x1=1.-2.*cl
-         x2=x1*x1
-         x3=x1*x2
-         fm=dmax1(0.d0,a0*cl-a1*(1.-x2)+a2*(1.-x3)-a3*(1.-x1*x3) &
-     &        +a4*(1.-x2*x3))
-         w=y(i)/dmax1(fm+1.d-15,a0+2.d0*(a2+a4))
-         flux(i-1)=fm*w
-      end do
-      a0=(26.*y(nf-1)-y(nf)-y(nf-2))/24.
-      a1=(y(nf)-y(nf-2))/16.
-      a2=(y(nf)+y(nf-2)-2.*y(nf-1))/48.
-      cl=-c(nf-2)
-      x1=1.-2.*cl
-      x2=x1*x1
-      fm=dmax1(0.d0,a0*cl-a1*(1.d0-x2)+a2*(1.d0-x1*x2))
-      w=y(nf-1)/dmax1(fm+1.d-15,a0+2.d0*a2)
-      flux(nf-2)=fm*w
-      cl=-c(nf-1)
-      flux(nf-1)=dmin1(y(nf),cl*(y(nf)-(1.d0-cl)*(y(nf)-y(nf-1))*0.5d0))
-      y(1)=y(1)+flux(1)
-      do i=2,nf-1
-         y(i)=y(i)-flux(i-1)+flux(i)
-      end do
-      y(nf)=y(nf)-flux(nf-1)
+  implicit none
 
-      end subroutine advseda
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: y(nf)
+
+  integer :: i
+  real (kind=dp) :: a0, a1, a2, a3, a4
+  real (kind=dp) :: cl, fm, w
+  real (kind=dp) :: x1, x2, x3
+  real (kind=dp) :: flux(nf)
+
+! == End of declarations =======================================================
+  
+! initialisation
+  flux(:) = 0._dp
+
+! flux of y in the first level
+  a0 = (26._dp*y(2)-y(3)-y(1))/24._dp
+  a1 = (y(3)-y(1))/16._dp
+  a2 = (y(3) + y(1) - 2._dp * y(2)) / 48._dp
+  cl = -c(1)
+  x1 = 1._dp - 2._dp * cl
+  x2 = x1*x1
+  fm = max(0._dp,a0*cl-a1*(1._dp-x2)+a2*(1._dp-x1*x2))
+  w  = y(2)/max(fm+1.d-15,a0+2._dp*a2)
+  flux(1) = fm*w
+
+! loop for flux of y in the fog levels
+  do i=3,nf-2
+     a0=(9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1))+2134._dp*y(i))/1920._dp
+     a1=(-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
+     a2=(-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
+     a3=(y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
+     a4=(y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
+     cl=-c(i-1)
+     x1 = 1._dp - 2._dp * cl
+     x2 = x1 * x1
+     x3 = x1 * x2
+     fm = max(0._dp, a0*cl-a1*(1._dp-x2)+a2*(1._dp-x3)-a3*(1._dp-x1*x3) &
+     &        +a4*(1._dp-x2*x3))
+     w = y(i) / max(fm+1.d-15, a0+2._dp*(a2+a4))
+     flux(i-1) = fm * w
+  end do
+
+! flux of y in the second highest level
+  a0 = (26._dp*y(nf-1)-y(nf)-y(nf-2))/24._dp
+  a1 = (y(nf)-y(nf-2))/16._dp
+  a2 = (y(nf)+y(nf-2)-2._dp*y(nf-1))/48._dp
+  cl = -c(nf-2)
+  x1 = 1._dp - 2._dp*cl
+  x2 = x1*x1
+  fm = max(0._dp,a0*cl-a1*(1._dp-x2)+a2*(1._dp-x1*x2))
+  w=y(nf-1)/ max(fm+1.e-15_dp,a0+2._dp*a2)
+  flux(nf-2) = fm*w
+
+! flux of y in the highest level
+  cl=-c(nf-1)
+  flux(nf-1)=dmin1(y(nf),cl*(y(nf)-(1._dp-cl)*(y(nf)-y(nf-1))*0.5_dp))
+
+! new values of y
+  y(1)=y(1)+flux(1)
+  do i=2,nf-1
+     y(i)=y(i)-flux(i-1)+flux(i)
+  end do
+  y(nf)=y(nf)-flux(nf-1)
+
+end subroutine advseda
 
 
 !
@@ -4629,6 +4906,18 @@ end subroutine advsed0
 
 !     subroutine stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
       subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in 2 IF tests
+
+
+! Author:
+! ------
+  !    Roland von Glasow
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE config, ONLY : &
      &     nkc_l
@@ -4689,6 +4978,8 @@ end subroutine advsed0
       dimension vc(nkc,nkc,n)
       data lj2/1,2,8,9,13,14,19,20,30/
       common /nucfeed/ ifeed ! jjb added so that ifeed is known in this SR (used in 2 IF tests)
+
+! == End of declarations =======================================================
 
 !      fpi=4./3.*3.1415927
       fpi=4./3.*pi
@@ -4961,6 +5252,18 @@ end subroutine advsed0
       subroutine adjust_f
 ! adjustment of initial aerosol size distribution for specific scenarios
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE constants, ONLY : &
 !! Imported Parameters:
 !     & pi,              &
@@ -5001,6 +5304,8 @@ end subroutine advsed0
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       dimension f_inter(nka)
 
+! == End of declarations =======================================================
+
       x0=1.
 
       do k=2,n
@@ -5040,6 +5345,18 @@ end subroutine advsed0
       subroutine partdep (ra)
 ! calculate particle dry deposition velocity after Seinfeld and Pandis,
 ! 1998, p.958ff
+
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE constants, ONLY : &
 ! Imported Parameters:
@@ -5090,6 +5407,9 @@ end subroutine advsed0
       dimension xx1(nkc)
 
       integer ia,jt
+
+! == End of declarations =======================================================
+
       call monin (phi)
 
 ! particle dry deposition velocity:v_d=1/(ra + rb + ra rb v_s)+ v_s
@@ -5168,6 +5488,18 @@ end subroutine advsed0
       subroutine monin (phi)
 ! calculate the Monin-Obukhov length after Seinfeld and Pandis, 1998, p.862
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! jjb work done
 !     - integer exponents (**2 instead of **2.)
 !     - removed archaic forms of intrinsic functions (dlog, datan)
@@ -5207,6 +5539,8 @@ end subroutine advsed0
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
       integer :: kinv
+
+! == End of declarations =======================================================
 
 ! check inversion height - it is diagnosed in SR atk1 but might be zero after restart
       if (kinv.eq.0)  then
@@ -5276,6 +5610,18 @@ end subroutine advsed0
       subroutine ion_mass (srname)
 ! calculation of ion mass for ion balance checks
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5307,6 +5653,8 @@ end subroutine advsed0
       common /liq_pl/ nkc_l
       character *10   srname
       dimension xsum(nf)
+
+! == End of declarations =======================================================
 
       xHp=0.
       xNHp=0.
@@ -5359,6 +5707,18 @@ end subroutine advsed0
       subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
 !     initialisation for box models runs
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -5381,6 +5741,8 @@ end subroutine advsed0
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
       integer :: kinv
+
+! == End of declarations =======================================================
 
 ! initialize kinv (needed in SR kpp_driver)
       kinv=nf
@@ -5432,6 +5794,18 @@ end subroutine advsed0
 
 ! update of astronomical, aerosol and meteorological properties for box model runs
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE constants, ONLY : &
 ! Imported Parameters:
      & pi
@@ -5481,6 +5855,8 @@ end subroutine advsed0
 
 !     dimension rc(nf,nkc),freep(nf) ! jjb rc now in blck11
       dimension freep(nf)
+
+! == End of declarations =======================================================
 
 !      nmin = n_bl ! jjb variable unreferenced
 !      nmax = n_bl ! jjb variable unreferenced
@@ -5610,6 +5986,18 @@ end subroutine advsed0
       subroutine sedc_box (dt,z_box,n_bl)
 ! dry deposition and emission of gaseous species for box runs
 
+
+! Author:
+! ------
+  !    RvG based on Andreas Bott routine sedc?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
       USE constants, ONLY : &
@@ -5646,8 +6034,9 @@ end subroutine advsed0
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
 
+! == End of declarations =======================================================
 
-!- End of header ---------------------------------------------------------------
+
 
 !      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
 !      vg(34)=vg(30) ! N2O5=HCl
@@ -5727,6 +6116,18 @@ end subroutine advsed0
 
       subroutine box_partdep (dt, z_box, n_bl)
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5750,6 +6151,8 @@ end subroutine advsed0
 
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+
+! == End of declarations =======================================================
 
 ! calculation of deposition velocity is done in SR partdep; for smog chamber runs
 ! the roughness length z0 has to be adjusted in SRs box_init
@@ -5836,6 +6239,8 @@ end subroutine advsed0
       character *1 fogtype
       character *10 fname
 !      data xmol2 /18./ ! jjb variable unreferenced (commented below)
+
+! == End of declarations =======================================================
 
 ! these write statements are in SR initm, has to be done here as well, to be consistent
 ! with plot progs
@@ -5963,6 +6368,8 @@ end subroutine advsed0
 ! molar mass of mass-determining ions in g/mole
       data xmm /1.,18.,96.,61.,62.,35.5,97.,23.,95./
 
+! == End of declarations =======================================================
+
       write (13,*) ' '
       write (13,*) 'output:', lday,lst,lmin
 
@@ -6031,6 +6438,8 @@ end subroutine advsed0
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
+! == End of declarations =======================================================
+
 
       nz_box=0
       do k=1,n
@@ -6080,6 +6489,8 @@ end subroutine advsed0
       common /blck06/ kw(nka),ka
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
+
+! == End of declarations =======================================================
 
 
       do k=2,n
@@ -6140,6 +6551,8 @@ end subroutine advsed0
       dimension Np(nka+nkt)  !particle number [part cm-3]
       dimension Ap(nka+nkt)  !particle surface [um2 cm-3]
       dimension Vp(nka+nkt)  !particle volume [um3 cm-3]
+
+! == End of declarations =======================================================
 
 !     set up radius range problem: if rq(nkt,1) is used to map all other
 !     radii on, every now and then 2 rq(jt,i) bins will fall into the
@@ -6256,6 +6669,8 @@ end subroutine advsed0
       dimension rp(nkt)  !particle radius [um]
       dimension Np(nkt)  !particle number [part cm-3]
 
+! == End of declarations =======================================================
+
 ! Ap, Vp can easily be calculated in ferret, so reduce output file size
 
 ! ignore radius range problem as outlined in SR oneD_dist_old and use rq(1:nkt,1)
@@ -6353,7 +6768,8 @@ function xl21(temperature)
   real(kind=dp)             :: ppB = -2339.4_dp    ! in J/kg/K
 ! Local scalars:
   real(kind=dp)             :: xl21                ! in J/kg
-!- End of header ------------------------------------------------------------
+
+! == End of declarations =======================================================
 
   xl21 = ppA + ppB*temperature
 
@@ -6381,7 +6797,9 @@ function p21(ttt)
 
 ! Local scalars:
   real(kind=dp)             :: p21         ! saturation vapour pressure, in [Pa]
-!- End of header ------------------------------------------------------------
+
+! == End of declarations =======================================================
+
 
   p21 = 610.7_dp * exp(17.15_dp*(ttt-273.15_dp)/(ttt-38.33_dp))
 
