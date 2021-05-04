@@ -54,7 +54,7 @@ real(kind=dp), parameter :: pi = 3.1415926535897932_dp
 real(kind=dp), parameter :: gas_const = 8.3144743_dp             ! [J/K/mol]
 
 ! Specific gas constant of dry air
-!     r0 = R / M_air
+!     r0 = R / M_air ~= 287.05
 real(kind=dp), parameter :: r0 = gas_const / M_air               ! [J/(kg.K)]
 
 ! Specific gas constant of water vapour

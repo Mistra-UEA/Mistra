@@ -2731,9 +2731,9 @@ c the nkc size bins
       implicit double precision (a-h,o-z)
 
       common /blck06/ kw(nka),ka
-      common /blck07/ part_o_a(nka,n),part_o_d(nka,n),
-     &                part_n_a(nka,n),part_n_d(nka,n),pntot(nkc,n)
-      common /blck08/ vol1_a(nka,n),vol1_d(nka,n),vol2(nkc,n)
+      common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1),
+     &             part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1)
+      common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
 
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o

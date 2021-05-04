@@ -20,6 +20,13 @@
 !
 ! str.f : main, meteo-init, microphysics, turbulence
 
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
 ! box = .true. is option to run model in one level only
 !     so far without dynamics, microphysics and radiation.
 !     Only the photolysis rates are updated and T, rh, ..
@@ -39,8 +46,9 @@
 ! TIME LOOP
 ! ...   |_____SR difm
 !              |_____SR atk1
-!     if (chem)
+!      ... if (chem)
 !       |_____SR difc
+!       |
 !     if (mic)
 !       |_____SR difp
 !       |_____SR kon
@@ -58,6 +66,8 @@
 !       |_____SR equil (case 2: levels nf+1 -> n)
 !
 !
+
+! == End of header =============================================================
 
 program mistra
 
@@ -274,6 +284,7 @@ program mistra
   llinit = .false.
 
   print*,'end initialisation str.f'
+
 ! ====================integration in time=====================
 ! outer time loop: minutes
   do it=it0+1,itmax
@@ -312,17 +323,16 @@ program mistra
            if (mic) then
               call difp (dd)          ! turbulent exchange of particles
 ! condensation/evaporation, update of chemical concentrations
-!              print*,'call kon'
               call kon (dd,chem)
 ! gravitational settling of particles
-!              print*,'call sedp'
               call sedp (dd)
 ! put aerosol into equilibrium with current rel hum for k>nf
-!              print*,'call equil'
-              call equil (2,k)
+              call equil (2)
            endif
+
 ! put aerosol into equilibrium with current rel hum
            if (.not.mic) call equil (1,n_bl)
+
 ! radiative heating
            do k=2,nm
               t(k)=t(k)+dtrad(k)*dd
@@ -550,6 +560,19 @@ end block data
       subroutine openm (fogtype)
 ! input/output files
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
       USE config, ONLY : cinpdir
 
       implicit none
@@ -621,6 +644,19 @@ end block data
 
       subroutine openc (fogtype,nuc)
 ! input/output files of chemical species
+
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       character *10 fname
       character *1 fogtype
       logical nuc
@@ -699,6 +735,19 @@ end block data
 !
 
       subroutine initm (iaertyp,fogtype) !change also SR surf0 !_aerosol_nosub
+
+
+! Author:
+! ------
+  !    Andreas Bott, RvG
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 
       USE constants, ONLY : &
 ! Imported Parameters:
@@ -1074,6 +1123,19 @@ end block data
 
       subroutine grid
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
       USE constants, ONLY : &
 ! Imported Parameters:
      &     pi, &
@@ -1212,7 +1274,7 @@ end block data
 !      scal=1.36
 ! ln(10)=2.3025851  ln(x)=log(10)*log(x)
 !      dlgew=dlog10(scal)
-      dlne=2.3025851*dlgew
+      dlne = 2.3025851_dp * dlgew
 !      ax=2.d0**(1.0/scal)
       ew(1)=ewmin*ax
       e(1)=0.5*(ew(1)+ewmin)
@@ -1272,6 +1334,19 @@ end block data
 !
 
       subroutine startm (fogtype)
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1380,6 +1455,19 @@ end block data
 !
 
       subroutine startc (fogtype)
+
+
+! Author:
+! ------
+  !    Andreas Bott, RvG
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 
       USE gas_common, ONLY : &
      &     s1, &
@@ -1572,65 +1660,82 @@ end function rgl
 !-------------------------------------------------------------
 !
 
-      subroutine sedp (dt)
-! gravitational settling of particles with terminal velocity w in m/s
-! for further details on the determination of w see function vterm
+subroutine sedp (dt)
+!
+! Description:
+! -----------
+  ! gravitational settling of particles with terminal velocity w in m/s
+  ! For further details on the determination of w see function vterm
 
-      USE global_params, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       nf, &
+       n, &
+       nb, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit double precision (a-h,o-z)
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb58/ c(nf),psi(nf)
-      common /blck06/ kw(nka),ka
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      ajs=0.
-      c(nf)=0.
-      x3=-deta(2)
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /blck06/ kw(nka),ka
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 
-      do ia=1,nka
-         do jt=1,nkt
+! == End of declarations =======================================================
+
+  ajs=0.
+  c(nf)=0._dp
+  x3=-deta(2)
+
+  do ia=1,nka
+     do jt=1,nkt
 !            x4=rq(jt,ia)
 !            ww=-1.25d-4*x4*x4*(1.+8.6d-02/x4)
-            ww=-1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
-            dt0=dt
-            xsum=0.
-            do k=2,nf
-               psi(k)=ff(jt,ia,k)
-               xsum=xsum+psi(k)
-            enddo
-            if (xsum.gt.1.d-06) then
-               x0=0.
+        ww   = -1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
+        dt0  = dt
+        xsum = 0._dp
+        do k=2,nf
+           psi(k) = ff(jt,ia,k)
+           xsum   = xsum + psi(k)
+        enddo
+        
+        if (xsum.gt.1.e-6_dp) then
+           x0 = 0._dp
 ! 3000          dtmax=dmin1(dt0,x3/(ww+w(nf)))
 ! see also SR difp: subsidence treated now consistently (i.e. like for other
 ! tracers): w df/dz instead of d(wf)/dz
@@ -1643,14 +1748,17 @@ end function rgl
                enddo
 ! particle dry deposition velocity in lowest model layer:
                c(2)=dmin1(c(2),dtmax/deta(k)*vd(jt,ia)*(-1.))
-               c(1)=c(2)
-               dt0=dt0-dtmax
-               x1=psi(2)
-               psi(1)=x1
-               if (rq(jt,ia).lt.1.) then
-                  call advsed0
+               c(1)   = c(2)
+               dt0    = dt0 - dtmax
+               x1     = psi(2)
+               psi(1) = x1
+
+! vertical advection of f(ia, jt)
+! simplified upstream advection for small particles
+               if (rq(jt,ia) .lt. 1._dp) then
+                  call advsed0(c, psi)
                else
-                  call advsed1
+                  call advsed1(c, psi)
                endif
                x0=x0+psi(1)-x1
                if (dt0.gt.0.1) go to 3000
@@ -1886,10 +1994,10 @@ end function rgl
       implicit double precision (a-h,o-z)
 !      double precision dt,f,fsum,c,psi,detw,deta,eta,etw
 
+  real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb58/ c(nf),psi(nf)
       common /blck11/ rc(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -1928,7 +2036,7 @@ end function rgl
             c(1)=c(2)
             x1=psi(2)
             psi(1)=x1
-            call advsed1
+            call advsed1(c,psi)
             x0=x0+psi(1)-x1
             if (dt0.gt.0.1) go to 3000
             do k=2,nf-1
@@ -1968,7 +2076,7 @@ end function rgl
             c(1)=c(2)
             x1=psi(2)
             psi(1)=x1
-            call advsed1
+            call advsed1(c,psi)
             x0=x0+psi(1)-x1
             if (dt0.gt.0.1) go to 3010
             do k=2,nf-1
@@ -2143,6 +2251,18 @@ subroutine difm (dt)
   ! all quantities are similarly defined with a(k) --> xa(k), etc.
   ! except xd(k) which has another meaning than d(k) of Roache's program.
   ! dirichlet conditions at the surface and at the top of the atmosphere
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
 ! Declarations :
 ! ------------
@@ -2329,6 +2449,18 @@ subroutine difp (dt)
   ! (#/cm^3 --> #/mol)
 
 
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
 ! Declarations :
 ! ------------
 ! Modules used:
@@ -2450,8 +2582,19 @@ subroutine difc (dt)
 ! of chemical species
 ! for further details see subroutine difm
 
+
+! Author:
+! ------
+  !    Andreas Bott, Roland von Glasow
+
+
+! Modifications :
+! -------------
+  !
 ! jjb work done: removal of unused arguments
 !     missing declarations and implicit none
+
+! == End of header =============================================================
 
   USE config, ONLY : &
        nkc_l
@@ -2506,7 +2649,8 @@ subroutine difc (dt)
   common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
   real (kind=dp) :: xa, xb, xc, xd, xe, xf, oldf
 
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
+
 
 ! calculation of exchange coefficients
   xa(1)=atkh(1)*dt/(detw(1)*deta(1))
@@ -2618,6 +2762,18 @@ end subroutine difc
       subroutine atk0
 ! calculation of exchange coefficients, mixing length etc at model start
 
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -2649,6 +2805,8 @@ end subroutine difc
       real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+! == End of declarations =======================================================
 
 ! mixing length
       xl(1)=0.
@@ -2691,6 +2849,18 @@ end subroutine difc
 !
 
       subroutine atk1
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -2751,6 +2921,7 @@ end subroutine difc
 ! statement functions
       qsatur(esat,ppp)=0.62198*esat/(ppp-0.37802*esat)
       vapsat(ttt)=610.7*dexp(17.15*(ttt-273.15)/(ttt-38.33))
+! == End of declarations =======================================================
       if (lct.le.lcl+2) then
 !
 ! cloud free situation
@@ -2927,6 +3098,7 @@ end subroutine difc
            ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
       common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
       real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+! == End of declarations =======================================================
 ! soil temperature
       xe(1)=0.
       x0=dmax1(eb(1),ebc)
@@ -3012,6 +3184,7 @@ end subroutine difc
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+! == End of declarations =======================================================
 
 !      tw=tw-5.787d-6*dt
 !      tw=tw-6.94444d-6*dt
@@ -3107,6 +3280,7 @@ end subroutine difc
       parameter (al31=2.835d+6)
       parameter (t0=273.15)
       cm(pp)=0.62198*pp/(ps-0.37802*pp)
+! == End of declarations =======================================================
       rrho=rho(1)
       uu=u(2)
       vv=v(2)
@@ -3309,7 +3483,16 @@ end subroutine difc
 ! Description:
 !    interpolation of clarke functions by means of tabulated values
 !    u: clarke function for momentum; tq: for temperature, humidity etc.
-!
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
 
 !
 ! History:
@@ -3325,9 +3508,9 @@ end subroutine difc
 !
 ! 1.0       ?        Original code used in Mistra v741             <Andreas Bott>
 !
-! Code Description:
-!   Language:          Fortran 77 (with Fortran 90 features)
 !
+! == End of header =============================================================
+
 ! Declarations:
 
       implicit none
@@ -3346,7 +3529,7 @@ end subroutine difc
 ! Common blocks:
       common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
       double precision fu, ft, xzpdl, xzpdz0
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
 
 ! xzpdl tabled values range from -5.5 to 3.0. Here, zpdla is forced to be within this range
       zpdla=dmax1(zpdl,-5.5d0)
@@ -3396,267 +3579,325 @@ end subroutine difc
 !-------------------------------------------------------------
 !
 
-      subroutine kon (dt,chem)
+subroutine kon (dt,chem)
+!
+! Description:
+! -----------
+  ! Driving routine for the calculation  of the diffusional droplet growth
+  ! by condensation. Formulation for explicit cloud microphysics with
+  ! two-dimensional droplet and aerosol distribution
 
-! diffusional droplet growth by condensation
 
-!     jjb work done
-!      removed one unused parameter; use module instead
-!      removed k0=k, used only in equil argument. For the sake of clarity
+! Author:
+! ------
+  !    Andreas Bott
+  !    Roland von Glasow (chemistry part)
 
+
+! Modifications :
+! -------------
+  !     ?        Josue Bock  corrected initialisation, nkc_l replaced by nkc
+  !
+
+  !     jjb work done
+  !      removed one unused parameter; use module instead
+  !      removed k0=k, used only in equil argument. For the sake of clarity
+
+  ! 01-May-2021  Josue Bock  remove potot, computed but unused
+  !                          corrected the array size in blck07 and blck08: nf+1 instead of n
+  !                            (note that indexes 2:nf only are used in SR konc)
+  !                          potential bugfix: compute "chemical" arrays whatever rH (<=70% or >70%)
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
 
 !      USE config, ONLY :
 !     &     nkc_l
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc, &
-     &     mb
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc, &
+       mb
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      interface
-         subroutine equil (ncase,kk)
-           integer,           intent(in)  :: ncase
-           integer, optional, intent(in)  :: kk    ! model level for calculation
-         end subroutine equil
-      end interface
+! Interface (required for SR equil, which has an optional argument)
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
 
-      logical chem!,chmic ! jjb defined below, but unused
-      real (kind=dp), external :: p21
+! Subroutine arguments
+  logical,       intent(in) :: chem
+  real (kind=dp),intent(in) :: dt
 
-      common /cb11/ totrad (mb,n)
-      double precision totrad
+! Local parameters:
+  ! optimisation: define parameters that will be computed only once
+  real (kind=dp), parameter :: z4pi3 = 4._dp * pi / 3._dp
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Local scalars:
+  integer :: ia, ib, jt, k
+  real (kind=dp), external :: p21
+  !real (kind=dp) :: potot(nkc,n)
+  ! JJB temporary, check if my bugfix is justified or not
+  logical :: lfeu, lcheck
+  ! end JJB temproray
 
-      common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
+! Common blocks:
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb48/ sk,sl,dtrad(n),dtcon(n)
+  real (kind=dp) :: sk, sl, dtrad, dtcon
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
-     &              xm1o,xm1n,kr
-      double precision ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
-      integer kr
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck06/ kw(nka),ka
-      common /blck07/ part_o_a(nka,n),part_o_d(nka,n), &
-     &                part_n_a(nka,n),part_n_d(nka,n),pntot(nkc,n)
-      common /blck08/ vol1_a(nka,n),vol1_d(nka,n),vol2(nkc,n)
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
-!     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      dimension potot(nkc,n)
-      do 1000 k=2,nf+1
-! initialize
-         do ia=1,nka
-            vol1_a(ia,k)=0.
-            vol1_d(ia,k)=0.
-            part_o_a(ia,k)=0.
-            part_o_d(ia,k)=0.
-            part_n_a(ia,k)=0.
-            part_n_d(ia,k)=0.
-         enddo
-!        do kc=1,nkc_l ! jjb no reason to initialise only until nkc_l
-         do kc=1,nkc
-            vol2(kc,k)=0.
-            potot(kc,k)=0.
-            pntot(kc,k)=0.
-         enddo
-         dtcon(k)=0.
-         tn=t(k)
-         xm1n=xm1(k)
-!         xm2n=xm2(k) ! jjb variable unreferenced
-         pp=p(k)
-         if (feu(k).ge.0.7) goto 2000
-         feu(k)=xm1n*pp/((0.62198+0.37802*xm1n)*p21(tn))
-         call equil (1,k)
-         go to 1000
- 2000    continue
-         dfdt=dfddt(k)
-         to=talt(k)
-         xm1o=xm1a(k)
-         feualt=feu(k)
-         do ib=1,mb
-            totr(ib)=totrad(ib,k)
-         enddo
-         kr=nar(k)
-         do ia=1,nka
-            do jt=1,nkt
-               ffk(jt,ia)=ff(jt,ia,k)
-            enddo
-         enddo
-!         chmic=chem.and.(xm2(k).gt.1.d-05)
-! aerosol chemistry:
-!      go to 2010
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+
+  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
+                   xm1o,xm1n,kr
+  real (kind=dp) :: ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
+  integer :: kr
+
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &              ! old aerosol and droplet
+                  part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1) ! new aerosol and droplet, total per chem bin
+  real (kind=dp) :: part_o_a, part_o_d, part_n_a, part_n_d, pntot
+  common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
+  real (kind=dp) :: vol1_a, vol1_d, vol2
+
+! == End of declarations =======================================================
+
+! Initialise arrays for chemistry
+  if (chem) then
+     ! (nka,nf+1) arrays
+     vol1_a(:,:)=0._dp
+     vol1_d(:,:)=0._dp
+     part_o_a(:,:)=0._dp
+     part_o_d(:,:)=0._dp
+     part_n_a(:,:)=0._dp
+     part_n_d(:,:)=0._dp
+     ! (nkc,nf+1) arrays
+     vol2(:,:)=0._dp
+     !potot(:,:)=0._dp
+     pntot(:,:)=0._dp
+     ! JJB temproray
+     lfeu = .false.
+     lcheck = .false.
+     ! end JJB temproray
+  end if
+
+  kloop: do k=2,nf+1
+     dtcon(k) = 0._dp
+     ! set local variables
+     tn   = t(k)
+     xm1n = xm1(k)
+     pp   = p(k)
+     ffk(:,:) = ff(:,:,k) ! jjb: moved from below (rH>70% case) for chem calculations
+
+     ! Compute particle/volume for chemistry before
+     !   (this was done only in the rH>0.7 case, now done whatever the case)
+     if (chem) then
+
 ! aerosol + cloud chemistry:
 ! vol2 and vol1 old liquid volume in class (1-nkc) and row/class (1-nkc,1-nka)
 ! (um^3/cm^3), used in SR konc to shift moles from aerosol to drop
 ! and vice versa.
 ! part_o and part_n old and new part. conc. in row/class (1-nkc,1-nka) (cm^-3)
 ! take care if non-soluble parts are in aerosol
-!      if (.not.chmic) go to 2010
-         if (.not.chem) go to 2010
-!         xpi=4./3.*3.1415927
-         xpi=4./3.*pi
-! small (dry) aerosol: aerosol (1) and droplet (3)
-         do ia=1,ka
-            do jt=1,kw(ia)
-               vol1_a(ia,k)=vol1_a(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_a(ia,k)=part_o_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               vol1_d(ia,k)=vol1_d(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_d(ia,k)=part_o_d(ia,k)+ffk(jt,ia)
-            enddo
-            vol2(1,k)=vol2(1,k)+vol1_a(ia,k)
-            vol2(3,k)=vol2(3,k)+vol1_d(ia,k)
-            potot(1,k)=potot(1,k)+part_o_a(ia,k)
-            potot(3,k)=potot(3,k)+part_o_d(ia,k)
-         enddo
-! large (dry) aerosol: aerosol (2) and droplet (4)
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               vol1_a(ia,k)=vol1_a(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_a(ia,k)=part_o_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               vol1_d(ia,k)=vol1_d(ia,k)+ffk(jt,ia)*xpi*rq(jt,ia)**3
-               part_o_d(ia,k)=part_o_d(ia,k)+ffk(jt,ia)
-            enddo
-            vol2(2,k)=vol2(2,k)+vol1_a(ia,k)
-            vol2(4,k)=vol2(4,k)+vol1_d(ia,k)
-            potot(2,k)=potot(2,k)+part_o_a(ia,k)
-            potot(4,k)=potot(4,k)+part_o_d(ia,k)
-         enddo
-! old version:
-!      if (.not.chmic) go to 2010
-!      ap1o(k)=0.
-!      ap2o(k)=0.
-!      do ia=1,nka
-!         apo(k,ia)=0.
-!         do jt=1,kg
-!            apo(k,ia)=apo(k,ia)+ffk(jt,ia)
-!         enddo
-!         do jt=kgp,kd
-!            ap1o(k)=ap1o(k)+ffk(jt,ia)
-!         enddo
-!         do jt=kdp,nkt
-!            ap2o(k)=ap2o(k)+ffk(jt,ia)
-!         enddo
-!      enddo
- 2010    continue
+
+        ! small (dry) aerosol: aerosol (1) and droplet (3)
+        do ia=1,ka
+           ! aerosol: jt=1,kw(ia)
+           vol1_a(ia,k)   = sum( ffk(1:kw(ia),ia) * z4pi3 * rq(1:kw(ia),ia)**3 )
+           part_o_a(ia,k) = sum( ffk(1:kw(ia),ia) )
+           ! droplets: jt=kw(ia)+1,nkt
+           vol1_d(ia,k)   = sum( ffk(kw(ia)+1:nkt,ia) * z4pi3 * rq(kw(ia)+1:nkt,ia)**3 )
+           part_o_d(ia,k) = sum( ffk(kw(ia)+1:nkt,ia) )
+        end do
+        vol2(1,k) = sum(vol1_a(1:ka,k))
+        vol2(3,k) = sum(vol1_d(1:ka,k))
+        !potot(1,k) = sum(part_o_a(1:ka,k))
+        !potot(3,k) = sum(part_o_d(1:ka,k))
+
+        ! large (dry) aerosol: aerosol (2) and droplet (4)
+        do ia=ka+1,nka
+           vol1_a(ia,k)   = sum( ffk(1:kw(ia),ia) * z4pi3 * rq(1:kw(ia),ia)**3)
+           part_o_a(ia,k) = sum( ffk(1:kw(ia),ia) )
+           vol1_d(ia,k)   = sum( ffk(kw(ia)+1:nkt,ia) * z4pi3 * rq(kw(ia)+1:nkt,ia)**3)
+           part_o_d(ia,k) = sum( ffk(kw(ia)+1:nkt,ia) )
+        end do
+        vol2(2,k) = sum(vol1_a(ka+1:nka,k))
+        vol2(4,k) = sum(vol1_d(ka+1:nka,k))
+        !potot(2,k) = sum(part_o_a(ka+1:nka,k))
+        !potot(4,k) = sum(part_o_d(ka+1:nka,k))
+     end if
+
+! dry case: update of humidified aerosol with Koehler curve
+!----------------------------------------------------------
+     if (feu(k).lt.0.7_dp) then
+        feu(k)=xm1n*pp/((0.62198_dp + 0.37802_dp * xm1n)*p21(tn))
+        call equil (1,k)
+        if (chem) then
+           ! equil update directly ff array; for chemistry calculations below, update ffk
+           ffk(:,:) = ff(:,:,k)
+           ! JJB temproray
+           lfeu = .true.
+           ! end JJB temproray
+        end if
+
+
+! moist case, calculate condensational droplet growth
+! ---------------------------------------------------
+     else
+        ! JJB temproray
+        lfeu = .false.
+        ! end JJB temproray
+
+! set input values for condensation calculation
+        dfdt   = dfddt(k)
+        to     = talt(k)
+        xm1o   = xm1a(k)
+        feualt = feu(k)
+        ! radiation effect
+        do ib=1,mb
+           totr(ib)=totrad(ib,k)
+        enddo
+        kr=nar(k)
+        ! jjb: moved above for chem calculations
+        !do ia=1,nka
+        !    do jt=1,nkt
+        !       ffk(jt,ia)=ff(jt,ia,k)
+        !    enddo
+        ! enddo
+
 ! condensation and evaporation of droplets
 ! to: temperature after condensation of last timestep;
 ! tn: temperature before condensation of current timestep;
 ! tn = to + diffusion, radiation etc.
 ! same with xm1o and xm1n
-         call subkon (dt)
+
+        call subkon (dt)
+
 ! new values
-         t(k)=to
-         talt(k)=to
-         xm1(k)=xm1o
-         xm1a(k)=xm1o
-         feu(k)=xm1o*pp/((0.62198+0.37802*xm1o)*p21(to))
-         dfddt(k)=(feu(k)-feualt)/dt
-         xm2(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xm2(k)=xm2(k)+ffk(jt,ia)*e(jt)
-               ff(jt,ia,k)=ffk(jt,ia)
-            enddo
-         enddo
+        t(k)     = to
+        talt(k)  = to
+        xm1(k)   = xm1o
+        xm1a(k)  = xm1o
+        feu(k)   = xm1o*pp/((0.62198_dp + 0.37802_dp * xm1o)*p21(to))
+        dfddt(k) = (feu(k)-feualt)/dt
+        xm2(k) = 0._dp
+        do ia=1,nka
+           do jt=1,nkt
+              xm2(k) = xm2(k)+ffk(jt,ia)*e(jt)
+              ff(jt,ia,k) = ffk(jt,ia)
+           enddo
+        enddo
+        dtcon(k)=(to-tn)/dt
+     end if
 
-         dtcon(k)=(to-tn)/dt
-! aerosol chemistry:
-!      go to 1000
-! aerosol + cloud chemistry:
-         if (.not.chem) go to 1000
-! small (dry) aerosol: aerosol (1) and droplet (3)
-         do ia=1,ka
-            do jt=1,kw(ia)
-               part_n_a(ia,k)=part_n_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               part_n_d(ia,k)=part_n_d(ia,k)+ffk(jt,ia)
-            enddo
-            pntot(1,k)=pntot(1,k)+part_n_a(ia,k)
-            pntot(3,k)=pntot(3,k)+part_n_d(ia,k)
-         enddo
-! large (dry) aerosol: aerosol (2) and droplet (4)
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               part_n_a(ia,k)=part_n_a(ia,k)+ffk(jt,ia)
-            enddo
-            do jt=kw(ia)+1,nkt
-               part_n_d(ia,k)=part_n_d(ia,k)+ffk(jt,ia)
-            enddo
-            pntot(2,k)=pntot(2,k)+part_n_a(ia,k)
-            pntot(4,k)=pntot(4,k)+part_n_d(ia,k)
-         enddo
+     if (chem) then
+        ! small (dry) aerosol: aerosol (1) and droplet (3)
+        do ia=1,ka
+           part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
+           part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
+           ! JJB temporary check
+           if (lfeu) then
+              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
+                 print*,part_n_a(ia,k),part_o_a(ia,k)
+                 lcheck=.true.
+              end if
+              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
+                 print*,part_n_d(ia,k),part_o_d(ia,k)
+                 lcheck=.true.
+              end if
+           end if
+           ! end JJB
+        end do
+        pntot(1,k)=sum(part_n_a(1:ka,k))
+        pntot(3,k)=sum(part_n_d(1:ka,k))
 
+        ! large (dry) aerosol: aerosol (2) and droplet (4)
+        do ia=ka+1,nka
+           part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
+           part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
+           ! JJB temporary check
+           if (lfeu) then
+              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
+                 print*,part_n_a(ia,k),part_o_a(ia,k)
+                 lcheck=.true.
+              end if
+              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+                 print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
+                 print*,part_n_d(ia,k),part_o_d(ia,k)
+                 lcheck=.true.
+              end if
+           end if
+           ! end JJB
+        enddo
+        pntot(2,k)=sum(part_n_a(ka+1:nka,k))
+        pntot(4,k)=sum(part_n_d(ka+1:nka,k))
+     endif
 
-! old version:
-!      if (.not.chmic) go to 1000
-!      ap2n(k)=0.
-!      do ia=1,nka
-!         apn(k,ia)=0.
-!         do jt=1,kg
-!            apn(k,ia)=apn(k,ia)+ffk(jt,ia)
-!         enddo
-!         do jt=kdp,nkt
-!            ap2n(k)=ap2n(k)+ffk(jt,ia)
-!         enddo
-!      enddo
- 1000 continue
+  end do kloop
+
 ! cloudy region: lowest (lcl) and highest (lct) cloud layer
-      do k=nf+1,1,-1
-         lct=k
-         if (xm2(k).gt.1.d-05) go to 2030
-      enddo
-      lcl=1
-      lct=1
-      if (chem) call konc
-      return
+  do k=nf+1,1,-1
+     lct=k
+     if (xm2(k).gt.1.e-5_dp) exit
+  enddo
+  do k=1,lct
+     lcl=k
+     if (xm2(k).gt.1.e-5_dp) exit
+  enddo
 
- 2030 continue
-      do k=1,lct
-         lcl=k
-         if (xm2(k).gt.1.d-05) go to 2040
-      enddo
- 2040 continue
+  ! JJB temproray
+  if (chem) then
+     if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  end if
+  ! end JJB temproray
+
 ! update chemical species
-! aerosol chemistry:
-!      if (chem.and.lct.gt.lcl) call konc
-! aerosol + cloud chemistry:
-      if (chem) call konc
+  if (chem) call konc
 
-      end subroutine kon
+
+
+end subroutine kon
 
 !
 !-------------------------------------------------------------
@@ -3850,202 +4091,243 @@ end subroutine equil
 !-------------------------------------------------------------
 !
 
-      subroutine subkon (dt)
-! core of microphysics: growth in 2D particle grid
+subroutine subkon (dt)
+!
+! Description:
+! -----------
+  !  Calculation of the diffusional droplet growth by condensation.
+  !  Formulation for explicit cloud microphysics with two-dimensional droplet
+  !  and aerosol distribution.
+  !  All formulas and constants after Pruppacher and Klett Chapter 13.
+  !  Droplet growth equation after Davies, J. Atmos. Sci., 1987
 
-! jjb work done:
-!     - reindexed all (nka,nkt) arrays for computing efficiency
-!     - defined water diffusivity as an external function
 
-      USE constants, ONLY : &
+! Author:
+! ------
+  !    Andreas Bott
+
+
+!
+! Variables:
+! -----------
+  ! xl21 latent heat of evaporation; p21t water vapor pressure at satur.
+  ! xl mean free path;
+  ! deltav water vapor jump; deltat temperature jump
+  ! xdvs,xkas diffusivity, conductivity corrected for small droplets
+  ! xdv0, xka0 factors used for calculating xdvs and xkas.
+  ! all terms in MKSA units only droplet mass and radius in mg and microns
+  ! a0[microns]=2*sigma/(r1*rhow*t)*1.e6; sigma=76.1e-3=surface tension
+  ! b0 solution term of koehler equation: b0=xnue*xmol2/xmol3*xa*ma/mw
+  ! xnue: number of ions; xmol2 (xol3) mol masses of pure water (aerosols)
+  ! xa volume fraction of soluble to unsoluble part of aerosol
+  ! mw (ma) masses of water (aerosol nucleus)
+  ! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
+
+
+! Modifications :
+! -------------
+  ! jjb work done:
+  !     - reindexed all (nka,nkt) arrays for computing efficiency
+  !     - defined water diffusivity as an external function
+  !     - bugfix: residue (res) was not initialised. Ok if compiler sets all variables=0
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp, &                   ! Specific heat of dry air, in J/(kg.K)
-     &     pi, &
-     &     r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
-     &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
-     &     rhow                  ! Water density [kg/m**3]
+       cp, &                   ! Specific heat of dry air, in J/(kg.K)
+       pi, &
+       r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
+       r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
+       rhow                    ! Water density [kg/m**3]
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     jptaerrad, &
-     &     nka, &
-     &     nkt, &
-     &     mb
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       jptaerrad, &
+       nka, &
+       nkt, &
+       mb
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      ! jjb declarations
-      integer :: kr0
+  implicit none
 
-      double precision :: xdv ! diffusivity of water vapour in air in [m2/s]
-      double precision :: xka ! thermal conductivity of air in [J/(m*s*K)]
+! Subroutine arguments
+  real (kind=dp),intent(in) :: dt
 
-      double precision, external :: diff_wat_vap
-      double precision, external :: therm_conduct_air
-      real (kind=dp), external :: p21  ! saturation vapour pressure
-      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
-      real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
+! Local scalars
+  integer :: ia, ib0, ib, itk, jt, jtp, kr0
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: xldcp, xka, xdv, xl, &
+       xdvs, xkas, &
+       deltav, deltat, &
+       rho, rho21, rho21s,&
+       a0, xdv0, xka0, &
+       de0, dep, de0p, &
+       rk, x1, aa0, aa, &
+       rad, p1, &
+       feuneu, fquer, fqa, &
+       dwsum, dmsum, dtsum, &
+       resold, res, dres
 
-      common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
-     &              qext(18,nkt,nka,jptaerrad), &
-     &              asym(18,nkt,nka,jptaerrad)
-      double precision qabs,qext,asym
+  real (kind=dp), external :: diff_wat_vap
+  real (kind=dp), external :: therm_conduct_air
+  real (kind=dp), external :: p21  ! saturation vapour pressure
+  real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+  real (kind=dp) :: zxl21          ! latent heat of vaporisation (local value for t)
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+! Local arrays
+  real (kind=dp) :: cd(nkt,nka),cr(nkt,nka),sr(nkt,nka),falt(nkt,nka),c(nkt)
+  real (kind=dp) :: psi(nkt),u(nkt)
 
-      common /cb51/ dlgew,dlgenw,dlne
-      real (kind=dp) :: dlgew, dlgenw, dlne
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
 
-      double precision :: psi(nkt),u(nkt)
+  common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
+                qext(18,nkt,nka,jptaerrad), &
+                asym(18,nkt,nka,jptaerrad)
+  real (kind=dp) :: qabs,qext,asym
 
-      common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,p,t,tn,xm1,xm1n,kr
-      double precision ffk, totr, dfdt, feualt, p, t, tn, xm1, xm1n
-      integer kr
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      dimension cd(nkt,nka),cr(nkt,nka),sr(nkt,nka),falt(nkt,nka),c(nkt)
+  common /cb51/ dlgew,dlgenw,dlne
+  real (kind=dp) :: dlgew, dlgenw, dlne
 
+  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,p,t,tn,xm1,xm1n,kr
+  real (kind=dp) :: ffk, totr, dfdt, feualt, p, t, tn, xm1, xm1n
+  integer :: kr
 
-! xl21 latent heat of evaporation; p21t water vapor pressure at satur.
-! xl mean free path;
-! deltav water vapor jump; deltat temperature jump
-! xdvs,xkas diffusivity, conductivity corrected for small droplets
-! xdv0, xka0 factors used for calculating xdvs and xkas.
-! all terms in MKSA units only droplet mass and radius in mg and microns
-! a0[microns]=2*sigma/(r1*rhow*t)*1.e6; sigma=76.1e-3=surface tension
-! b0 solution term of koehler equation: b0=xnue*xmol2/xmol3*xa*ma/mw
-! xnue: number of ions; xmol2 (xol3) mol masses of pure water (aerosols)
-! xa volume fraction of soluble to unsoluble part of aerosol
-! mw (ma) masses of water (aerosol nucleus)
-! p21(tr)=p21(t)*exp(a0/r-b0*ma/mw)
-! all formulas and constants after Pruppacher and Klett Chapter 13.
-! droplet growth equation after Davies, J. Atmos. Sci., 1987
-      zxl21=xl21(t)
-      xldcp=zxl21/cp
+! == End of declarations =======================================================
 
-!      xka=4.38e-03+7.1e-05*t ! (13-18a) converted ?
-      xka=therm_conduct_air(t)
+  zxl21  = xl21(t)
+  xldcp  = zxl21/cp
+  xka    = therm_conduct_air(t)
+  xdv    = diff_wat_vap(t,p)
+  xl     = 24.483_dp *t/p        ! P&K eq. (10-140) but T0=273.15, mistake?
+  deltav = 1.3_dp * xl
+  deltat = 2.7_dp * xl
+  rho    = p/(r0*t*(1._dp + 0.61_dp * xm1))
+  rho21  = p21(t)/(r1*t)
+  rho21s = (zxl21/(r1*t)-1._dp)*rho21/t
+  a0     = a0m/t
+  xdv0   = xdv*sqrt(2._dp*pi/(r1*t)) / 3.6e-08_dp
+  xka0   = xka*sqrt(2._dp*pi/(r0*t)) / (7.e-07_dp * rho * cp)
+  kr0    = kr
 
-!      xdv=4.0122e-05/p*t**1.94
-      xdv=diff_wat_vap(t,p)
+  if (totr(1).lt.1._dp) then
+     ib0=7                  ! solar bands excluded, IR only
+  else
+     ib0=1
+  end if
 
-      xl=24.483*t/p ! (10-140 ?)
-      deltav=1.3*xl
-      deltat=2.7*xl
-      rho=p/(r0*t*(1+0.61*xm1))
-      rho21=p21(t)/(r1*t)
-      rho21s=(zxl21/(r1*t)-1.)*rho21/t
-      a0=a0m/t
-      xdv0=xdv*sqrt(2.*pi/(r1*t))/3.6e-08
-      xka0=xka*sqrt(2.*pi/(r0*t))/(7.d-07*rho*cp)
-      kr0=kr
+  do ia=1,nka
+     do jt=1,nkt
+        jtp=min(jt+1,nkt)
+        de0=dew(jt)
+        dep=dew(jtp)
+        de0p=de0+dep
 
-      if (totr(1).lt.1.) then
-         ib0=7                  ! solar bands excluded, IR only
-      else
-         ib0=1
-      end if
+        rk = rw(jt,ia)
+        sr(jt,ia) = max(0.1_dp, exp(a0 / rk - b0m(ia) * en(ia) / ew(jt)))
+        xdvs = xdv / (rk / (rk + deltav) + xdv0 / rk)
+        xkas = xka / (rk / (rk + deltat) + xka0 / rk)
+        x1 = rhow * (zxl21 + xkas / (xdvs * rho21s * sr(jt,ia)))
+        cd(jt,ia) = 3.e12_dp * rho21 * xkas / (x1 * rk * rk * rho21s * sr(jt,ia))
+        if (kr0.eq.3.and.rn(ia).lt.0.5_dp) kr0=2 ! jjb need investigation, maybe a bug: once changed, will not change again to its original value
+        rad=0._dp
+        do ib=ib0,mb
+           rad = rad + totr(ib) * (qabs(ib,jt,ia,kr0)  * de0 + &
+                                   qabs(ib,jtp,ia,kr0) * dep) / de0p
+        enddo
+        cr(jt,ia) = rad * 7.5e5_dp / (rk * x1) - rhow * 4190._dp * (tn-t)/(dt*x1)
+     enddo
+  enddo
+  falt(:,:) = ffk(:,:)
 
-      do ia=1,nka
-         do jt=1,nkt
-            jtp=min(jt+1,nkt)
-            de0=dew(jt)
-            dep=dew(jtp)
-            de0p=de0+dep
+  feuneu=feualt+dfdt*dt
+  if (feualt.lt.0.95_dp) then
+     feuneu=xm1n*p/(p21(tn)*(.62198_dp + .37802_dp * xm1n))
+  end if
+  fquer=0.5_dp * (feuneu+feualt)
+  ! Initialisation
+  res = 0._dp ! residue
+  aa0 = 1._dp / dt
 
-            rk=rw(jt,ia)
-            sr(jt,ia)=max(0.1d0,exp(a0/rk-b0m(ia)*en(ia)/ew(jt)))
-            xdvs=xdv/(rk/(rk+deltav)+xdv0/rk)
-            xkas=xka/(rk/(rk+deltat)+xka0/rk)
-            x1=rhow*(zxl21+xkas/(xdvs*rho21s*sr(jt,ia)))
-            cd(jt,ia)=3.d+12*rho21*xkas/(x1*rk*rk*rho21s*sr(jt,ia))
-            if (kr0.eq.3.and.rn(ia).lt.0.5) kr0=2
-            rad=0.
-            do ib=ib0,mb
-               rad=rad+totr(ib)*(qabs(ib,jt,ia,kr0)*de0+ &
-     &             qabs(ib,jtp,ia,kr0)*dep)/de0p
-            enddo
-            cr(jt,ia)=rad*7.5e05/(rk*x1)-rhow*4190.*(tn-t)/(dt*x1)
-         enddo
-      enddo
-      falt(:,:) = ffk(:,:)
+  ! condensation iteration
+  do itk=1,10
+     dwsum=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           psi(jt)=falt(jt,ia)
+           c(jt)=(cd(jt,ia)*(fquer-sr(jt,ia))-cr(jt,ia))/dlne
+        enddo
 
-      feuneu=feualt+dfdt*dt
-      if (feualt.lt.0.95) &
-     & feuneu=xm1n*p/(p21(tn)*(.62198+.37802*xm1n))
-      fquer=0.5*(feuneu+feualt)
-      ! Initialisation
-      res = 0.d0 ! residue
-      aa0=1./dt
-      do itk=1,10
-         dwsum=0.
-         do ia=1,nka
-            do jt=1,nkt
-               psi(jt)=falt(jt,ia)
-               c(jt)=(cd(jt,ia)*(fquer-sr(jt,ia))-cr(jt,ia))/dlne
-            enddo
+        u(1)=max(0._dp,c(1))
+        do jt=2,nkt-1
+           u(jt)=0.5_dp*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
+        enddo
+        u(nkt)=min(0._dp,c(nkt-1))
 
-            u(1)=max(0.d0,c(1))
-            do jt=2,nkt-1
-               u(jt)=0.5*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
-            enddo
-            u(nkt)=min(0.d0,c(nkt-1))
+        call advec (dt,u,psi)
 
-            !print*,'------- New call------',itk,ia
-            call advec (dt,u,psi)
-
-            do jt=1,nkt
-               ffk(jt,ia)=psi(jt) ! jjb
-               dwsum=dwsum+(psi(jt)-falt(jt,ia))*e(jt)
-            enddo
-         enddo
-         dmsum=dwsum/rho
-         dtsum=xldcp*dmsum
-         xm1=xm1n-dmsum
-         t=tn+dtsum
-         p1=xm1*p/(0.62198+0.37802*xm1)
-         feuneu=p1/p21(t)
-         resold=res
-         res=feuneu+feualt-2.*fquer
-!         if (feuneu.lt.0.95.or.abs(res).lt.1.d-06) return
-         if (abs(res).lt.1.d-06) return
+        do jt=1,nkt
+           ffk(jt,ia)=psi(jt)
+           dwsum=dwsum+(psi(jt)-falt(jt,ia))*e(jt)
+        enddo
+     enddo
+     dmsum = dwsum/rho
+     dtsum = xldcp*dmsum
+     xm1   = xm1n-dmsum
+     t     = tn+dtsum
+     p1    = xm1*p/(0.62198_dp + 0.37802_dp * xm1)
+     feuneu = p1/p21(t)
+     resold = res
+     res    = feuneu + feualt - 2._dp * fquer
+     if (abs(res).lt.1.e-6_dp) return
 ! calculation of fquer by Newton-Interpolation
-         dres=res-resold
-         aa=aa0
-         if (itk.gt.1.and.abs(dres).gt.1.d-8) aa=(fqa-fquer)/dres
-         fqa=fquer
-         fquer=fquer+aa*res
-      enddo
-      write (6,6000)
- 6000 format (10x,'no convergence of condensation iteration')
+     dres = res-resold
+     aa = aa0
+     if (itk.gt.1.and.abs(dres).gt.1.e-8_dp) then
+        aa=(fqa-fquer)/dres
+     end if
+     fqa = fquer
+     fquer=fquer+aa*res
+  enddo
 
-      end subroutine subkon
+  write (jpfunout,*)'warning SR subkon: no convergence of condensation iteration'
+
+end subroutine subkon
 
 !
 !-------------------------------------------------------------
 !
 
-      function diff_wat_vap(temperature,pressure)
+function diff_wat_vap(temperature,pressure)
 
-      ! Diffusivity of water vapour in air
-      ! for temperatures between -40 and +40 Celsius
+  ! Diffusivity of water vapour in air
+  ! for temperatures between -40 and +40 Celsius
 
-      ! Dv = 0.211d-4 *(T/T0)**1.94 *(P0/P)
+  ! Dv = 0.211d-4 *(T/T0)**1.94 *(P0/P)
 
-      ! where T0=273.15 K and P0=101325 Pa
+  ! where T0=273.15 K and P0=101325 Pa
 
-      ! see Pruppacher and Klett, Microphysics of clouds and precipitations
-      ! equation (13-3) p. 503, here expressed in MKS units
+  ! see Pruppacher and Klett, Microphysics of clouds and precipitations
+  ! equation (13-3) p. 503, here expressed in MKS units
 
 
 ! Author
@@ -4056,44 +4338,58 @@ end subroutine equil
 ! -------
 !     12-01-2017
 
-      implicit none
+! Declarations :
+! ------------
+! Modules used:
 
-      double precision :: diff_wat_vap
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
 
-      double precision, intent(in) :: temperature  ! in [K]
-      double precision, intent(in) :: pressure     ! in [Pa]
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      double precision, parameter :: cst=0.211d-4  ! in [m2/s]
-      double precision, parameter :: exponent=1.94
-      double precision, parameter :: T0=273.15     ! in [K]
-      double precision, parameter :: P0=101325     ! in [Pa]
+  implicit none
 
-      double precision, parameter :: cst2=cst*P0/(T0**exponent)
+  real (kind=dp) :: diff_wat_vap
 
-      diff_wat_vap = cst2 * temperature**exponent / pressure
+  real (kind=dp), intent(in) :: temperature     ! in [K]
+  real (kind=dp), intent(in) :: pressure        ! in [Pa]
 
-      if (temperature < T0-40.d0 .or. temperature > T0+40.d0) then
-         print*,'Warning, in FN diff_wat_vap, the parameterisation'
-         print*,'  is valid between -40 and +40 Celsius'
-         print*,'  The temperature is: ',temperature,' K.'
-         print*,'  The parameterisation has nonetheless been used'
-         print*,'  The calculated diffusivity is: ',diff_wat_vap,' m2/s'
-      end if
+  real (kind=dp), parameter :: cst=0.211e-4_dp  ! in [m2/s]
+  real (kind=dp), parameter :: exponent=1.94_dp
+  real (kind=dp), parameter :: T0=273.15_dp     ! in [K]
+  real (kind=dp), parameter :: P0=101325_dp     ! in [Pa]
 
-      end function diff_wat_vap
+  real (kind=dp), parameter :: cst2=cst*P0/(T0**exponent)
+
+! == End of declarations =======================================================
+
+  diff_wat_vap = cst2 * temperature**exponent / pressure
+
+  if (temperature < T0-40._dp .or. temperature > T0+40._dp) then
+     write(jpfunout,*)'Warning, in FN diff_wat_vap, the parameterisation'
+     write(jpfunout,*)'  is valid between -40 and +40 Celsius'
+     write(jpfunout,*)'  The temperature is: ',temperature,' K.'
+     write(jpfunout,*)'  The parameterisation has nonetheless been used'
+     write(jpfunout,*)'  The calculated diffusivity is: ',diff_wat_vap,' m2/s'
+  end if
+
+end function diff_wat_vap
 
 !
 !-------------------------------------------------------------
 !
 
-      function therm_conduct_air(temperature)
+function therm_conduct_air(temperature)
 
-      ! Thermal conductivity of air
+  ! Thermal conductivity of air
 
-      ! ka = 1.d-3 * (4.39 + 0.071*T)
+  ! ka = 1.d-3 * (4.39 + 0.071*T)
 
-      ! where T is in K, and ka is in J/(m.s.K)
-      ! see Seinfeld and Pandis 2nd Ed., equation (17.71) p.786
+  ! where T is in K, and ka is in J/(m.s.K)
+  ! see Seinfeld and Pandis 2nd Ed., equation (17.71) p.786
 
 
 ! Author
@@ -4104,160 +4400,52 @@ end subroutine equil
 ! -------
 !     13-01-2017
 
-      implicit none
+! Declarations :
+! ------------
+! Modules used:
 
-      double precision :: therm_conduct_air
-
-      double precision, intent(in) :: temperature  ! in [K]
-
-      double precision, parameter :: cst1 = 4.39d-3
-      double precision, parameter :: cst2 = 7.1d-5
-
-      therm_conduct_air = cst1 + cst2*temperature
-
-
-      end function therm_conduct_air
-
-!
-!---------------------------------------------------------------------
-!
-
-      subroutine fbil (ij)
-! [apparently checking whether particle number is ever negative]
-! currently never called
-
-      USE global_params, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt
+       dp
 
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
+  implicit none
 
-      implicit double precision (a-h,o-z)
+  real (kind=dp) :: therm_conduct_air
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  real (kind=dp), intent(in) :: temperature  ! in [K]
 
-      do k=1,nf+5
-         do ia=1,nka
-            do jt=1,nkt
-               if (ff(jt,ia,k).lt.-0.1) print *,ij,ff(jt,ia,k),k,ia,jt
-            enddo
-         enddo
-      enddo
+  real (kind=dp), parameter :: cst1 = 4.39e-3_dp
+  real (kind=dp), parameter :: cst2 = 7.1e-5_dp
 
-      end subroutine fbil
+! == End of declarations =======================================================
+
+  therm_conduct_air = cst1 + cst2*temperature
+
+
+end function therm_conduct_air
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine advec_old (dt)
-! one of many implementations of Bott's advection scheme
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     nkt
-
-       implicit double precision (a-h,o-z)
-
-      parameter (ymin=1.d-32)  !1.d-08
-      common /cb59/ y(nkt),u(nkt)
-      dimension z(nkt)
-      do 1000 i0=1,nkt
-         z(i0)=y(i0)
-         y(i0)=0.0
- 1000    if (z(i0).ge.ymin) go to 2000
-! return if not enough particles:
-      return
-! find lowest (=i0) and highest (=i1) bin where f(i)=y(i) > ymin:
- 2000 do 1010 i1=nkt,i0+1,-1
-         z(i1)=y(i1)
-         y(i1)=0.
- 1010    if (z(i1).ge.ymin) go to 2010
-      go to 2020
- 2010 if (i1-i0.le.1) go to 2020
-      do 1020 i=i0+1,i1-1
-         z(i)=y(i)
- 1020    y(i)=0.
-! do growth/advection calculation only in between smallest and highest bin with sufficient particles
- 2020 do 1030 i=i0,i1
-         if (z(i).lt.ymin) go to 1030
-         k2=0
-         dt1=dt
-         k=i
- 3000    dt0=dmin1(1.d0/(dabs(u(k))+1.d-15),dt1)
-         k1=k
-         x0=float(k)+u(k)*dt0
-         dt1=dt1-dt0
-         if (dt1.le.1.d-07) go to 2030
-         k=k+1
-! avoid index out of bounds (1):
-         if (k.gt.nkt) then
-            k=nkt
-            print *,'SR advec: index out of bounds'
-         endif
-         if (u(k).lt.0.) k=k-2
-! avoid index out of bounds (2):
-         if (k.le.0) then
-            k=1
-            print *,'SR advec: index out of bounds'
-         endif
-         if (k.ne.k2) go to 2040
-         y(k)=y(k)+z(i)
-         go to 1030
- 2040    k2=k1
-         go to 3000
- 2030    k=idint (x0+0.999999d0)
-         c0=x0-float(k-1)
-! "arithmetic if" to choose the correct polynomial
-         if (i-2) 2050,2060,2070
- 2070    if (nkt-1-i) 2050,2060,2080
-! at first and last grid point (i=1,nkt) first order polynomial
-! 2050 x0=c0*(z(i)+.5*(1.-c0)*(z(i+1)-z(i)))
- 2050    x0=c0*z(i)
-         go to 2090
-! at second and second last grid point (i=2,nkt-1) second order polynomial
- 2060    al=1.-2.*c0
-         al2=al*al
-         a0=(26.*z(i)-z(i+1)-z(i-1))/24.
-         a1=(z(i+1)-z(i-1))/16.
-         a2=(z(i+1)+z(i-1)-2.*z(i))/48.
-         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al2*al))
-         go to 2090
-! i=3,nkt-2: fourth order polynomial
- 2080    al=1.-2.*c0
-         al2=al*al
-         al3=al2*al
-         a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i))/1920.
-         a1=(-5.*(z(i+2)-z(i-2))+34.*(z(i+1)-z(i-1)))/384.
-         a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
-         a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
-         a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-         x0=dmin1(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
-     &        +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
- 2090    x0=dmax1(0.d0,x0)
-         y(k)=y(k)+x0
-         k=max0(k-1,1)
-         y(k)=y(k)+z(i)-x0
- 1030 continue
-
-      end subroutine advec_old
-!
-!-------------------------------------------------------------
-!
-
-      subroutine advec (dt,u,y)
+subroutine advec (dt,u,y)
 
 ! advection of particles for condensational growth
 
 ! one of many implementations of Bott's advection scheme
 ! specific for 2D particle spectrum
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
 ! jjb work done
 !    - removed arithmetic if for polynomial order (1, 2 or 4) at the end
@@ -4266,167 +4454,197 @@ end subroutine equil
 !    - removed archaic forms of Fortran intrinsic functions
 !    - passed y and u as arguments instead of common block (formerly cb59)
 
-      USE global_params, ONLY : &
+  USE config, ONLY : &
+! Imported Routines:
+       abortM
+
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nkt
+       jpfunerr
 
-      implicit none
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nkt
 
-      double precision, intent(in) :: dt
-      double precision, intent(in) :: u(nkt)
-      double precision, intent(inout) :: y(nkt)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      double precision, parameter :: ymin=1.d-32  !1.d-08
+  implicit none
 
-      integer :: i0, i1    ! lowest and highest bin indexes where y(i) >= ymin
-      integer :: i, jt     ! loop indexes
-      integer :: k, k1, k2
-      integer :: k_low, k_high
+  real (kind=dp), intent(in) :: dt        ! fractional timestep
+  real (kind=dp), intent(in) :: u(nkt)    ! advection velocity
+  real (kind=dp), intent(inout) :: y(nkt) ! advected quantity
 
-      double precision :: a0, a1, a2, a3, a4
-      double precision :: al, al2, al3
-      double precision :: c0
-      double precision :: dt0, dt1
-      double precision :: x0
-      double precision :: z(nkt)
+  real (kind=dp), parameter :: ymin=1.e-32_dp ! 1.e-8_dp in Bott
+
+  integer :: i0, i1    ! lowest and highest bin indexes where y(i) >= ymin
+  integer :: i         ! loop index
+  integer :: k, k1, k2 ! integer jump (k) and its previous values when iterated
+  integer :: k_low, k_high
+
+  real (kind=dp) :: a0, a1, a2, a3, a4
+  real (kind=dp) :: al, al2, al3
+  real (kind=dp) :: c0
+  real (kind=dp) :: dt0, dt1
+  real (kind=dp) :: x0       ! floating position, in the nkt-grid, between k-1 and k+1
+  real (kind=dp) :: x1       ! polynomial advection of fractional part
+  real (kind=dp) :: z(nkt)
+
+! == End of declarations =======================================================
+
+! set input values to z, initialize output y
+  z(:) = y(:)
+  y(:) = 0._dp
+
+! find the lowest (=i0) particle class that contains enough (>=ymin) particles
+  i0 = 1
+  do while (z(i0) .lt. ymin)
+     ! return if not enough particles in all nkt classes
+     if (i0 .eq. nkt) return
+     i0 = i0 + 1
+  end do
+
+! find highest (=i1) particle class that contains enough (>=ymin) particles
+  i1 = nkt
+  do while (z(i1) .lt. ymin)
+     i1 = i1 - 1
+  end do
 
 
-! find lowest (=i0) and highest (=i1) bin where y(i) > ymin:
-      i0=0 ! initialise i0 to track the case where no bin has y(i) > ymin
-      do jt=1,nkt
-         z(jt)=y(jt)
-         y(jt)=0.d0
-         if (z(jt)>=ymin) then
-            i0=jt
-            exit
-         end if
-      end do
+! do growth/advection calculation only in between lowest and highest bin with sufficient particles
+  iloop: do i=i0,i1
 
-      ! return if not enough particles in all nkt classes:
-      if (i0==0) return
+     ! if not enough particles in the current bin, skip
+     if (z(i).lt.ymin) cycle iloop
 
-      i1=i0
-      do jt=i0+1,nkt        ! note that if i0=nkt, this loop won't run, on purpose
-         z(jt)=y(jt)
-         y(jt)=0.d0
-         if (z(jt)>=ymin) then
-            i1=jt
-         end if
-      end do
+     k2  = 0
+     dt0 = 0  ! this one does not need to be initialised, just prevent forcheck to complain [313 I]
+     dt1 = dt
+     k   = i
 
+     if(abs(u(k))>0._dp) then
+        dt0=min(1._dp/(abs(u(k))),dt1)
+     else ! u(k) = 0.d0
+        y(k)=y(k)+z(i)
+        cycle iloop
+     end if
+     x0=float(k)+u(k)*dt0           ! from dt0 definition above, x0 will lie in the [k-1 ; k+1] interval
+     dt1=dt1-dt0
+     k1 = k
 
-! do growth/advection calculation only in between smallest and highest bin with sufficient particles
-      iloop: do i=i0,i1
+! calculate integer jump of droplet class
+     do while (dt1 .gt. 1.e-7_dp)
+        if (u(k) < 0._dp) then
+           k = k-1             ! evaporation
+        else                       ! u(k) > 0, the case u(k)==0 has already be excluded
+           k = k+1             ! condensation
+        end if
 
-         ! not enough particles in the current bin
-         if (z(i).lt.ymin) cycle
+        ! u change of sign between two adjacent class
+        if (k==k2) then
+           ! jjb maybe something needed here. Amongst both options (k2=k or k1) should always k2 be the one chosen?
+           y(k)=y(k)+z(i)
+           cycle iloop ! cycle external i loop
+        end if
 
-         k2=0
-         dt1=dt
-         k=i
-         do
-            k1=k
+        ! save the last two values of k
+        k2 = k1
+        k1 = k
 
-            if(abs(u(k))>0.d0) then
-               dt0=min(1.d0/(abs(u(k))),dt1)
-            else ! u(k) = 0.d0
-               y(k)=y(k)+z(i)
-               cycle iloop
-            end if
+        if(abs(u(k))>0._dp) then
+           dt0=min(1._dp/(abs(u(k))),dt1)
+        else ! u(k) = 0.d0
+           y(k)=y(k)+z(i)
+           cycle iloop
+        end if
+        x0=float(k)+u(k)*dt0
+        dt1=dt1-dt0
 
-            x0=float(k)+u(k)*dt0
+     end do
 
-            dt1=dt1-dt0
-            if (dt1.le.1.d-07) exit
+     k_low  = int(floor(x0))
+     k_high = k_low + 1
 
-! update k:
-            ! the new k can be:
-            !   k_new = k_old - 1   if u(k_old) <0,
-            !   k_new = k_old       if u(k_old) is small,
-            !   k_new = k_old + 1   if u(k_old) is large.
-            ! but practically, the case k_new = k_old has already exited the loop (dt1 case above)
-            k=int(floor(x0))
+     c0 = x0 - float(k_low) ! = x0 - floor(x0)
 
-            if (k==k2) then ! avoid inifinite loop (would happen if two adjacent class have opposite sign for u)
-               y(k)=y(k)+z(i)
-               cycle iloop ! cycle external i loop
-            end if
+     ! Check these final indexes
+     !  (k_high is actually used only if c0 > 0.)
+     if (k_low .lt. 1 .or. (k_high .gt. nkt .and. c0 > 0._dp) ) then
+        write(jpfunerr,*)i,k_low,k_high,x0,c0,dt
+        write(jpfunerr,*)u(max(1,k_low):min(nkt,k_high))
+        call abortM('SR advec: error with k_high or k_low')
+     end if
 
-            if (k.lt.1) then
-               k=1
-               print *,'SR advec: index out of bounds (2)',i
-            else if (k.gt.nkt) then
-               k=nkt
-               print *,'SR advec: index out of bounds (1)',i
-            endif
+     ! General case: polynomial advection for fractional part of courant number
+     if (c0 > 0._dp) then
 
-            k2=k1
-         end do
+        if (i==1 .or. i==nkt) then
+           ! at first and last grid point (i=1,nkt): first order polynomial
+           x1 = c0 * z(i)
+        else if (i==2 .or. i==nkt-1) then
+           ! at second and second last grid point (i=2,nkt-1): second order polynomial
+           al  = 1._dp - 2._dp * c0
+           al2 = al * al
+           a0  = (26._dp * z(i) - z(i+1) - z(i-1)) / 24._dp
+           a1  = (z(i+1) - z(i-1)) / 16._dp
+           a2  = (z(i+1) + z(i-1) - 2._dp * z(i)) / 48._dp
+           x1  = min(z(i), a0*c0 + a1*(1._dp-al2) + a2*(1._dp-al2*al))
+        else
+           ! i=3,nkt-2: fourth order polynomial
+           al  = 1._dp - 2._dp * c0
+           al2 = al  * al
+           al3 = al2 * al
+           a0  = (9._dp*(z(i+2)+z(i-2))-116._dp*(z(i+1)+z(i-1))+2134._dp*z(i)) / 1920._dp
+           a1  = (-5._dp*(z(i+2)-z(i-2))+34._dp*(z(i+1)-z(i-1))) / 384._dp
+           a2  = (-z(i+2)+12._dp*(z(i+1)+z(i-1))-22._dp*z(i)-z(i-2)) / 384._dp
+           a3  = (z(i+2)-2._dp*(z(i+1)-z(i-1))-z(i-2)) / 768._dp
+           a4  = (z(i+2)-4._dp*(z(i+1)+z(i-1))+6._dp*z(i)+z(i-2)) / 3840._dp
+           x1  = min(z(i),a0*c0+a1*(1._dp-al2)+a2*(1.d0-al3) &
+                           +a3*(1._dp-al2*al2)+a4*(1._dp-al2*al3))
+        end if
 
-         k_low = int(floor(x0))
-         k_high = k_low + 1
+        x1 = max(0._dp,x1)
 
-         c0 = x0 - float(k_low) ! = x0 - floor(x0)
+        y(k_low)  = y(k_low) + z(i) - x1
+        y(k_high) = y(k_high)+ x1
 
-         if (c0 < 0.) then
-            print*,'c0 is negative',i,k_low,k_high,dt0,dt1,x0,c0
-            stop 'SR advec: error with c0'
-         else if (c0 == 0.d0) then
-            ! This case will happen in two situations:
-            !   - if u(k)*dt0 is exactly = +/- 1.000d0 (this really happen sometimes)
-            !   - if u(k)*dt0 is so small that it has been numerically rounded to 0.
-            !     (very unlikely, would imply that u(k) ~ tiny(0.d0) and dt1 ~ [1.1e-7 -- 1.e-1] )
-            y(k)=y(k)+z(i)
-            cycle iloop
-         end if
-         if (k_high .gt. nkt .or. k_low .lt. 1) then
-            print*,k_high,k_low,x0,c0,i
-            stop 'SR advec: error with k_high or k_low'
-         end if
+     else ! c0 == 0.d0
+        ! This case will happen in two situations:
+        !   - if u(k)*dt0 is exactly = +/- 1.000d0 (this really happen sometimes)
+        !   - if u(k)*dt0 is so small that it has been numerically rounded to 0.
+        !     (very unlikely, would imply that u(k) ~ tiny(0.d0) and dt1 ~ [1.1e-7 -- 1.e-1] )
 
-         if (i==1 .or. i==nkt) then
-            ! at first and last grid point (i=1,nkt): first order polynomial
-            x0=c0*z(i)
-         else if (i==2 .or. i==nkt-1) then
-            ! at second and second last grid point (i=2,nkt-1): second order polynomial
-            al=1.-2.*c0
-            al2=al*al
-            a0=(26.*z(i)-z(i+1)-z(i-1))/24.
-            a1=(z(i+1)-z(i-1))/16.
-            a2=(z(i+1)+z(i-1)-2.*z(i))/48.
-            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al2*al))
-         else
-            ! i=3,nkt-2: fourth order polynomial
-            al=1.-2.*c0
-            al2=al*al
-            al3=al2*al
-            a0=(9.*(z(i+2)+z(i-2))-116.*(z(i+1)+z(i-1))+2134.*z(i)) &
-     &         /1920.
-            a1=(-5.*(z(i+2)-z(i-2))+34.*(z(i+1)-z(i-1)))/384.
-            a2=(-z(i+2)+12.*(z(i+1)+z(i-1))-22.*z(i)-z(i-2))/384.
-            a3=(z(i+2)-2.*(z(i+1)-z(i-1))-z(i-2))/768.
-            a4=(z(i+2)-4.*(z(i+1)+z(i-1))+6.*z(i)+z(i-2))/3840.
-            x0=min(z(i),a0*c0+a1*(1.d0-al2)+a2*(1.d0-al3) &
-     &           +a3*(1.d0-al2*al2)+a4*(1.d0-al2*al3))
-         end if
+        ! In this case, computing polynomial expression is not necessary, it would
+        ! lead to x1 = 0
+        y(k_low)=y(k_low)+z(i)
 
-         x0=max(0.d0,x0)
+     end if
 
-         y(k_low)  = y(k_low) + z(i) - x0
-         y(k_high) = y(k_high)+ x0
+  end do iloop
 
-      end do iloop
+end subroutine advec
 
-      end subroutine advec
 !
 !-------------------------------------------------------------
 !
 
-      subroutine advsed0
-!     one of many implementations of Bott's advection scheme
+subroutine advsed0 (c, y)
 
-! advection for sedimentation, upstream procedure
-!
+! Vertical advection for sedimentation, upstream procedure
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 !     jjb removed declaration of 6 unused variables
 ! changed internal parameter n=nf, misleading since in most places n=nf+50
 ! (obviously, led to a bug when including erroneously "n" from global_params
@@ -4436,34 +4654,60 @@ end subroutine equil
 ! jjb fortran generic functions min and max 15/12/16
 ! jjb checked identical to AB str code
 
-      USE global_params, ONLY : &
+  ! 03-May-2021  Josue Bock  Merge with latest Mistra version from A.Bott:
+  !                           - remove cb58, use arguments instead
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      integer :: i
-      double precision :: fm(nf),fp(nf)
+  implicit none
 
-      common /cb58/ c(nf),y(nf)
-      double precision c, y
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: y(nf)
+  
+! Local scalars:
+  integer :: i                      ! running index
+! Local arrays:
+  real (kind=dp) :: fm(nf),fp(nf)   ! advection fluxes
 
-! upstream procedure
-      do i=1,nf-1
-         fm(i)=-min(0.d0,c(i))*y(i+1)
-         fp(i)=max(0.d0,c(i))*y(i)
-      end do
-      do i=2,nf-1
-         y(i)=y(i)-fm(i-1)+fp(i-1)+fm(i)-fp(i)
-      end do
+! == End of declarations =======================================================
 
-      end subroutine advsed0
+  do i=1,nf-1
+     fm(i) = -min(0._dp, c(i)) * y(i+1)
+     fp(i) =  max(0._dp, c(i)) * y(i)
+  end do
+  do i=2,nf-1
+     y(i) = y(i) - fm(i-1) + fp(i-1) + fm(i) - fp(i)
+  end do
+
+end subroutine advsed0
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine advsed1
+subroutine advsed1 (c, y)
+
+! Vertical advection of quantity psi with the positive definite advection
+
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! area preserving flux form; Bott (1989): Monthly Weather Review.
 ! fourth order monotone version.
 ! y(i) is transport quantity, input and output.
@@ -4483,121 +4727,177 @@ end subroutine equil
 ! Thus, fm(i) is flux from gridbox i+1 into gridbox i for c(i)<0,
 ! fp(i) is flux from gridbox i into gridbox i+1 for c(i)>0.
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb58/ c(nf),y(nf)
-      dimension a0(nf),a1(nf),a2(nf),a3(nf),a4(nf),fm(nf)
-      a0(2)=(26.*y(2)-y(3)-y(1))/24.
-      a1(2)=(y(3)-y(1))/16.
-      a2(2)=(y(3)+y(1)-2.*y(2))/48.
-      a3(2)=0.
-      a4(2)=0.
-      do i=3,nf-2
-         a0(i)=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1)) &
-     &         +2134.*y(i))/1920.
-         a1(i)=(-5.*(y(i+2)-y(i-2))+34.*(y(i+1)-y(i-1)))/384.
-         a2(i)=(-y(i+2)+12.*(y(i+1)+y(i-1))-22.*y(i)-y(i-2))/384.
-         a3(i)=(y(i+2)-2.*(y(i+1)-y(i-1))-y(i-2))/768.
-         a4(i)=(y(i+2)-4.*(y(i+1)+y(i-1))+6.*y(i)+y(i-2))/3840.
-      enddo
-      a0(nf-1)=(26.*y(nf-1)-y(nf)-y(nf-2))/24.
-      a1(nf-1)=(y(nf)-y(nf-2))/16.
-      a2(nf-1)=(y(nf)+y(nf-2)-2.*y(nf-1))/48.
-      a3(nf-1)=0.
-      a4(nf-1)=0.
-      cl=-c(nf-1)
-      fm(nf-1)=dmin1(y(nf),cl*(y(nf)-(1.-cl)*(y(nf)-y(nf-1))*0.5))
-      clm=cl
-      do i=nf-1,2,-1
-         cl=clm
-         clm=-c(i-1)
-         x1=1.-2.*cl
-         x2=x1*x1
-         x3=x1*x2
-         ymin=dmin1(y(i),y(i+1))
-         ymax=dmax1(y(i),y(i+1))
-         fmim=dmax1(0.d0,a0(i)*cl-a1(i)*(1.-x2)+a2(i)*(1.-x3) &
-     &        -a3(i)*(1.-x1*x3)+a4(i)*(1.-x2*x3))
-         fmim=dmin1(fmim,y(i)-ymin+fm(i))
-         fmim=dmax1(fmim,y(i)-ymax+fm(i))
-         fmim=dmax1(0.d0,fmim-(cl-clm)*y(i))
-         w=y(i)/dmax1(fmim+1.d-15,y(i))
-         fm(i-1)=fmim*w
-      enddo
-      y(1)=y(1)+fm(1)
-      do i=2,nf-1
-         y(i)=y(i)-fm(i-1)+fm(i)
-      enddo
-      y(nf)=y(nf)-fm(nf-1)
+  implicit none
 
-      end subroutine advsed1
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: y(nf)
+  
+! Local scalars:
+  integer :: i                      ! running index
+  real (kind=dp) :: cl, clm
+  real (kind=dp) :: fmim
+  real (kind=dp) :: w, x1, x2, x3
+  real (kind=dp) :: ymin, ymax
+! Local arrays:
+  real (kind=dp) :: a0(2:nf-1),a1(2:nf-1),a2(2:nf-1),a3(2:nf-1),a4(2:nf-1)
+  real (kind=dp) :: fm(nf-1)
+
+! == End of declarations =======================================================
+
+  a0(2)=(26._dp * y(2) - y(3) - y(1)) / 24._dp
+  a1(2)=(y(3) - y(1)) / 16._dp
+  a2(2)=(y(3) + y(1) - 2._dp * y(2)) / 48._dp
+  a3(2)=0._dp
+  a4(2)=0._dp
+  do i=3,nf-2
+     a0(i)=(9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1)) &
+              +2134._dp*y(i))/1920._dp
+     a1(i)=(-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
+     a2(i)=(-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
+     a3(i)=(y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
+     a4(i)=(y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
+  enddo
+  a0(nf-1)=(26._dp*y(nf-1)-y(nf)-y(nf-2))/24._dp
+  a1(nf-1)=(y(nf)-y(nf-2))/16._dp
+  a2(nf-1)=(y(nf)+y(nf-2)-2._dp*y(nf-1))/48._dp
+  a3(nf-1)=0._dp
+  a4(nf-1)=0._dp
+  cl=-c(nf-1)
+  fm(nf-1)=min(y(nf),cl*(y(nf)-(1._dp-cl)*(y(nf)-y(nf-1))*0.5_dp))
+  clm=cl
+  do i=nf-1,2,-1
+     cl=clm
+     clm=-c(i-1)
+     x1 = 1._dp - 2._dp * cl
+     x2 = x1 * x1
+     x3 = x1 * x2
+     ymin=min(y(i),y(i+1))
+     ymax=max(y(i),y(i+1))
+     fmim=max(0.d0,a0(i)*cl-a1(i)*(1._dp-x2)+a2(i)*(1._dp-x3) &
+     &        -a3(i)*(1._dp-x1*x3)+a4(i)*(1._dp-x2*x3))
+     fmim=min(fmim,y(i)-ymin+fm(i))
+     fmim=max(fmim,y(i)-ymax+fm(i))
+     fmim=max(0._dp,fmim-(cl-clm)*y(i))
+     w=y(i)/max(fmim+1.e-15_dp,y(i))
+     fm(i-1)=fmim*w
+  enddo
+      
+! new values of y
+  y(1) = y(1) + fm(1)
+  do i=2,nf-1
+     y(i) = y(i) - fm(i-1) + fm(i)
+  enddo
+  y(nf) = y(nf) - fm(nf-1)
+
+end subroutine advsed1
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine advseda
-! one of many implementations of Bott's advection scheme
+subroutine advseda (c, y)
+! Vertical advection of quantity y with the positive definite advection
+! scheme after Bott (1989).
 
-! jjb arithmetic do replaced by do / enddo 15/12/2016
 
-      USE global_params, ONLY : &
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf
+       nf
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /cb58/ c(nf),y(nf)
-      dimension flux(nf)
-      do i=1,nf
-         flux(i)=0.
-      end do
-      a0=(26.*y(2)-y(3)-y(1))/24.
-      a1=(y(3)-y(1))/16.
-      a2=(y(3)+y(1)-2.*y(2))/48.
-      cl=-c(1)
-      x1=1.-2.*cl
-      x2=x1*x1
-      fm=dmax1(0.d0,a0*cl-a1*(1.d0-x2)+a2*(1.d0-x1*x2))
-      w=y(2)/dmax1(fm+1.d-15,a0+2.*a2)
-      flux(1)=fm*w
-      do i=3,nf-2
-         a0=(9.*(y(i+2)+y(i-2))-116.*(y(i+1)+y(i-1))+2134.*y(i))/1920.
-         a1=(-5.*(y(i+2)-y(i-2))+34.*(y(i+1)-y(i-1)))/384.
-         a2=(-y(i+2)+12.*(y(i+1)+y(i-1))-22.*y(i)-y(i-2))/384.
-         a3=(y(i+2)-2.*(y(i+1)-y(i-1))-y(i-2))/768.
-         a4=(y(i+2)-4.*(y(i+1)+y(i-1))+6.*y(i)+y(i-2))/3840.
-         cl=-c(i-1)
-         x1=1.-2.*cl
-         x2=x1*x1
-         x3=x1*x2
-         fm=dmax1(0.d0,a0*cl-a1*(1.-x2)+a2*(1.-x3)-a3*(1.-x1*x3) &
-     &        +a4*(1.-x2*x3))
-         w=y(i)/dmax1(fm+1.d-15,a0+2.d0*(a2+a4))
-         flux(i-1)=fm*w
-      end do
-      a0=(26.*y(nf-1)-y(nf)-y(nf-2))/24.
-      a1=(y(nf)-y(nf-2))/16.
-      a2=(y(nf)+y(nf-2)-2.*y(nf-1))/48.
-      cl=-c(nf-2)
-      x1=1.-2.*cl
-      x2=x1*x1
-      fm=dmax1(0.d0,a0*cl-a1*(1.d0-x2)+a2*(1.d0-x1*x2))
-      w=y(nf-1)/dmax1(fm+1.d-15,a0+2.d0*a2)
-      flux(nf-2)=fm*w
-      cl=-c(nf-1)
-      flux(nf-1)=dmin1(y(nf),cl*(y(nf)-(1.d0-cl)*(y(nf)-y(nf-1))*0.5d0))
-      y(1)=y(1)+flux(1)
-      do i=2,nf-1
-         y(i)=y(i)-flux(i-1)+flux(i)
-      end do
-      y(nf)=y(nf)-flux(nf-1)
+  implicit none
 
-      end subroutine advseda
+! Subroutine arguments
+  real (kind=dp), intent(in)    :: c(nf)
+  real (kind=dp), intent(inout) :: y(nf)
+
+  integer :: i
+  real (kind=dp) :: a0, a1, a2, a3, a4
+  real (kind=dp) :: cl, fm, w
+  real (kind=dp) :: x1, x2, x3
+  real (kind=dp) :: flux(nf)
+
+! == End of declarations =======================================================
+  
+! initialisation
+  flux(:) = 0._dp
+
+! flux of y in the first level
+  a0 = (26._dp*y(2)-y(3)-y(1))/24._dp
+  a1 = (y(3)-y(1))/16._dp
+  a2 = (y(3) + y(1) - 2._dp * y(2)) / 48._dp
+  cl = -c(1)
+  x1 = 1._dp - 2._dp * cl
+  x2 = x1*x1
+  fm = max(0._dp,a0*cl-a1*(1._dp-x2)+a2*(1._dp-x1*x2))
+  w  = y(2)/max(fm+1.d-15,a0+2._dp*a2)
+  flux(1) = fm*w
+
+! loop for flux of y in the fog levels
+  do i=3,nf-2
+     a0=(9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1))+2134._dp*y(i))/1920._dp
+     a1=(-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
+     a2=(-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
+     a3=(y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
+     a4=(y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
+     cl=-c(i-1)
+     x1 = 1._dp - 2._dp * cl
+     x2 = x1 * x1
+     x3 = x1 * x2
+     fm = max(0._dp, a0*cl-a1*(1._dp-x2)+a2*(1._dp-x3)-a3*(1._dp-x1*x3) &
+     &        +a4*(1._dp-x2*x3))
+     w = y(i) / max(fm+1.d-15, a0+2._dp*(a2+a4))
+     flux(i-1) = fm * w
+  end do
+
+! flux of y in the second highest level
+  a0 = (26._dp*y(nf-1)-y(nf)-y(nf-2))/24._dp
+  a1 = (y(nf)-y(nf-2))/16._dp
+  a2 = (y(nf)+y(nf-2)-2._dp*y(nf-1))/48._dp
+  cl = -c(nf-2)
+  x1 = 1._dp - 2._dp*cl
+  x2 = x1*x1
+  fm = max(0._dp,a0*cl-a1*(1._dp-x2)+a2*(1._dp-x1*x2))
+  w=y(nf-1)/ max(fm+1.e-15_dp,a0+2._dp*a2)
+  flux(nf-2) = fm*w
+
+! flux of y in the highest level
+  cl=-c(nf-1)
+  flux(nf-1)=dmin1(y(nf),cl*(y(nf)-(1._dp-cl)*(y(nf)-y(nf-1))*0.5_dp))
+
+! new values of y
+  y(1)=y(1)+flux(1)
+  do i=2,nf-1
+     y(i)=y(i)-flux(i-1)+flux(i)
+  end do
+  y(nf)=y(nf)-flux(nf-1)
+
+end subroutine advseda
 
 
 !
@@ -4606,6 +4906,18 @@ end subroutine equil
 
 !     subroutine stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
       subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in 2 IF tests
+
+
+! Author:
+! ------
+  !    Roland von Glasow
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE config, ONLY : &
      &     nkc_l
@@ -4666,6 +4978,8 @@ end subroutine equil
       dimension vc(nkc,nkc,n)
       data lj2/1,2,8,9,13,14,19,20,30/
       common /nucfeed/ ifeed ! jjb added so that ifeed is known in this SR (used in 2 IF tests)
+
+! == End of declarations =======================================================
 
 !      fpi=4./3.*3.1415927
       fpi=4./3.*pi
@@ -4938,6 +5252,18 @@ end subroutine equil
       subroutine adjust_f
 ! adjustment of initial aerosol size distribution for specific scenarios
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE constants, ONLY : &
 !! Imported Parameters:
 !     & pi,              &
@@ -4978,6 +5304,8 @@ end subroutine equil
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       dimension f_inter(nka)
 
+! == End of declarations =======================================================
+
       x0=1.
 
       do k=2,n
@@ -5017,6 +5345,18 @@ end subroutine equil
       subroutine partdep (ra)
 ! calculate particle dry deposition velocity after Seinfeld and Pandis,
 ! 1998, p.958ff
+
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
 
       USE constants, ONLY : &
 ! Imported Parameters:
@@ -5067,6 +5407,9 @@ end subroutine equil
       dimension xx1(nkc)
 
       integer ia,jt
+
+! == End of declarations =======================================================
+
       call monin (phi)
 
 ! particle dry deposition velocity:v_d=1/(ra + rb + ra rb v_s)+ v_s
@@ -5145,6 +5488,18 @@ end subroutine equil
       subroutine monin (phi)
 ! calculate the Monin-Obukhov length after Seinfeld and Pandis, 1998, p.862
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! jjb work done
 !     - integer exponents (**2 instead of **2.)
 !     - removed archaic forms of intrinsic functions (dlog, datan)
@@ -5184,6 +5539,8 @@ end subroutine equil
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
       integer :: kinv
+
+! == End of declarations =======================================================
 
 ! check inversion height - it is diagnosed in SR atk1 but might be zero after restart
       if (kinv.eq.0)  then
@@ -5253,6 +5610,18 @@ end subroutine equil
       subroutine ion_mass (srname)
 ! calculation of ion mass for ion balance checks
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5284,6 +5653,8 @@ end subroutine equil
       common /liq_pl/ nkc_l
       character *10   srname
       dimension xsum(nf)
+
+! == End of declarations =======================================================
 
       xHp=0.
       xNHp=0.
@@ -5336,6 +5707,18 @@ end subroutine equil
       subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
 !     initialisation for box models runs
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -5358,6 +5741,8 @@ end subroutine equil
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
       integer :: kinv
+
+! == End of declarations =======================================================
 
 ! initialize kinv (needed in SR kpp_driver)
       kinv=nf
@@ -5409,6 +5794,18 @@ end subroutine equil
 
 ! update of astronomical, aerosol and meteorological properties for box model runs
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE constants, ONLY : &
 ! Imported Parameters:
      & pi
@@ -5458,6 +5855,8 @@ end subroutine equil
 
 !     dimension rc(nf,nkc),freep(nf) ! jjb rc now in blck11
       dimension freep(nf)
+
+! == End of declarations =======================================================
 
 !      nmin = n_bl ! jjb variable unreferenced
 !      nmax = n_bl ! jjb variable unreferenced
@@ -5587,6 +5986,18 @@ end subroutine equil
       subroutine sedc_box (dt,z_box,n_bl)
 ! dry deposition and emission of gaseous species for box runs
 
+
+! Author:
+! ------
+  !    RvG based on Andreas Bott routine sedc?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
       USE constants, ONLY : &
@@ -5612,10 +6023,10 @@ end subroutine equil
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
       double precision dt, z_box
-      integer n_bl
+      integer :: n_bl
 
 ! Local scalars:
-      integer j
+      integer :: j
       double precision s12old
 
 ! Common blocks
@@ -5623,8 +6034,9 @@ end subroutine equil
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
 
+! == End of declarations =======================================================
 
-!- End of header ---------------------------------------------------------------
+
 
 !      vg(4)=0.27e-2 ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
 !      vg(34)=vg(30) ! N2O5=HCl
@@ -5704,6 +6116,18 @@ end subroutine equil
 
       subroutine box_partdep (dt, z_box, n_bl)
 
+
+! Author:
+! ------
+  !    RvG?
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     j2, &
@@ -5727,6 +6151,8 @@ end subroutine equil
 
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+
+! == End of declarations =======================================================
 
 ! calculation of deposition velocity is done in SR partdep; for smog chamber runs
 ! the roughness length z0 has to be adjusted in SRs box_init
@@ -5813,6 +6239,8 @@ end subroutine equil
       character *1 fogtype
       character *10 fname
 !      data xmol2 /18./ ! jjb variable unreferenced (commented below)
+
+! == End of declarations =======================================================
 
 ! these write statements are in SR initm, has to be done here as well, to be consistent
 ! with plot progs
@@ -5940,6 +6368,8 @@ end subroutine equil
 ! molar mass of mass-determining ions in g/mole
       data xmm /1.,18.,96.,61.,62.,35.5,97.,23.,95./
 
+! == End of declarations =======================================================
+
       write (13,*) ' '
       write (13,*) 'output:', lday,lst,lmin
 
@@ -6008,6 +6438,8 @@ end subroutine equil
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
+! == End of declarations =======================================================
+
 
       nz_box=0
       do k=1,n
@@ -6058,6 +6490,8 @@ end subroutine equil
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
 
+! == End of declarations =======================================================
+
 
       do k=2,n
          fsum1=0.
@@ -6083,7 +6517,7 @@ end subroutine equil
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist_old
+      subroutine oneD_dist
 !  calculate 1D size distribution of 2D particles dist.
 
       USE constants, ONLY : &
@@ -6117,6 +6551,8 @@ end subroutine equil
       dimension Np(nka+nkt)  !particle number [part cm-3]
       dimension Ap(nka+nkt)  !particle surface [um2 cm-3]
       dimension Vp(nka+nkt)  !particle volume [um3 cm-3]
+
+! == End of declarations =======================================================
 
 !     set up radius range problem: if rq(nkt,1) is used to map all other
 !     radii on, every now and then 2 rq(jt,i) bins will fall into the
@@ -6189,14 +6625,14 @@ end subroutine equil
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist_old
+      end subroutine oneD_dist
 
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist
+      subroutine oneD_dist_new
 !  calculate 1D size distribution of 2D particles dist.
 
 ! jjb rewritten, but needs improvements.
@@ -6232,6 +6668,8 @@ end subroutine equil
 
       dimension rp(nkt)  !particle radius [um]
       dimension Np(nkt)  !particle number [part cm-3]
+
+! == End of declarations =======================================================
 
 ! Ap, Vp can easily be calculated in ferret, so reduce output file size
 
@@ -6304,7 +6742,7 @@ end subroutine equil
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist
+      end subroutine oneD_dist_new
 
 
 !
@@ -6330,7 +6768,8 @@ function xl21(temperature)
   real(kind=dp)             :: ppB = -2339.4_dp    ! in J/kg/K
 ! Local scalars:
   real(kind=dp)             :: xl21                ! in J/kg
-!- End of header ------------------------------------------------------------
+
+! == End of declarations =======================================================
 
   xl21 = ppA + ppB*temperature
 
@@ -6358,7 +6797,9 @@ function p21(ttt)
 
 ! Local scalars:
   real(kind=dp)             :: p21         ! saturation vapour pressure, in [Pa]
-!- End of header ------------------------------------------------------------
+
+! == End of declarations =======================================================
+
 
   p21 = 610.7_dp * exp(17.15_dp*(ttt-273.15_dp)/(ttt-38.33_dp))
 
