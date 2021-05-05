@@ -123,7 +123,7 @@ radinit.o: radinit.f90 config.mod constants.mod file_unit.mod global_params.mod 
 nrad.o: nrad.f90 constants.mod global_params.mod precision.mod Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
-outp.o: outp.f config.mod constants.mod global_params.mod gas_common.mod precision.mod Makefile
+outp.o: outp.f90 config.mod constants.mod global_params.mod gas_common.mod precision.mod Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
 out_netCDF.o: out_netCDF.f config.mod global_params.mod gas_common.mod cdf_var_gas.mod Makefile

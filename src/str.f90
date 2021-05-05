@@ -328,15 +328,18 @@ program mistra
               call sedp (dd)
 ! put aerosol into equilibrium with current rel hum for k>nf
               call equil (2)
-           endif
 
+           else
 ! put aerosol into equilibrium with current rel hum
-           if (.not.mic) call equil (1,n_bl)
+!  jjb: this seems strange, why only run for k=n_bl?
+              call equil (1,n_bl)
+           endif
 
 ! radiative heating
            do k=2,nm
-              t(k)=t(k)+dtrad(k)*dd
+              t(k) = t(k) + dtrad(k) * dd
            enddo
+
 ! temperature and humidity within the soil
 ! water surface: no call to soil
 !         call soil (dd)
@@ -5713,9 +5716,10 @@ end subroutine advseda
 !
 
 
-      subroutine ion_mass (srname)
+subroutine ion_mass (srname)
 ! calculation of ion mass for ion balance checks
 
+  ! This routine is called by SR profm (in outp.f90)
 
 ! Author:
 ! ------
@@ -5728,82 +5732,91 @@ end subroutine advseda
 
 ! == End of header =============================================================
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  implicit none
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+  character (len=10), intent(in) :: srname
+  integer :: ia, j, jt, k
+  real (kind=dp) :: xHp, xNHp, xNap
+  real (kind=dp) :: xSOm, xHCOm, xNOm, xClm, xHSOm, xCHSO
+  real (kind=dp) :: xxsum, xsumi
+  real (kind=dp) :: xsum(2:nf)
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
-
-      common /liq_pl/ nkc_l
-      character *10   srname
-      dimension xsum(nf)
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /liq_pl/ nkc_l
+  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
-      xHp=0.
-      xNHp=0.
-      xSOm=0.
-      xHCOm=0.
-      xNOm=0.
-      xClm=0.
-      xHSOm=0.
-      xNap=0.
-      xCHSO=0.
-      xxsum=0.
-!      xsumi=0. !  redefined later before referenced; no initialisation needed
-      do k=2,nf
-         do j=1,nkc_l
-            xHp=xHp+     sion1(1,j,k) *detw(k)*1.  *1.d6
-            xNHp=xNHp+   sion1(2,j,k) *detw(k)*19. *1.d6
-            xSOm=xSOm+   sion1(8,j,k) *detw(k)*96. *1.d6
-            xHCOm=xHCOm+ sion1(9,j,k) *detw(k)*61. *1.d6
-            xNOm=xNOm+   sion1(13,j,k)*detw(k)*62. *1.d6
-            xClm=xClm+   sion1(14,j,k)*detw(k)*35.5*1.d6
-            xHSOm=xHSOm+ sion1(19,j,k)*detw(k)*97. *1.d6
-            xNap=xNap+   sion1(20,j,k)*detw(k)*23. *1.d6
-            xCHSO=xCHSO+ sion1(30,j,k)*detw(k)*95. *1.d6
-         enddo
-         xsum(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
-            enddo
-         enddo
-         xsum(k)=xsum(k)*1.e+09
-         xxsum=xxsum+xsum(k)*detw(k)
-      enddo
+  xHp   = 0._dp
+  xNHp  = 0._dp
+  xSOm  = 0._dp
+  xHCOm = 0._dp
+  xNOm  = 0._dp
+  xClm  = 0._dp
+  xHSOm = 0._dp
+  xNap  = 0._dp
+  xCHSO = 0._dp
+  xxsum = 0._dp
 
-      xsumi=xHp+xNHp+xSOm+xHCOm+xNOm+xClm+xHSOm+xNap+xCHSO
+  do k=2,nf
+     do j=1,nkc_l
+        xHp   = xHp   + sion1(1,j,k) *detw(k)*1._dp  *1.e6_dp
+        xNHp  = xNHp  + sion1(2,j,k) *detw(k)*19._dp *1.e6_dp
+        xSOm  = xSOm  + sion1(8,j,k) *detw(k)*96._dp *1.e6_dp
+        xHCOm = xHCOm + sion1(9,j,k) *detw(k)*61._dp *1.e6_dp
+        xNOm  = xNOm  + sion1(13,j,k)*detw(k)*62._dp *1.e6_dp
+        xClm  = xClm  + sion1(14,j,k)*detw(k)*35.5_dp*1.e6_dp
+        xHSOm = xHSOm + sion1(19,j,k)*detw(k)*97._dp *1.e6_dp
+        xNap  = xNap  + sion1(20,j,k)*detw(k)*23._dp *1.e6_dp
+        xCHSO = xCHSO + sion1(30,j,k)*detw(k)*95._dp *1.e6_dp
+     enddo
 
-      write (*,21) srname
-      write (*,22)xxsum,xsumi,xNHp,xSOm,xHCOm,xNOm,xClm,xHSOm,xNap,xCHSO
+     xsum(k)=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
+        enddo
+     enddo
+     xsum(k)=xsum(k)*1.e+09_dp
+     xxsum=xxsum+xsum(k)*detw(k)
+  enddo
 
- 21   format (a10)
- 22   format (10d14.6)
+  xsumi=xHp+xNHp+xSOm+xHCOm+xNOm+xClm+xHSOm+xNap+xCHSO
 
-      end subroutine ion_mass
+  write (jpfunout,21) srname
+  write (jpfunout,22) xxsum,xsumi,xNHp,xSOm,xHCOm,xNOm,xClm,xHSOm,xNap,xCHSO
+
+21 format (a10)
+22 format (10d14.6)
+
+end subroutine ion_mass
 
 
 !
