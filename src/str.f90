@@ -1676,6 +1676,8 @@ subroutine sedp (dt)
 ! Modifications :
 ! -------------
   !
+  ! jjb bugfix ds1 ds2, they were the wrong way
+  ! jjb note the different definition of psi: ff here, while ff*detw in latest Bott version of the code
 
 ! == End of header =============================================================
 
@@ -1692,9 +1694,22 @@ subroutine sedp (dt)
 ! Imported Parameters:
        dp
 
-  implicit double precision (a-h,o-z)
+  implicit none
 
-  real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
+! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: dt
+
+! External function
+  real(kind=dp), external :: vterm
+
+! Local scalars:
+  integer :: ia, jt, k                  ! running indices
+  real (kind=dp) :: dt0, dtmax          ! time splitting
+  real (kind=dp) :: ww                  ! sedimentation velocity
+  real (kind=dp) :: x0, x1, x2, x3 !,x4 ! equation factors
+  real (kind=dp) :: xsum                ! particles of one class
+! Local arrays:
+  real (kind=dp) :: c(nf), psi(nf)      ! Courant number and variable to be advected (formerly in cb58)
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
@@ -1714,18 +1729,20 @@ subroutine sedp (dt)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /blck06/ kw(nka),ka
+  integer :: kw, ka
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real (kind=dp) :: vt, vd, vdm
 
 ! == End of declarations =======================================================
 
-  ajs=0.
-  c(nf)=0._dp
-  x3=-deta(2)
+  ajs   = 0._dp
+  c(nf) = 0._dp
+  x3    =-deta(2)
 
   do ia=1,nka
      do jt=1,nkt
-!            x4=rq(jt,ia)
-!            ww=-1.25d-4*x4*x4*(1.+8.6d-02/x4)
+!        x4=rq(jt,ia)
+!        ww=-1.25d-4*x4*x4*(1.+8.6d-02/x4)
         ww   = -1.*vterm(rq(jt,ia)*1.d-6,t(nf),p(nf)) !"first guess" for determination of ww
         dt0  = dt
         xsum = 0._dp
@@ -1734,119 +1751,121 @@ subroutine sedp (dt)
            xsum   = xsum + psi(k)
         enddo
         
+! restrict sedimentation to classes with significant particle content
         if (xsum.gt.1.e-6_dp) then
            x0 = 0._dp
-! 3000          dtmax=dmin1(dt0,x3/(ww+w(nf)))
+
+! time step control
+! multiple calls of advection scheme for large courant numbers
+           do while (dt0 .gt. 0.1_dp)
+!              dtmax=min(dt0,x3/(ww+w(nf)))
 ! see also SR difp: subsidence treated now consistently (i.e. like for other
 ! tracers): w df/dz instead of d(wf)/dz
- 3000          dtmax=dmin1(dt0,x3/(ww))
-               do k=2,nf
-!                  c(k)=dtmax/deta(k)*(ww+w(k))
-                  c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k) &
+              dtmax=min(dt0,x3/(ww))
+
+              do k=2,nf
+!                 c(k)=dtmax/deta(k)*(ww+w(k))
+                 c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k) &
      &                 ,p(k)))
 !     &                 ,p(k))+w(k))
-               enddo
+              enddo
 ! particle dry deposition velocity in lowest model layer:
-               c(2)=dmin1(c(2),dtmax/deta(k)*vd(jt,ia)*(-1.))
-               c(1)   = c(2)
-               dt0    = dt0 - dtmax
-               x1     = psi(2)
-               psi(1) = x1
+              c(2)=dmin1(c(2),dtmax/deta(k)*vd(jt,ia)*(-1.))
+              c(1)   = c(2)
+              dt0    = dt0 - dtmax
+              x1     = psi(2)
+              psi(1) = x1
 
 ! vertical advection of f(ia, jt)
 ! simplified upstream advection for small particles
-               if (rq(jt,ia) .lt. 1._dp) then
-                  call advsed0(c, psi)
-               else
-                  call advsed1(c, psi)
-               endif
-               x0=x0+psi(1)-x1
-               if (dt0.gt.0.1) go to 3000
-               do k=2,nf-1
-                  ff(jt,ia,k)=psi(k)
-               enddo
-               ff(jt,ia,nf)=ff(jt,ia,nf-1)
-            endif
-!         enddo
-! droplet sedimentation
-            x2=x0*e(jt)*detw(2)
-            ajs=ajs+x2/dt
-            trdep=trdep+x2
+              if (rq(jt,ia) .lt. 1._dp) then
+                 call advsed0(c, psi)
+              else
+                 call advsed1(c, psi)
+              endif
+              x0 = x0 + psi(1) - x1
+           end do
+
+! new values of ff
+           do k=2,nf-1
+              ff(jt,ia,k) = psi(k)
+           enddo
+           ff(jt,ia,nf) = ff(jt,ia,nf-1)
+        endif
+
 ! Droplet sedimentation has been evaluated at ground
 ! trdep :  cumulative deposition [kg liquid water/m^2]
 !          being equivalent to [mm] precipitation
 ! ajs   :  sedimentation rate [kg liquid water/m^2/sec]
 !          being equivalent to precip. rate of [mm/sec]
 ! update total liquid water [kg/m^3]
+        x2    = x0 * e(jt) * detw(2)
+        ajs   = ajs + x2 / dt
+        trdep = trdep + x2
 
-!            if (jt.ge.kgp) then
-!               if (jt.lt.kdp) then
-!                  ds1=ds1+x2
-!               else
-!                  ds2=ds2+x2
-!               endif
-!            endif
-            if (jt.gt.kw(ia)) then
-               ds1=ds1+x2
-            else
-               ds2=ds2+x2
-            endif
-         enddo
-      enddo
+! division of sedimentation into small aerosol and large droplets
+! for output
+        if (jt.le.kw(ia)) then
+           ds1=ds1+x2
+        else
+           ds2=ds2+x2
+        endif
+     enddo
+  enddo
 
-      end subroutine sedp
+end subroutine sedp
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine sedc (dt)
+subroutine sedc (dt)
 ! dry deposition and emission of gaseous species
 
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     Avogadro
+       Avogadro
 
-      USE gas_common, ONLY: &
+  USE gas_common, ONLY: &
 ! Imported Parameters:
-     &     j1, &
+       j1, &
 ! Imported Array Variables with intent (in):
-     &     es1, &
-     &     ind_gas_rev, &
+       es1, &
+       ind_gas_rev, &
 ! Imported Array Variables with intent (inout):
-     &     s1, &
-     &     vg
+       s1, &
+       vg
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n
+       n
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      double precision, intent(in) ::  dt
+  real (kind=dp), intent(in) ::  dt
 
 ! Local scalars:
-      integer j
-      double precision s12old
-      double precision x4, w
+  integer :: j
+  real (kind=dp) :: s12old
+  real (kind=dp) :: x4, w
 
 ! Common blocks:
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
 
 
 ! constant dry deposition velocities in m/sec, not for all species defined
@@ -1885,44 +1904,44 @@ subroutine sedp (dt)
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-      if(ind_gas_rev(4) /= 0) &
-     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
-      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
-      if(ind_gas_rev(37) /= 0) &
-     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux
-      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
-      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
-      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
-     &  vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
-      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
-     &  vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
-      if(ind_gas_rev(56) /= 0) &
-     &  vg(ind_gas_rev(56))=0.                  ! CH3I          emission is net flux
-      if(ind_gas_rev(57) /= 0) &
-     &  vg(ind_gas_rev(57))=0.                  ! CH2I2         emission is net flux
-      if(ind_gas_rev(58) /= 0) &
-     &  vg(ind_gas_rev(58))=0.                  ! CH2ClI        emission is net flux
-      if(ind_gas_rev(59) /= 0) &
-     &  vg(ind_gas_rev(59))=0.                  ! C3H7I         emission is net flux
-      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
-      if(ind_gas_rev(71) /= 0) &
-     &  vg(ind_gas_rev(71))=0.                  ! CH2BrI         emission is net flux
-      if(ind_gas_rev(72) /= 0) &
-     &  vg(ind_gas_rev(72))=0.                  ! CHBr2I         emission is net flux
-      if(ind_gas_rev(73) /= 0) &
-     &  vg(ind_gas_rev(73))=0.                  ! C2H5I          emission is net flux
+  if(ind_gas_rev(4) /= 0) &
+       vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
+  if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
+  if(ind_gas_rev(37) /= 0) &
+       vg(ind_gas_rev(37))=0._dp                  ! DMS           emission is net flux
+  if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
+  if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
+  if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
+       vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
+  if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
+       vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
+  if(ind_gas_rev(56) /= 0) &
+       vg(ind_gas_rev(56))=0._dp                  ! CH3I          emission is net flux
+  if(ind_gas_rev(57) /= 0) &
+       vg(ind_gas_rev(57))=0._dp                  ! CH2I2         emission is net flux
+  if(ind_gas_rev(58) /= 0) &
+       vg(ind_gas_rev(58))=0._dp                  ! CH2ClI        emission is net flux
+  if(ind_gas_rev(59) /= 0) &
+       vg(ind_gas_rev(59))=0._dp                  ! C3H7I         emission is net flux
+  if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
+  if(ind_gas_rev(71) /= 0) &
+       vg(ind_gas_rev(71))=0._dp                  ! CH2BrI         emission is net flux
+  if(ind_gas_rev(72) /= 0) &
+       vg(ind_gas_rev(72))=0._dp                  ! CHBr2I         emission is net flux
+  if(ind_gas_rev(73) /= 0) &
+       vg(ind_gas_rev(73))=0._dp                  ! C2H5I          emission is net flux
 
-      if (lst/4*4.eq.lst.and.lmin.eq.1) then
-         print *,lday,lst,lmin
-         print *,' dry deposition velocities'
-         do j=1,j1
-            print *,j,vg(j)
-         enddo
-      endif
+  if (lst/4*4.eq.lst.and.lmin.eq.1) then
+     print *,lday,lst,lmin
+     print *,' dry deposition velocities'
+     do j=1,j1
+        print *,j,vg(j)
+     enddo
+  endif
 
 
 !      x3=deta(2)
@@ -1934,11 +1953,11 @@ subroutine sedp (dt)
 !      if (lst.ge.19.or.lst.lt.6) x4=.4e-02*dt
 !      if (lst.eq.6) x4=(1.6e-02*x0+0.4e-02*(1.-x0))*dt
 !      if (lst.eq.18) x4=(0.4e-02*x0+1.6e-02*(1.-x0))*dt
-      x4=1.
+  x4=1._dp
 !      dt0=dt
-      do j=1,j1
-         w=vg(j)
-         if (w.ge.1.e-05) then
+  do j=1,j1
+     w=vg(j)
+     if (w.ge.1.e-5_dp) then
 !            psi2=s1(j,2)*detw(2)
 !            psi3=s1(j,3)*detw(3)
 !            dtmax=dmin1(dt0,x3/w)
@@ -1956,138 +1975,225 @@ subroutine sedp (dt)
 !            depfac=1.
 !c            s1(j,1)=s1(j,1)+flux1*100.
 !            s1(j,1)=s1(j,1)+flux1*depfac
-            s12old=s1(j,2)
-            s1(j,2)=s1(j,2)*exp(-dt/deta(2)*vg(j))
-            s1(j,1)=s1(j,1)+(s12old-s1(j,2))*deta(2)
-         endif
+        s12old=s1(j,2)
+        s1(j,2)=s1(j,2)*exp(-dt/deta(2)*vg(j))
+        s1(j,1)=s1(j,1)+(s12old-s1(j,2))*deta(2)
+     endif
 ! es1: emission rates in molec./cm**2/s, s1 in mol/m**3
-         s1(j,2)=s1(j,2)+es1(j)*x4*dt*1.e+4/(detw(2)*Avogadro)
-      enddo
+     s1(j,2)=s1(j,2)+es1(j)*x4*dt*1.e+4_dp/(detw(2)*Avogadro)
+  enddo
 
-      end subroutine sedc
+end subroutine sedc
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine sedl (dt)
+subroutine sedl (dt)
 ! new aqueous phase concentrations due to
 ! gravitational settling of droplets
 
-      USE config, ONLY : &
-     &     nkc_l
 
-      USE global_params, ONLY : &
+! Author:
+! ------
+  !    Andreas Bott, Roland von Glasow
+
+
+! Modifications :
+! -------------
+  !
+
+! == End of header =============================================================
+
+  USE config, ONLY : &
+       nkc_l
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-!      double precision dt,f,fsum,c,psi,detw,deta,eta,etw
+  implicit none
 
+! Scalar arguments with intent(in):
+  real(kind=dp), intent(in) :: dt
+
+! External function
+  real(kind=dp), external :: vterm
+
+! Local scalars:
+  integer :: k, kc, l
+  real (kind=dp) :: dt0, dtmax
+  real (kind=dp) :: xfac, xxx, xxxt, x0, x1, x4
+! Local arrays:
   real (kind=dp) :: c(nf), psi(nf) ! Courant number and variable to be advected (formerly in cb58)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  real (kind=dp) :: cc(nf)
 
-      common /blck11/ rc(nkc,n)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
-      dimension cc(nf)
-      c(nf)=0.
+! Common blocks:
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real (kind=dp) :: vt, vd, vdm
+
+! == End of declarations =======================================================
+
+  c(nf)=0._dp
 ! changes have to be made BOTH here and below for ions
 ! rc in m
-      xfac=1.e6
-      do kc=1,nkc_l
-         do k=2,nf
-            xxx=0.01 ! jjb apparently, in um
-            x4=dmax1(xxx,xfac*rc(kc,k)) ! jjb here as well
+  xfac=1.e6_dp
+  do kc=1,nkc_l
+     do k=2,nf
+        xxx=0.01_dp ! jjb apparently, in um
+        x4=max(xxx,xfac*rc(kc,k)) ! jjb here as well
 ! subsidence see SR difl
-!            cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
-            cc(k)=(-1.*vterm(x4*1.d-6,t(k),p(k)))/deta(k) ! jjb: in vterm, radius in m
+!        cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
+        cc(k)=(-1._dp*vterm(x4*1.e-6_dp,t(k),p(k)))/deta(k) ! jjb: in vterm, radius in m
 ! mass weighted terminal velocity
-            cc(k)=dmin1(cc(k),-1.*vt(kc,k)/deta(k))
-         enddo
+        cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
+     enddo
 ! particle dry deposition velocity in lowest model layer:
-         cc(2)=dmin1(cc(2),-1./deta(k)*vdm(kc))
-         do l=1,j2
-            do k=2,nf
-               psi(k)=sl1(l,kc,k)
-            enddo
-            dt0=dt
-            x0=0.
-            xxxt=-.999/cc(2)
- 3000       continue
-            dtmax=dmin1(dt0,xxxt)
-            dt0=dt0-dtmax
-            do k=2,nf
-               c(k)=cc(k)*dtmax
-            enddo
-            c(1)=c(2)
-            x1=psi(2)
-            psi(1)=x1
-            call advsed1(c,psi)
-            x0=x0+psi(1)-x1
-            if (dt0.gt.0.1) go to 3000
-            do k=2,nf-1
-               sl1(l,kc,k)=psi(k)
-            enddo
-! wet deposition to the ground in mole/m**2
-            sl1(l,kc,1)=sl1(l,kc,1)+x0*deta(2)
-         enddo
-      enddo
-! dito for ions
-      c(nf)=0.
-      do kc=1,nkc_l
-         do k=2,nf
-            xxx=0.01
-            x4=dmax1(xxx,xfac*rc(kc,k))
-! subsidence see SR difl
-!            cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
-            cc(k)=(-1.*vterm(x4*1.d-6,t(k),p(k)))/deta(k)
-! mass weighted terminal velocity
-            cc(k)=dmin1(cc(k),-1.*vt(kc,k)/deta(k))
-         enddo
-! particle dry deposition velocity in lowest model layer:
-         cc(2)=dmin1(cc(2),-1./deta(k)*vdm(kc))
-         do l=1,j6
-            do k=2,nf
-               psi(k)=sion1(l,kc,k)
-            enddo
-            dt0=dt
-            x0=0.
-            xxxt=-.999/cc(2)
- 3010       continue
-            dtmax=dmin1(dt0,xxxt)
-            dt0=dt0-dtmax
-            do k=2,nf
-               c(k)=cc(k)*dtmax
-            enddo
-            c(1)=c(2)
-            x1=psi(2)
-            psi(1)=x1
-            call advsed1(c,psi)
-            x0=x0+psi(1)-x1
-            if (dt0.gt.0.1) go to 3010
-            do k=2,nf-1
-               sion1(l,kc,k)=psi(k)
-            enddo
-! wet deposition to the ground in mole/m**2
-            sion1(l,kc,1)=sion1(l,kc,1)+x0*deta(2)
-         enddo
-      enddo !ions
+     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     do l=1,j2
+        do k=2,nf
+           psi(k)=sl1(l,kc,k)
+        enddo
+        dt0  = dt
+        x0   = 0._dp
+        xxxt =-.999_dp / cc(2)
 
-      end subroutine sedl
+! time step control
+! multiple calls of advection scheme for large courant numbers
+        do while (dt0 .gt. 0.1_dp)
+           dtmax=min(dt0,xxxt)
+           dt0=dt0-dtmax
+           do k=2,nf
+              c(k)=cc(k)*dtmax
+           enddo
+           c(1)   = c(2)
+           x1     = psi(2)
+           psi(1) = x1
+           call advsed1(c,psi)
+           x0 = x0 + psi(1) - x1
+        end do
+
+! new values of sl1
+        do k=2,nf-1
+           sl1(l,kc,k) = psi(k)
+        enddo
+! wet deposition to the ground in mole/m**2
+        sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
+     enddo
+  enddo
+
+! dito for ions
+  c(nf)=0._dp
+  do kc=1,nkc_l
+     do k=2,nf
+        xxx=0.01_dp
+        x4=max(xxx,xfac*rc(kc,k))
+! subsidence see SR difl
+!        cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
+        cc(k)=(-1._dp*vterm(x4*1.e-6_dp,t(k),p(k)))/deta(k)
+! mass weighted terminal velocity
+        cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
+     enddo
+! particle dry deposition velocity in lowest model layer:
+     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     do l=1,j6
+        do k=2,nf
+           psi(k)=sion1(l,kc,k)
+        enddo
+        dt0  = dt
+        x0   = 0._dp
+        xxxt = -.999_dp / cc(2)
+
+! time step control
+! multiple calls of advection scheme for large courant numbers
+        do while (dt0 .gt. 0.1_dp)
+           dtmax=min(dt0,xxxt)
+           dt0=dt0-dtmax
+           do k=2,nf
+              c(k)=cc(k)*dtmax
+           enddo
+           c(1)   = c(2)
+           x1     = psi(2)
+           psi(1) = x1
+           call advsed1(c,psi)
+           x0 = x0 + psi(1) - x1
+        end do
+
+! new values of sl1
+        do k=2,nf-1
+           sl1(l,kc,k) = psi(k)
+        enddo
+! wet deposition to the ground in mole/m**2
+        sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
+     enddo
+  enddo
+
+! dito for ions
+  c(nf)=0._dp
+  do kc=1,nkc_l
+     do k=2,nf
+        xxx=0.01_dp
+        x4=max(xxx,xfac*rc(kc,k))
+! subsidence see SR difl
+!        cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
+        cc(k)=(-1._dp*vterm(x4*1.e-6_dp,t(k),p(k)))/deta(k)
+! mass weighted terminal velocity
+        cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
+     enddo
+! particle dry deposition velocity in lowest model layer:
+     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     do l=1,j6
+        do k=2,nf
+           psi(k)=sion1(l,kc,k)
+        enddo
+        dt0  = dt
+        x0   = 0._dp
+        xxxt = -.999_dp / cc(2)
+
+! time step control
+! multiple calls of advection scheme for large courant numbers
+        do while (dt0 .gt. 0.1_dp)
+           dtmax=min(dt0,xxxt)
+           dt0=dt0-dtmax
+           do k=2,nf
+              c(k)=cc(k)*dtmax
+           enddo
+           c(1)   = c(2)
+           x1     = psi(2)
+           psi(1) = x1
+           call advsed1(c,psi)
+           x0 = x0 + psi(1) - x1
+        enddo
+
+! new values of sion1
+        do k=2,nf-1
+           sion1(l,kc,k) = psi(k)
+        enddo
+! wet deposition to the ground in mole/m**2
+        sion1(l,kc,1) = sion1(l,kc,1) + x0 * deta(2)
+     enddo
+  enddo !ions
+
+end subroutine sedl
 
 !
 !------------------------------------------------------------
@@ -4816,7 +4922,7 @@ subroutine advseda (c, y)
 
 ! Modifications :
 ! -------------
-  !
+  ! jjb: currently unused, see with ABott if advseda should replace advsed1
 
 ! == End of header =============================================================
 
@@ -4860,17 +4966,17 @@ subroutine advseda (c, y)
 
 ! loop for flux of y in the fog levels
   do i=3,nf-2
-     a0=(9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1))+2134._dp*y(i))/1920._dp
-     a1=(-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
-     a2=(-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
-     a3=(y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
-     a4=(y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
-     cl=-c(i-1)
+     a0 = (9._dp*(y(i+2)+y(i-2))-116._dp*(y(i+1)+y(i-1))+2134._dp*y(i))/1920._dp
+     a1 = (-5._dp*(y(i+2)-y(i-2))+34._dp*(y(i+1)-y(i-1)))/384._dp
+     a2 = (-y(i+2)+12._dp*(y(i+1)+y(i-1))-22._dp*y(i)-y(i-2))/384._dp
+     a3 = (y(i+2)-2._dp*(y(i+1)-y(i-1))-y(i-2))/768._dp
+     a4 = (y(i+2)-4._dp*(y(i+1)+y(i-1))+6._dp*y(i)+y(i-2))/3840._dp
+     cl = -c(i-1)
      x1 = 1._dp - 2._dp * cl
      x2 = x1 * x1
      x3 = x1 * x2
      fm = max(0._dp, a0*cl-a1*(1._dp-x2)+a2*(1._dp-x3)-a3*(1._dp-x1*x3) &
-     &        +a4*(1._dp-x2*x3))
+                    +a4*(1._dp-x2*x3))
      w = y(i) / max(fm+1.d-15, a0+2._dp*(a2+a4))
      flux(i-1) = fm * w
   end do
@@ -5983,56 +6089,56 @@ end subroutine advseda
 !---------------------------------------------------------------
 !
 
-      subroutine sedc_box (dt,z_box,n_bl)
+subroutine sedc_box (dt,z_box,n_bl)
 ! dry deposition and emission of gaseous species for box runs
 
 
 ! Author:
 ! ------
-  !    RvG based on Andreas Bott routine sedc?
+  !    Roland von Glasow, duplicate of SR sedc with tuning for box case
 
 
 ! Modifications :
 ! -------------
   !
+! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
 ! == End of header =============================================================
 
-! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & Avogadro
+       Avogadro
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Parameters:
-     &     j1, &
+       j1, &
 ! Imported Array Variables with intent (in):
-     &     es1, &
-     &     ind_gas_rev, &
+       es1, &
+       ind_gas_rev, &
 ! Imported Array Variables with intent (inout):
-     &     s1, &
-     &     vg
+       s1, &
+       vg
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      double precision dt, z_box
-      integer :: n_bl
+  real (kind=dp), intent(in) :: dt, z_box
+  integer, intent(in) :: n_bl
 
 ! Local scalars:
-      integer :: j
-      double precision s12old
+  integer :: j
+  real (kind=dp) :: s12old
 
 ! Common blocks
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
 ! == End of declarations =======================================================
 
@@ -6054,60 +6160,60 @@ end subroutine advseda
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-      if(ind_gas_rev(4) /= 0) &
-     & vg(ind_gas_rev(4))=0.27e-2              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
-      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
-      if(ind_gas_rev(37) /= 0) &
-     &  vg(ind_gas_rev(37))=0.                  ! DMS           emission is net flux
-      if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
-      if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
-      if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
-     &  vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
-      if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
-     &  vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
-      if(ind_gas_rev(56) /= 0) &
-     &  vg(ind_gas_rev(56))=0.                  ! CH3I          emission is net flux
-      if(ind_gas_rev(57) /= 0) &
-     &  vg(ind_gas_rev(57))=0.                  ! CH2I2         emission is net flux
-      if(ind_gas_rev(58) /= 0) &
-     &  vg(ind_gas_rev(58))=0.                  ! CH2ClI        emission is net flux
-      if(ind_gas_rev(59) /= 0) &
-     &  vg(ind_gas_rev(59))=0.                  ! C3H7I         emission is net flux
-      if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
-     &  vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
-      if(ind_gas_rev(71) /= 0) &
-     &  vg(ind_gas_rev(71))=0.                  ! CH2BrI         emission is net flux
-      if(ind_gas_rev(72) /= 0) &
-     &  vg(ind_gas_rev(72))=0.                  ! CHBr2I         emission is net flux
-      if(ind_gas_rev(73) /= 0) &
-     &  vg(ind_gas_rev(73))=0.                  ! C2H5I          emission is net flux
+  if(ind_gas_rev(4) /= 0) &
+      vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
+  if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
+  if(ind_gas_rev(37) /= 0) &
+       vg(ind_gas_rev(37))=0._dp                  ! DMS           emission is net flux
+  if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(38))=vg(ind_gas_rev(30)) ! HOCl = HCl
+  if(ind_gas_rev(43) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(43))=vg(ind_gas_rev(30)) ! HOBr = HCl
+  if(ind_gas_rev(50) /= 0 .and. ind_gas_rev(49) /= 0) &
+       vg(ind_gas_rev(50))=vg(ind_gas_rev(49)) ! I2O2=HOI
+  if(ind_gas_rev(51) /= 0 .and. ind_gas_rev(49) /= 0) &
+       vg(ind_gas_rev(51))=vg(ind_gas_rev(49)) ! INO2=HOI
+  if(ind_gas_rev(56) /= 0) &
+       vg(ind_gas_rev(56))=0._dp                  ! CH3I          emission is net flux
+  if(ind_gas_rev(57) /= 0) &
+       vg(ind_gas_rev(57))=0._dp                  ! CH2I2         emission is net flux
+  if(ind_gas_rev(58) /= 0) &
+       vg(ind_gas_rev(58))=0._dp                  ! CH2ClI        emission is net flux
+  if(ind_gas_rev(59) /= 0) &
+       vg(ind_gas_rev(59))=0._dp                  ! C3H7I         emission is net flux
+  if(ind_gas_rev(63) /= 0 .and. ind_gas_rev(30) /= 0) &
+       vg(ind_gas_rev(63))=vg(ind_gas_rev(30)) ! CH3SO3H = HCl
+  if(ind_gas_rev(71) /= 0) &
+       vg(ind_gas_rev(71))=0._dp                  ! CH2BrI         emission is net flux
+  if(ind_gas_rev(72) /= 0) &
+       vg(ind_gas_rev(72))=0._dp                  ! CHBr2I         emission is net flux
+  if(ind_gas_rev(73) /= 0) &
+       vg(ind_gas_rev(73))=0._dp                  ! C2H5I          emission is net flux
 
 
-      if (lst/4*4.eq.lst.and.lmin.eq.1) then
-         print *,lday,lst,lmin
-         print *,' dry deposition velocities'
-         do j=1,j1
-            print *,j,vg(j)
-         enddo
-      endif
+  if (lst/4*4.eq.lst.and.lmin.eq.1) then
+     print *,lday,lst,lmin
+     print *,' dry deposition velocities'
+     do j=1,j1
+        print *,j,vg(j)
+     enddo
+  endif
 
-      do j=1,j1
+  do j=1,j1
 ! deposition, vg in m/s
-         if (vg(j).ge.1.e-05) then
-            s12old=s1(j,n_bl)
-            s1(j,n_bl)=s1(j,n_bl)*exp(-dt/z_box*vg(j))
-            s1(j,1)=s1(j,1)+(s12old-s1(j,n_bl))*z_box
-         endif
+     if (vg(j).ge.1.e-5_dp) then
+        s12old=s1(j,n_bl)
+        s1(j,n_bl)=s1(j,n_bl)*exp(-dt/z_box*vg(j))
+        s1(j,1)=s1(j,1)+(s12old-s1(j,n_bl))*z_box
+     endif
 
 ! emission
 ! es1: emission rates in molec./cm**2/s, s1 in mol/m**3
-         s1(j,n_bl)=s1(j,n_bl)+es1(j)*dt*1.e+4/(z_box*Avogadro)
-      enddo
+     s1(j,n_bl)=s1(j,n_bl)+es1(j)*dt*1.e+4_dp/(z_box*Avogadro)
+  enddo
 
-      end subroutine sedc_box
+end subroutine sedc_box
 
 
 !
