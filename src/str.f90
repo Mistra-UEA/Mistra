@@ -74,6 +74,7 @@ program mistra
   USE config, ONLY : &
 ! External subroutine
        read_config,  &
+       abortM,       &
 ! Config switches
        binout,       &
        BL_box,       &
@@ -83,6 +84,7 @@ program mistra
        chem,         &
        halo,         &
        iod,          &
+       isurf,        &
        mic,          &
        netCDF,       &
        neula,        &
@@ -119,6 +121,7 @@ program mistra
   logical Napari, Lovejoy, both
   logical :: llinit
 
+! Common blocks:
   common /cb16/ u0,albedo(mbs),thk(nrlay)
   double precision u0, albedo, thk
 
@@ -290,20 +293,23 @@ program mistra
   do it=it0+1,itmax
      if (lct.gt.nf) stop 'lct.gt.nf'
 !         time=time+dt
-     lmin=lmin+1
-     if (lmin.lt.60) go to 2030
-     lmin=lmin-60
-     lst=lst+1
-     if (lst.eq.24) then
-        lst=0
-        lday=lday+1
+
+     lmin = lmin + 1
+     if (lmin.eq.60) then
+        lmin = lmin - 60
+        lst  = lst + 1
+        if (lst.eq.24) then
+           lst  = 0
+           lday = lday + 1
+        endif
      endif
-2030 continue
+
 ! dry dep velocities
 !     print*,'call partdep'
      call partdep (xra)
+
 ! dd: fractional timestep in sec
-     dd=10.
+     dd = 10._dp
 ! inner time loop: 10 sec
      do ij=1,6
         time=time+dd
@@ -340,22 +346,26 @@ program mistra
               t(k) = t(k) + dtrad(k) * dd
            enddo
 
+! Surface routines: flux balances at the earth's surface in SR surf*
+           select case (isurf)
+! water surface
+           case (0)
+              call surf0 (dd)
+           case (1)
 ! temperature and humidity within the soil
-! water surface: no call to soil
-!         call soil (dd)
-! flux balances at the earth's surface
-! water surface: call surf0; else: call surf1
-           call surf0 (dd)
-!         call surf1 (dd)
+              call soil (dd)
+              call surf1 (dd)
+           case default
+              call abortM ('wrong choice for isurf, must be 0 (water) or 1 (soil), change namelist')
+           end select
+
 ! dry deposition and emission of chemical species
            if (chem) then
               call sedc (dd)
 ! wet deposition of chemical species
-!         if (lct.gt.1) call sedl (dd)
               call sedl (dd)
 ! chemical reactions
-!             call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
+              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
               if (nuc) then
 ! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
 !                                      Lovejoy: homogeneous OIO nucleation
@@ -395,8 +405,7 @@ program mistra
            call box_partdep (dd,z_box,n_bl)
 ! aerosol emission and chemical reactions
            if (chem) then
-!             call stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in this SR
+              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
            endif
         endif               ! if .not.box
 ! --------box model version only end -------------------
@@ -512,24 +521,17 @@ block data
 
    implicit double precision (a-h,o-z)
 
+! Common blocks:
    common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
    double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,   &
-        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+        bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
 ! gravitational acceleration
    data g /9.8065d0/
 
-! chose the water temperature and subsidence velocities depending on
+! chose the subsidence velocities depending on
 ! what version of SR initm is used (see ./special_versions/SR_initm)
-! water temperature
-!   data tw /288.15d0/ !cloud and aer sub run
-!   data tw /286.15d0/ !cloud and aer sub run
-!   data tw /287.4d0/ !cloud no sub run
-!   data tw /290.4d0/ !aerosol no sub run
-!   data tw /288.4d0/ !aerosol no sub run
-!   data tw /300.d0/ !INDOEX
-   data tw /299.5d0/
 
 ! geostrophic wind, large scale subsidence
 !      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.005d0/
@@ -759,6 +761,9 @@ end block data
      &     r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
+  USE data_surface, ONLY : &
+       tw
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -777,6 +782,7 @@ end block data
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
+! Common blocks:
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
@@ -791,9 +797,9 @@ end block data
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -1168,6 +1174,7 @@ end block data
       double precision, parameter :: r_max_dry = 15.    ! [um]
       double precision, parameter :: r_max_wet = 60.    ! [um]
 
+! Common blocks:
       common /cb08/ re1(nkt), re2(nkt), re3(nkt)
       double precision re1, re2, re3
 
@@ -1351,6 +1358,9 @@ end block data
 ! == End of header =============================================================
 
 
+  USE data_surface, ONLY : &
+       tw
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -1366,6 +1376,7 @@ end block data
       implicit double precision (a-h,o-z)
 ! vertical profiles of meteorological data if the program is restarted
 
+! Common blocks:
       common /cb11/ totrad (mb,n)
       double precision totrad
 
@@ -1386,9 +1397,9 @@ end block data
       real (kind=dp) :: gm, gh, sm, sh, xl
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -1498,6 +1509,7 @@ end block data
 
 ! profiles of chemical data if the program is restarted
 
+! Common blocks:
       common /band_rat/ photol_j(nphrxn,n)
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
@@ -1714,6 +1726,7 @@ subroutine sedp (dt)
 ! Local arrays:
   real (kind=dp) :: c(nf), psi(nf)      ! Courant number and variable to be advected (formerly in cb58)
 
+! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
 
@@ -2327,9 +2340,9 @@ subroutine wfield
   real (kind=dp) :: detw, deta, eta, etw
 
   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw     ! wmin, wmax: input for vertical wind
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax        ! wmin, wmax: input for vertical wind
   real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w                                 ! w: subsidence
@@ -2414,9 +2427,9 @@ subroutine difm (dt)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
   real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -2894,6 +2907,7 @@ end subroutine difc
 
       implicit double precision (a-h,o-z)
 
+! Common blocks:
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -2904,9 +2918,9 @@ end subroutine difc
       real (kind=dp) :: gm, gh, sm, sh, xl
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -2992,6 +3006,7 @@ end subroutine difc
 ! turbulent exchange coefficients after 2.5 level model of Mellor
 ! and Yamada, JAS 1974.
 
+! Common blocks:
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
@@ -3009,9 +3024,9 @@ end subroutine difc
       real (kind=dp) :: gm, gh, sm, sh, xl
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -3196,10 +3211,11 @@ end subroutine difc
 ! and moisture transport within the soil.
 ! for further details see subroutine difm.
 
+! Common blocks:
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
@@ -3257,74 +3273,120 @@ end subroutine difc
 !-------------------------------------------------------------
 !
 
-      subroutine surf0 (dt)
+subroutine surf0 (dt)
+!
+! Description:
+! -----------
+  ! lower boundary condition for water surface
+  ! constant temperature and saturation specific humidity
 
-      USE global_params, ONLY : &
+
+! Author:
+! ------
+  !    Andreas Bott
+
+
+! Modifications :
+! -------------
+  ! 06-May-2021  Josue Bock  Introduce ltwcst, ntwopt and rhsurf from namelist instead of hard-coded
+
+! == End of header =============================================================
+
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+       ltwcst,       &
+       ntwopt,       &
+       rhsurf,       &
+! Imported Routines:
+       abortM
+
+  USE data_surface, ONLY : &
+       tw
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka
+       n, &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-! lower boundary condition for water surface
-! constant temperature and saturation specific humidity
+  implicit none
+
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: dt
+
+! External function:
+  real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
 ! Local scalars:
-  real (kind=dp) :: pp21 ! p21(tw)
-  real (kind=dp), external :: p21
+  real (kind=dp) :: uu, vv, vqr, vbt                      ! wind velocities
+  real (kind=dp) :: xnvl, zp, zpdz0, zpdl, cu, ctq        ! Clarke functions
+  real (kind=dp) :: zp21 ! p21(tw)
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! Common blocks:
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb46/ ustern,gclu,gclt
+  real (kind=dp) :: ustern, gclu, gclt
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 ! == End of declarations =======================================================
 
-!      tw=tw-5.787d-6*dt
-!      tw=tw-6.94444d-6*dt
-      t(1)=tw
-      pp21=p21(tw)
-!      xm1(1)=0.62198*pp21/(p(1)-0.37802*pp21)
-!      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# INDOEX
-!      xm1(1)=0.75*0.62198*pp21/(p(1)-0.37802*pp21) !# Appledore
-!      xm1(1)=0.7*0.62198*pp21/(p(1)-0.37802*pp21)  !# aerosol nosub run
-!      xm1(1)=0.6*0.62198*pp21/(p(1)-0.37802*pp21)  !# aerosol nosub run
-!      xm1(1)=0.55*0.62198*pp21/(p(1)-0.37802*pp21)  !# aerosol nosub run
-!      xm1(1)=0.3*0.62198*pp21/(p(1)-0.37802*pp21)  !# aerosol nosub run
-      xm1(1)=0.8*0.62198*pp21/(p(1)-0.37802*pp21) !# cloud nosub run
-!      xm1(1)=0.982*0.62198*pp21/(p(1)-0.37802*pp21)  !# cloud sub run Raoult's law
-!      xm1(1)=0.7*0.62198*pp21/(p(1)-0.37802*pp21)  !# aerosol sub run
-      uu=u(2)
-      vv=v(2)
-      vqr=uu*uu+vv*vv
-      vbt=sqrt(vqr)
-      zp=0.5*eta(2)+z0
-      zpdz0=dlog(zp/z0)
-      xnvl=g*(theta(2)-tw)*2./(theta(2)+tw)
-      zpdl=zp*xnvl/vqr
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern=dmax1(0.01d0,vbt/cu)
-! charnock's relation: z0=0.015*ustern**2/g
-      z0=0.015*ustern*ustern/g
-      gclu=cu
-      gclt=ctq
+! tw varying with time
+  if (.not.ltwcst) then
+     select case (ntwopt)
+     ! different options used so far. Add other functions of time if needed
+     case (1)
+        tw = tw - 5.787e-6_dp * dt
+     case (2)
+        tw = tw - 6.94444e-6_dp * dt
+     case default
+        call abortM ('Error in SR surf0: wrong choice for ntwopt, change in namelist')
+     end select
+  endif
 
-      end subroutine surf0
+! temperature and specific humidity at the surface
+  t(1)   = tw
+  zp21   = p21(tw)
+  xm1(1) = rhsurf * 0.62198_dp * zp21 / (p(1) - 0.37802_dp * zp21)
+
+! frictional velocity
+  uu  = u(2)
+  vv  = v(2)
+  vqr = uu*uu+vv*vv
+  vbt = sqrt(vqr)
+
+  zp    = 0.5_dp * eta(2) + z0
+  zpdz0 = log(zp/z0)
+  xnvl  = g * (theta(2) - tw) * 2._dp / (theta(2) + tw)
+  zpdl  = zp * xnvl / vqr
+
+  call claf (zpdl,zpdz0,cu,ctq)
+
+  ustern = max(0.01_dp, vbt/cu)
+! roughness length:
+! charnock's relation: z0=0.015*ustern**2/g
+  z0   = 0.015_dp * ustern * ustern / g
+  gclu = cu
+  gclt = ctq
+
+end subroutine surf0
 
 !
 !-------------------------------------------------------------
@@ -3358,13 +3420,14 @@ end subroutine difc
       real (kind=dp), external :: p21  ! saturation vapour pressure
       real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
 
+! Common blocks:
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -4092,9 +4155,9 @@ subroutine equil (ncase,kk)
 
 ! Common blocks:
   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &         ! a0m, b0m: Koehler curve
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
   real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
                 e(nkt),dew(nkt),rq(nkt,nka)
@@ -4300,10 +4363,11 @@ subroutine subkon (dt)
   real (kind=dp) :: cd(nkt,nka),cr(nkt,nka),sr(nkt,nka),falt(nkt,nka),c(nkt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
+! Common blocks:
   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
   real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
                 qext(18,nkt,nka,jptaerrad), &
@@ -5013,8 +5077,7 @@ end subroutine advseda
 !------------------------------------------------------------------------
 !
 
-!     subroutine stem_kpp (dd,xra,z_box,n_bl,box)     ! jjb
-      subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc) ! jjb nuc is needed in 2 IF tests
+      subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 
 
 ! Author:
@@ -5024,7 +5087,7 @@ end subroutine advseda
 
 ! Modifications :
 ! -------------
-  !
+  ! jjb bugfix: added nuc in argument list, needed in two if tests
 
 ! == End of header =============================================================
 
@@ -5062,6 +5125,7 @@ end subroutine advseda
       integer tix,tixp
 
       parameter (lsp=9)
+! Common blocks:
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -5396,10 +5460,11 @@ end subroutine advseda
   real (kind=dp), parameter :: zrho_frac = rho3 / rhow
   !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
+! Common blocks:
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
@@ -5485,15 +5550,16 @@ end subroutine advseda
 
       implicit double precision (a-h,o-z)
 
+! Common blocks:
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
@@ -5631,6 +5697,7 @@ end subroutine advseda
       double precision, intent(out) :: phi ! see S & P 1st Ed, p. 963, equation (19.14)
       double precision :: xeta
 
+! Common blocks:
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -5638,9 +5705,9 @@ end subroutine advseda
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb46/ ustern,gclu,gclt
       real (kind=dp) :: ustern, gclu, gclt
@@ -5759,6 +5826,7 @@ subroutine ion_mass (srname)
   real (kind=dp) :: xxsum, xsumi
   real (kind=dp) :: xsum(2:nf)
 
+! Common blocks:
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -5852,6 +5920,7 @@ end subroutine ion_mass
 
       real(kind=dp), external :: p21
 
+! Common blocks:
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -5954,6 +6023,7 @@ end subroutine ion_mass
 !      logical chem,halo,iod,fa_lse,BL_box ! jjb unused arguments removed: chem, halo, iod
       logical fa_lse,BL_box
 
+! Common blocks:
       common /cb16/ u0,albedo(mbs),thk(nrlay)
       double precision u0, albedo, thk
 
@@ -6264,6 +6334,7 @@ end subroutine sedc_box
       implicit double precision (a-h,o-z)
 
 ! dry deposition of particles and aqueous constituents in box
+! Common blocks:
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       real (kind=dp) :: ff, fsum
       integer :: nar
@@ -6331,13 +6402,14 @@ end subroutine sedc_box
 
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
+! Common blocks:
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
       common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
       double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -6464,6 +6536,7 @@ end subroutine sedc_box
       implicit double precision (a-h,o-z)
 
       parameter (lsp=9)
+! Common blocks:
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
@@ -6554,6 +6627,7 @@ end subroutine sedc_box
       implicit double precision (a-h,o-z)
 ! get grid level for box height
 
+! Common blocks:
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
@@ -6601,6 +6675,7 @@ end subroutine sedc_box
 
       implicit double precision (a-h,o-z)
 
+! Common blocks:
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       real (kind=dp) :: ff, fsum
       integer :: nar
@@ -6656,6 +6731,7 @@ end subroutine sedc_box
       implicit double precision (a-h,o-z)
       double precision Np
 
+! Common blocks:
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
@@ -6773,6 +6849,7 @@ end subroutine sedc_box
       implicit double precision (a-h,o-z)
       double precision Np
 
+! Common blocks:
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       double precision enw,ew,rn,rw,en,e,dew,rq
