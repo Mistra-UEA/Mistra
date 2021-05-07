@@ -17,6 +17,7 @@
  tw = 299.5      !<-- tw = water temperature [K]
 ! ltwcst = T      !<-- constant tw (default = true). If not constant, set ntwopt (see SR surf0)
 ! ntwopt = 1      !<-- choice for time varying SST (see SR surf0)
+ z0 = 0.001       !<-- roughness length (m) (default = 0.01)
 
  ! Meteorological settings
  rhsurf = 0.8    !<-- relative humidity at the surface, forced at each time step (default = 1)

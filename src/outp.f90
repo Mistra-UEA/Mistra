@@ -98,9 +98,9 @@ subroutine outm
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
@@ -1410,7 +1410,8 @@ subroutine constm (chem,mic,rst)
        r1                 ! Specific gas constant of water vapour, in J/(kg.K)
 
   USE data_surface, ONLY : &
-       tw
+       tw, &                       ! water surface temperature
+       z0                          ! roughness length
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1449,9 +1450,9 @@ subroutine constm (chem,mic,rst)
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -1646,6 +1647,9 @@ subroutine profm (dt)
 ! Declarations:
 ! Modules used:
 
+  USE data_surface, ONLY : &
+       ustern, z0                  ! frictional velocity, roughness length
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        nf, &
@@ -1688,15 +1692,8 @@ subroutine profm (dt)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
-                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
-  common /cb46/ ustern,gclu,gclt
-  real (kind=dp) :: ustern, gclu, gclt
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
                 ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
   real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &

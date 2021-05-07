@@ -30,6 +30,8 @@ module file_unit
   integer, parameter :: jpfunnam = 1
   integer, parameter :: jpfuncfgout = 2
 
+  integer, parameter :: jpfunclarke = 50
+
   integer, parameter :: jpfunaerrad  = 51 ! units used: 51-56
   integer, parameter :: jpfundatarad = 57
 

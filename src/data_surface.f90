@@ -38,9 +38,22 @@ module data_surface
   public ! confirm this property with an explicit statement
   save   ! not mandatory if called from main program
 
+! Prandtl layer, Clarke functions, frictional velocity
+!-----------------------------------------------------
+  real (kind=dp) :: &
+       xzpdl(18), & ! tabled values of zpdl for interpolation (claf)        (1)
+       xzpdz0(7), & ! tabled values of zpdz0 for interpolation (claf)       (1)
+       fu(18,7), &  ! tabled values of clarke function for momentum         (1)
+       ft(18,7), &  ! tabled values of clarke function for temp., moisture  (1)
+       gclu, &      ! Clarke function for momentum                          (1)
+       gclt, &      ! Clarke function for temperature, humidity             (1)
+       ustern, &    ! frictional velocity                                 (m/s)
+       z0           ! roughness length of the surface                       (m)
+
 ! surface temperature for water surface
 !--------------------------------------
   real (kind=dp) :: &
        tw           ! water surface temperature                          (K)
+
 
 end module data_surface
