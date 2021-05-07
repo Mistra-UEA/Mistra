@@ -427,6 +427,11 @@ c nkc=4; 1: sulfate aerosol, 2: seasalt aerosol, 3: sulfate droplets
 c        4: seasalt droplets
 c xra: aerodynamic resistence, needed for calculation of dry deposition velocities
 
+      USE constants, ONLY :
+! Imported Parameters:
+     &     Avogadro,
+     &     m_air
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -476,10 +481,10 @@ c free path length (lambda=freep):
 
 c conversion of gaseous species and air density
 c air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*6.022d20/29.
-      am3(1)=rho(1)/29.d-3
-      cm3(nmin2:nmax)=rho(nmin2:nmax)*6.022d20/29.        ! [air] in mlc/cm^3
-      am3(nmin2:nmax)=rho(nmin2:nmax)/29.d-3              ! [air] in mol/m^3
+      cm3(1)=rho(1)*Avogadro/m_air
+      am3(1)=rho(1)/m_air
+      cm3(nmin2:nmax)=rho(nmin2:nmax)*Avogadro/m_air      ! [air] in mlc/cm^3
+      am3(nmin2:nmax)=rho(nmin2:nmax)/m_air               ! [air] in mol/m^3
 
 
 c dry deposition velocities for gas phase
