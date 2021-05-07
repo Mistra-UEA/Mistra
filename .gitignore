@@ -48,3 +48,5 @@ mistra
 *.nc
 rst*.dat
 fort.*
+
+forchk*

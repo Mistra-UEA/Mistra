@@ -584,7 +584,7 @@ subroutine openm (fogtype)
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-  character (len=1) fogtype
+  character (len=1), intent(in) :: fogtype
 
 ! Local scalars:
   character (len=10) fname    ! I/O files names
@@ -2424,6 +2424,7 @@ subroutine difm (dt)
 
 ! Local arrays:
   real (kind=dp) :: c(n)
+  real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm),oldu(nm)
 
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -2445,9 +2446,6 @@ subroutine difm (dt)
   real(kind=dp) :: thet, theti
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
-  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
-  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
 
 ! == End of declarations =======================================================
 
@@ -2615,6 +2613,7 @@ subroutine difp (dt)
 
 ! Local arrays:
   real (kind=dp) :: c(n), am3(nm+1) ! am3: [air] in mol/m^3
+  real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm)!,oldf(nf)
 
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -2630,8 +2629,6 @@ subroutine difp (dt)
   integer :: nar
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-  real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
 
 ! == End of declarations =======================================================
 
@@ -2757,12 +2754,13 @@ subroutine difc (dt)
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-  real (kind=dp) :: dt
+  real (kind=dp), intent(in) :: dt
 
 ! Local scalars:
   integer :: k, kc, kp, j
 ! Local arrays:
   real (kind=dp) :: c(n)
+  real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm)
 
 ! Common blocks:
   common /blck01/ am3(n),cm3(n)
@@ -2779,9 +2777,6 @@ subroutine difc (dt)
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
-
-  common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
-  real (kind=dp) :: xa, xb, xc, xd, xe, xf, oldf
 
 ! == End of declarations =======================================================
 
@@ -3205,85 +3200,103 @@ end subroutine difc
 !-------------------------------------------------------------
 !
 
-      subroutine soil (dt)
-
-      USE constants, ONLY : &
-! Imported Parameters:
-     &     rhow                  ! Water density [kg/m**3]
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     n, &
-     &     nb, &
-     &     nbm, &
-     &     nka
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit double precision (a-h,o-z)
+subroutine soil (dt)
 ! fully implicit procedure for the solution of the diffusive heat
 ! and moisture transport within the soil.
 ! for further details see subroutine difm.
 
-! Common blocks:
-      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  USE constants, ONLY : &
+! Imported Parameters:
+       rhow                  ! Water density [kg/m**3]
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldu(n)
-      real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldu
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nb, &
+       nbm, &
+       nka
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: dt
+
+! Local scalars:
+  integer :: k
+  real (kind=dp) :: akb, x0, x1, x2, x3
+! Local arrays:
+  real (kind=dp) :: xa(nbm),xb(nbm),xc(nbm),xd(nbm),xe(nbm),xf(nbm)
+
+! Common blocks:
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+
 ! == End of declarations =======================================================
 ! soil temperature
-      xe(1)=0.
-      x0=dmax1(eb(1),ebc)
-      akb=anu0*x0**bs0/((1.-ebs)*rhoc+eb(1)*rhocw)
-      xa(1)=akb*dt/(dzbw(1)*dzb(1))
-      do 1000 k=2,nbm
-      x0=dmax1(eb(k),ebc)
-      akb=anu0*x0**bs0/((1.-ebs)*rhoc+eb(k)*rhocw)
-      xa(k)=akb*dt/(dzbw(k)*dzb(k))
-      xc(k)=xa(k-1)*dzbw(k-1)/dzbw(k)
-      xb(k)=1.+xa(k)+xc(k)
-      xd(k)=xb(k)-xc(k)*xe(k-1)
- 1000 xe(k)=xa(k)/xd(k)
-      xf(1)=tb(1)
-      do 1010 k=2,nbm
- 1010 xf(k)=(tb(k)+xc(k)*xf(k-1))/xd(k)
-      do 1020 k=nbm,2,-1
- 1020 tb(k)=xe(k)*tb(k+1)+xf(k)
-! volumetric moisture content
-      x0=2.*bs+3.
-      x1=bs+2.
-      x2=-bs*aks*psis/ebs
-      do 1030 k=2,nbm
-      x3=(eb(k)+dzbw(k)*(eb(k+1)-eb(k))/(2.*dzb(k)))/ebs
-      ak(k)=aks*x3**x0
- 1030 d(k)=x2*x3**x1
-      ak(1)=0.
-      d(1)=0.
-      if (abs(eb(2)-eb(1)).gt.1.d-5) &
-     & d(1)=ajm*dzb(1)/(rhow*(eb(2)-eb(1)))
-      xa(1)=d(1)*dt/(dzbw(1)*dzb(1))
-      do 1040 k=2,nbm
-      xa(k)=d(k)*dt/(dzbw(k)*dzb(k))
-      xc(k)=xa(k-1)*dzbw(k-1)/dzbw(k)
-      xb(k)=1.+xa(k)+xc(k)
-      xd(k)=xb(k)-xc(k)*xe(k-1)
- 1040 xe(k)=xa(k)/xd(k)
-      xf(1)=eb(1)
-      do 1050 k=2,nbm
- 1050 xf(k)=(eb(k)+dt/dzbw(k)*(ak(k-1)-ak(k))+xc(k)*xf(k-1))/xd(k)
-      do 1060 k=nbm,2,-1
- 1060 eb(k)=xe(k)*eb(k+1)+xf(k)
+  xe(1) = 0._dp
+  x0    = max(eb(1),ebc)
+  akb   = anu0 * x0**bs0 / ((1._dp - ebs) * rhoc + eb(1) * rhocw)
+  xa(1) = akb * dt / (dzbw(1) * dzb(1))
+  do k=2,nbm
+     x0    = max(eb(k),ebc)
+     akb   = anu0 * x0**bs0 / ((1._dp - ebs) * rhoc + eb(k) * rhocw)
+     xa(k) = akb * dt / (dzbw(k) * dzb(k))
+     xc(k) = xa(k-1) * dzbw(k-1) / dzbw(k)
+     xb(k) = 1._dp + xa(k) + xc(k)
+     xd(k) = xb(k) - xc(k) * xe(k-1)
+     xe(k) = xa(k) / xd(k)
+  end do
 
-      end subroutine soil
+  xf(1)=tb(1)
+  do k=2,nbm
+     xf(k)=(tb(k)+xc(k)*xf(k-1))/xd(k)
+  end do
+  do k=nbm,2,-1
+     tb(k)=xe(k)*tb(k+1)+xf(k)
+  end do
+
+! volumetric moisture content
+  x0 = 2._dp * bs + 3._dp
+  x1 = bs + 2._dp
+  x2 = -bs * aks * psis / ebs
+  do k=2,nbm
+     x3    = (eb(k)+dzbw(k)*(eb(k+1)-eb(k)) / (2._dp*dzb(k))) / ebs
+     ak(k) = aks * x3**x0
+     d(k)  = x2 * x3**x1
+  end do
+  ak(1) = 0._dp
+  d(1)  = 0._dp
+  if (abs(eb(2)-eb(1)).gt.1.d-5) then
+     d(1) = ajm*dzb(1) / (rhow*(eb(2)-eb(1)))
+  end if
+  xa(1) = d(1)*dt / (dzbw(1)*dzb(1))
+  do k=2,nbm
+     xa(k) = d(k) * dt / (dzbw(k) * dzb(k))
+     xc(k) = xa(k-1) * dzbw(k-1) / dzbw(k)
+     xb(k) = 1._dp + xa(k) + xc(k)
+     xd(k) = xb(k) - xc(k) * xe(k-1)
+     xe(k) = xa(k) / xd(k)
+  end do
+  xf(1) = eb(1)
+  do k=2,nbm
+     xf(k) = (eb(k) + dt/dzbw(k) * (ak(k-1) - ak(k)) + xc(k)*xf(k-1)) / xd(k)
+  end do
+  do k=nbm,2,-1
+     eb(k) = xe(k) * eb(k+1) + xf(k)
+  end do
+
+end subroutine soil
 
 !
 !-------------------------------------------------------------
@@ -4252,12 +4265,12 @@ subroutine equil (ncase,kk)
      end if
 
 ! calculate equilibrium radius with Newton iteration (rgl)
-     a0=a0m/t(k)
+     a0 = a0m / t(k)
      do ia=1,nka
-        b0=b0m(ia)*zrho_frac
+        b0 = b0m(ia) * zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-        rg(ia)=rgl(rn(ia),a0,b0,feu(k))
-        eg(ia)=z4pi3*(rg(ia)**3-rn(ia)**3)
+        rg(ia) = rgl(rn(ia), a0, b0, feu(k))
+        eg(ia) = z4pi3 * (rg(ia)**3 - rn(ia)**3)
      enddo
 
 ! new particle distribution
@@ -4267,16 +4280,16 @@ subroutine equil (ncase,kk)
            jt = jt+1
         end do
         if (jt.ne.1) then
-           ff(jt,ia,k)=ff(1,ia,k)
-           ff(1,ia,k)=0._dp
+           ff(jt,ia,k) = ff(1,ia,k)
+           ff(1,ia,k)  = 0._dp
         endif
      enddo
 
 ! update of total liquid water content
-     xm2(k)=0._dp
+     xm2(k) = 0._dp
      do ia=1,nka
         do jt=1,nkt
-           xm2(k)=xm2(k)+ff(jt,ia,k)*e(jt)
+           xm2(k) = xm2(k) + ff(jt,ia,k) * e(jt)
         enddo
      enddo
 
@@ -4435,10 +4448,10 @@ subroutine subkon (dt)
 
   do ia=1,nka
      do jt=1,nkt
-        jtp=min(jt+1,nkt)
-        de0=dew(jt)
-        dep=dew(jtp)
-        de0p=de0+dep
+        jtp  = min(jt+1,nkt)
+        de0  = dew(jt)
+        dep  = dew(jtp)
+        de0p = de0 + dep
 
         rk = rw(jt,ia)
         sr(jt,ia) = max(0.1_dp, exp(a0 / rk - b0m(ia) * en(ia) / ew(jt)))
@@ -4457,7 +4470,7 @@ subroutine subkon (dt)
   enddo
   falt(:,:) = ffk(:,:)
 
-  feuneu=feualt+dfdt*dt
+  feuneu = feualt + dfdt * dt
   if (feualt.lt.0.95_dp) then
      feuneu=xm1n*p/(p21(tn)*(.62198_dp + .37802_dp * xm1n))
   end if
@@ -4475,11 +4488,11 @@ subroutine subkon (dt)
            c(jt)=(cd(jt,ia)*(fquer-sr(jt,ia))-cr(jt,ia))/dlne
         enddo
 
-        u(1)=max(0._dp,c(1))
+        u(1) = max(0._dp,c(1))
         do jt=2,nkt-1
-           u(jt)=0.5_dp*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
+           u(jt) = 0.5_dp*(c(jt)+abs(c(jt))+c(jt-1)-abs(c(jt-1)))
         enddo
-        u(nkt)=min(0._dp,c(nkt-1))
+        u(nkt) = min(0._dp,c(nkt-1))
 
         call advec (dt,u,psi)
 
