@@ -3010,9 +3010,9 @@ c calculation of sea salt aerosol source
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks,
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
@@ -4384,6 +4384,9 @@ c Seinfeld and Pandis, 1999
 ! 3) correction of one formula, double check
 
 
+      USE data_surface, ONLY :
+     &     ustern               ! frictional velocity
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -4409,11 +4412,9 @@ c Seinfeld and Pandis, 1999
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 !      common /gas_vdd/ vg(j1)
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
 !     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
 !    &     f0(j1)
-      dimension tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
+      real (kind=dp) :: tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
      &          f0(ind_gas(j1))
 c function used in calculation of Hstar
       funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))

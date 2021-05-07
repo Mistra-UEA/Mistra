@@ -522,9 +522,9 @@ block data
    implicit double precision (a-h,o-z)
 
 ! Common blocks:
-   common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+   common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
         bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-   double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,   &
+   double precision g,a0m,b0m,ug,vg,ebs,psis,aks,   &
         bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
 ! gravitational acceleration
@@ -550,9 +550,6 @@ block data
 !       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, 0.d0/
 !       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.0015d0/ !aerosol sub (value copied from above)
    data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
-! surface roughness
-!      data z0 /0.01d0/
-   data z0 /0.00001d0/
 ! soil constants for sandy loam
    data ebs,psis,aks,bs,rhoc /.435d0,-.218d0,3.41d-05,4.9d0,1.34d+06/
    data rhocw,ebc,anu0,bs0 /4.186d+06,.0742724d0,43.415524d0,2.128043d0/
@@ -562,7 +559,7 @@ end block data
 !-------------------------------------------------------------
 !
 
-      subroutine openm (fogtype)
+subroutine openm (fogtype)
 ! input/output files
 
 
@@ -578,33 +575,33 @@ end block data
 ! == End of header =============================================================
 
 
-      USE config, ONLY : cinpdir
+  USE config, ONLY : cinpdir
 
-      implicit none
+  USE data_surface, ONLY : fu, ft, xzpdl, xzpdz0
+
+  USE file_unit, ONLY : jpfunclarke
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      character (len=1) fogtype
+  character (len=1) fogtype
 
 ! Local scalars:
-      character (len=10) fname    ! I/O files names
-      integer i,k                 ! implied do loops indexes
+  character (len=10) fname    ! I/O files names
+  integer i,k                 ! implied do loops indexes
 
-! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
-      double precision fu, ft, xzpdl, xzpdz0
 !- End of header ---------------------------------------------------------------
 
-
 ! input Clarke-tables
-      open (50, file=trim(cinpdir)//'clark.dat', status='old')
-      read (50,5000) ((fu(i,k),i=1,9),(fu(i,k),i=10,18),k=1,7)
-      read (50,5000) ((ft(i,k),i=1,9),(ft(i,k),i=10,18),k=1,7)
-      read (50,5010) (xzpdl(i),i=1,9),(xzpdl(i),i=10,18)
-      read (50,5020) (xzpdz0(i),i=1,7)
-      close (50)
+  open (jpfunclarke, file=trim(cinpdir)//'clarke.dat', status='old')
+  read (jpfunclarke,5000) ((fu(i,k),i=1,9),(fu(i,k),i=10,18),k=1,7)
+  read (jpfunclarke,5000) ((ft(i,k),i=1,9),(ft(i,k),i=10,18),k=1,7)
+  read (jpfunclarke,5010) (xzpdl(i),i=1,9),(xzpdl(i),i=10,18)
+  read (jpfunclarke,5020) (xzpdz0(i),i=1,7)
+  close (jpfunclarke)
+
  5000 format (9f8.4)
- 5010 format (9f5.2)
+ 5010 format (9f6.2)
  5020 format (7f5.0)
 ! output vertical profiles of meteorological variables
       fname='profm .out'
@@ -762,7 +759,10 @@ end block data
      &     rhow                  ! Water density [kg/m**3]
 
   USE data_surface, ONLY : &
-       tw
+       tw, &                       ! water surface temperature
+       ustern, z0,&                ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
+
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -796,15 +796,13 @@ end block data
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
@@ -1075,14 +1073,17 @@ end block data
       do k=n,1,-1
          w(k)=w(k)-w(1)
       enddo
-      vbt=sqrt(u(2)*u(2)+v(2)*v(2))
-      zp=deta(1)+z0
-      zpdz0=dlog(zp/z0)
-      zpdl=g*(theta(2)-t(1))*zp/(theta(2)*vbt)
+
+! initial calculation of Clarke-functions and frictional velocity ustern
+      vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
+      zp    = deta(1) + z0
+      zpdz0 = log(zp/z0)
+      zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
       call claf (zpdl,zpdz0,cu,ctq)
-      ustern=dmax1(0.01d0,vbt/cu)
-      gclu=cu
-      gclt=ctq
+      ustern = max(0.01_dp, vbt/cu)
+      gclu   = cu
+      gclt   = ctq
+
       ajs=0.
       ds1=0.
       ds2=0.
@@ -1359,7 +1360,9 @@ end block data
 
 
   USE data_surface, ONLY : &
-       tw
+       tw, &                       ! water surface temperature
+       ustern, z0,&                ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1396,15 +1399,13 @@ end block data
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
@@ -1449,14 +1450,16 @@ end block data
          theti(k)=1./thet(k)
          thetl(k)=theta(k)*(1.+0.61*xm1(k))
       enddo
-      vbt=sqrt(u(2)*u(2)+v(2)*v(2))
-      zp=deta(1)+z0
-      zpdz0=dlog(zp/z0)
-      zpdl=g*(theta(2)-t(1))*zp/(theta(2)*vbt)
+
+      vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
+      zp    = deta(1)+z0
+      zpdz0 = log(zp/z0)
+      zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
       call claf (zpdl,zpdz0,cu,ctq)
-      ustern=dmax1(0.01d0,vbt/cu)
-      gclu=cu
-      gclt=ctq
+      ustern = max(0.01_dp, vbt/cu)
+      gclu   = cu
+      gclt   = ctq
+
       close (15)
 
       print *,"restart file for meteo read, filename: ",fname
@@ -2339,9 +2342,9 @@ subroutine wfield
   common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
   real (kind=dp) :: detw, deta, eta, etw
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax        ! wmin, wmax: input for vertical wind
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
@@ -2393,6 +2396,9 @@ subroutine difm (dt)
 ! Imported Parameters:
        r0               ! Specific gas constant of dry air, in J/(kg.K)
 
+  USE data_surface, ONLY : &
+       ustern                      ! frictional velocity
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n,                   &
@@ -2426,15 +2432,13 @@ subroutine difm (dt)
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
-  common /cb46/ ustern,gclu,gclt
-  real (kind=dp) :: ustern, gclu, gclt
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb53a/ thet(n),theti(n)
@@ -2896,6 +2900,10 @@ end subroutine difc
 
 ! == End of header =============================================================
 
+  USE data_surface, ONLY : &
+       ustern, z0, &               ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -2917,15 +2925,13 @@ end subroutine difc
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
 
@@ -2985,7 +2991,11 @@ end subroutine difc
 
 ! == End of header =============================================================
 
-      USE global_params, ONLY : &
+  USE data_surface, ONLY : &
+       ustern, &                   ! frictional velocity
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
      &     nm, &
@@ -3023,16 +3033,14 @@ end subroutine difc
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
 
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
@@ -3212,9 +3220,9 @@ end subroutine difc
 ! for further details see subroutine difm.
 
 ! Common blocks:
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -3305,7 +3313,9 @@ subroutine surf0 (dt)
        abortM
 
   USE data_surface, ONLY : &
-       tw
+       tw, &                       ! water surface temperature
+       ustern, z0,&                ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -3333,14 +3343,12 @@ subroutine surf0 (dt)
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
-  common /cb46/ ustern,gclu,gclt
-  real (kind=dp) :: ustern, gclu, gclt
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
@@ -3400,6 +3408,9 @@ end subroutine surf0
      &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
+  USE data_surface, ONLY : &
+       ustern, z0,&                ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -3424,16 +3435,14 @@ end subroutine surf0
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
 
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
      &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
       real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
@@ -3456,7 +3465,7 @@ end subroutine surf0
       rrho=rho(1)
       uu=u(2)
       vv=v(2)
-      vqr=dmax1(uu*uu+vv*vv,1.d-12)
+      vqr=max(uu*uu+vv*vv,1.d-12)
       vbt=sqrt(vqr)
 !     gamma=g/cp
       bs3=2.*bs+3.
@@ -3467,12 +3476,13 @@ end subroutine surf0
       ps=p(1)
       eb1=eb(1)
       l1=.false.
-      zp=deta(1)+z0
-      zpdz0=dlog(zp/z0)
-      xnvl=g*(theta(2)-ts)*2./(theta(2)+ts)
-      zpdl=zp*xnvl/vqr
+
+      zp    = deta(1) + z0
+      zpdz0 = log(zp/z0)
+      xnvl  = g * (theta(2) - ts) * 2._dp / (theta(2) + ts)
+      zpdl  = zp * xnvl / vqr
       call claf (zpdl,zpdz0,cu,ctq)
-      ust=dmax1(0.01d0,vbt/cu)
+      ustern=max(0.01_dp,vbt/cu)
 ! specific humidity at the surface
       if (ts.ge.t0) then
       xm21s=cm(p21(ts))
@@ -3489,7 +3499,7 @@ end subroutine surf0
       anu=anu0*x1**bs0
       ajb=anu*(tb(2)-ts)/dzb(1)
 ! microturbulent flux of water vapor
-      ajq=rrho*ust*qst
+      ajq=rrho*ustern*qst
 ! latent microturbulent enthalpy flux
 ! ajs is water flux due to droplet sedimentation;
       if (ts.lt.t0) then
@@ -3498,7 +3508,7 @@ end subroutine surf0
       ajl=xl21(ts)*ajq
       endif
 ! sensible microturbulent enthalpy flux
-      ajt=rrho*cp*ust*tst
+      ajt=rrho*cp*ustern*tst
 ! ground moisture flux
 !     rak1=rhow*aks*(eb1/ebs)**bs3
       xa=0.5
@@ -3534,11 +3544,11 @@ end subroutine surf0
       djbde=0.
       if (eb1.gt.ebc) djbde=ajb*bs0/eb1
       djbdt=-anu/dzb(1)
-      djqde=rrho*ust*qs*g*bs*psi1/(ctq*r1*ts*eb1)
+      djqde=rrho*ustern*qs*g*bs*psi1/(ctq*r1*ts*eb1)
       x0=p21(ts)
-      djqdt=rrho*ust*qs/ctq*(g*psi1/(r1*ts*ts)+ &
+      djqdt=rrho*ustern*qs/ctq*(g*psi1/(r1*ts*ts)+ &
      & x0*4027.163/((x0-.37802*ps)*(ts-38.33)**2))
-      djtdt=-rrho*cp*ust/ctq
+      djtdt=-rrho*cp*ustern/ctq
 !     djmde=(ajm*bs3+rak1/dzb(1)*psi1*bs)/eb1
       djmde=rak1/dzb(1)*psi1*bs/eb1
 !     djmde=(debs*(eb1/ebs)**bs2/dzb(1)*((eb(2)-eb1)*bs2/eb1-1.)-
@@ -3573,13 +3583,13 @@ end subroutine surf0
       x1=dmax1(eb(1),ebc)
       anu=anu0*x1**bs0
       ajb=anu*(tb(2)-ts)/dzb(1)
-      ajq=rrho*ust*qst
+      ajq=rrho*ustern*qst
       if (ts.lt.t0) then
       ajl=al31*ajq-(al31-xl21(ts))*ajs
       else
       ajl=xl21(ts)*ajq
       endif
-      ajt=rrho*cp*ust*tst
+      ajt=rrho*cp*ustern*tst
       ajm=rak1*((psi2-psi1)/dzb(1)-1.)
       ajd=0.
       x0=ajq+ajm+ajs
@@ -3622,13 +3632,12 @@ end subroutine surf0
       xm1(1)=qs
       feu(1)=qs/xm21s
       eb(1)=eb1
-      xnvl=g*(theta(2)-ts)*2./(theta(2)+ts)
-      zpdl=zp*xnvl/vqr
+      xnvl = g * (theta(2) - ts) * 2. / (theta(2) + ts)
+      zpdl = zp * xnvl / vqr
       call claf (zpdl,zpdz0,cu,ctq)
-      ust=dmax1(0.01d0,vbt/cu)
-      ustern=ust
-      gclu=cu
-      gclt=ctq
+      ustern = max(0.01_dp,vbt/cu)
+      gclu   = cu
+      gclt   = ctq
 
       end subroutine surf1
 
@@ -3650,10 +3659,10 @@ end subroutine surf0
 !-------------------------------------------------------------
 !
 
-      subroutine claf (zpdl,zpdz0,u,tq)
+subroutine claf (zpdl,zpdz0,u,tq)
 !
 ! Description:
-!    interpolation of clarke functions by means of tabulated values
+!    interpolation of Clarke functions by means of tabulated values
 !    u: clarke function for momentum; tq: for temperature, humidity etc.
 
 
@@ -3684,68 +3693,76 @@ end subroutine surf0
 ! == End of header =============================================================
 
 ! Declarations:
+! ------------
+! Modules used:
 
-      implicit none
+  USE data_surface, ONLY : &
+       fu, ft, xzpdl, xzpdz0 ! Clarke tabled data
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      double precision zpdl, zpdz0
+  real (kind=dp), intent(in) :: zpdl, zpdz0
 ! Scalar arguments with intent(out):
-      double precision u, tq
+  real (kind=dp), intent(out) :: u, tq
 
 ! Local scalars:
-      double precision dx, dy
-      double precision zpdla, zpdz0a
-      integer i,nl,nz
+  integer :: i,nl,nz
+  real (kind=dp) :: dx, dy
+  real (kind=dp) :: zpdla, zpdz0a
 
-! Common blocks:
-      common /cb61/ fu(18,7),ft(18,7),xzpdl(18),xzpdz0(7) ! Clarke table data
-      double precision fu, ft, xzpdl, xzpdz0
 ! == End of declarations =======================================================
 
 ! xzpdl tabled values range from -5.5 to 3.0. Here, zpdla is forced to be within this range
-      zpdla=dmax1(zpdl,-5.5d0)
-      zpdla=dmin1(zpdla,3.d0)
+  zpdla = max(zpdl,-5.5_dp)
+  zpdla = min(zpdla,3._dp)
 ! xzpdz0 tabled values range from 3. to 17. zpdz0a is forced to be lower equal to the max value.
-      zpdz0a=dmin1(zpdz0,17.d0)
+  zpdz0a = min(zpdz0,17._dp)
 
 ! Find nl and nz: indexes of the tabled values greater or equal to the actual values
-      do i=2,18                     ! note that zpdla > xzpdl(1), thus nl >= 2
-         nl=i                       !  thus no out-of-bounds problem with index nl-1 in dx (see below)
-         if (zpdla.lt.xzpdl(i)) exit
-      enddo
+  do i=2,18                     ! note that zpdla > xzpdl(1), thus nl >= 2
+     nl=i                       !  thus no out-of-bounds problem with index nl-1 in dx (see below)
+     if (zpdla.lt.xzpdl(i)) exit
+  enddo
 
-      do i=1,7
-         nz=i
-         if (zpdz0a.lt.xzpdz0(i)) exit
-      enddo
+  do i=1,7
+     nz=i
+     if (zpdz0a.lt.xzpdz0(i)) exit
+  enddo
 
 ! dx: proportionality factor
-      dx=(zpdla-xzpdl(nl-1))/(xzpdl(nl)-xzpdl(nl-1))
+  dx = (zpdla - xzpdl(nl-1)) / (xzpdl(nl) - xzpdl(nl-1))
 
-      if (nz.eq.1) then
-         dy=zpdz0a/xzpdz0(1)
-         u=(fu(nl,1)*dx+fu(nl-1,1)*(1.-dx))*dy
-         if (zpdl.ge.0.) then
-            tq=u/1.35
-         else
-            tq=(ft(nl,1)*dx+ft(nl-1,1)*(1.-dx))*dy/1.35
-         endif
-      else
-         dy=(zpdz0a-xzpdz0(nz-1))/(xzpdz0(nz)-xzpdz0(nz-1))
-         u=fu(nl-1,nz-1)+(fu(nl,nz-1)-fu(nl-1,nz-1))*dx+(fu(nl-1,nz) &
-     &     -fu(nl-1,nz-1))*dy+(fu(nl,nz)-fu(nl-1,nz)+fu(nl-1,nz-1) &
-     &     -fu(nl,nz-1))*dx*dy
-         if (zpdl.ge.0.) then
-            tq=u/1.35
-         else
-            tq=(ft(nl-1,nz-1)+(ft(nl,nz-1)-ft(nl-1,nz-1))*dx &
-     &         +(ft(nl-1,nz)-ft(nl-1,nz-1))*dy+(ft(nl,nz)-ft(nl-1,nz) &
-     &         +ft(nl-1,nz-1)-ft(nl,nz-1))*dx*dy)/1.35
-         endif
-      end if
+  if (nz.eq.1) then
+     dy = zpdz0a / xzpdz0(1)
+     u = (fu(nl,1) * dx + fu(nl-1,1) * (1._dp - dx)) * dy
+     if (zpdl.ge.0._dp) then
+        tq = u / 1.35_dp
+     else
+        tq = (ft(nl,1) * dx + ft(nl-1,1) * (1._dp - dx)) * dy / 1.35_dp
+     endif
+  else
+     dy = (zpdz0a - xzpdz0(nz-1)) / (xzpdz0(nz) - xzpdz0(nz-1))
+     u = fu(nl-1,nz-1) &
+          + (fu(nl,nz-1) - fu(nl-1,nz-1)) * dx &
+          + (fu(nl-1,nz) - fu(nl-1,nz-1)) * dy &
+          + (fu(nl,nz) - fu(nl-1,nz) + fu(nl-1,nz-1) - fu(nl,nz-1)) * dx * dy
+     if (zpdl.ge.0._dp) then
+        tq = u / 1.35_dp
+     else
+        tq = (ft(nl-1,nz-1) &
+             + (ft(nl,nz-1) - ft(nl-1,nz-1)) * dx &
+             + (ft(nl-1,nz) - ft(nl-1,nz-1)) * dy &
+             + (ft(nl,nz) - ft(nl-1,nz) + ft(nl-1,nz-1) - ft(nl,nz-1)) * dx * dy) / 1.35_dp
+     endif
+  end if
 
-      end subroutine claf
+end subroutine claf
 
 !
 !-------------------------------------------------------------
@@ -4154,9 +4171,9 @@ subroutine equil (ncase,kk)
   real (kind=dp) :: rg(nka),eg(nka)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &         ! a0m, b0m: Koehler curve
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &         ! a0m, b0m: Koehler curve
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
@@ -4364,9 +4381,9 @@ subroutine subkon (dt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
@@ -4956,7 +4973,7 @@ subroutine advsed1 (c, y)
      ymin=min(y(i),y(i+1))
      ymax=max(y(i),y(i+1))
      fmim=max(0.d0,a0(i)*cl-a1(i)*(1._dp-x2)+a2(i)*(1._dp-x3) &
-     &        -a3(i)*(1._dp-x1*x3)+a4(i)*(1._dp-x2*x3))
+                   -a3(i)*(1._dp-x1*x3)+a4(i)*(1._dp-x2*x3))
      fmim=min(fmim,y(i)-ymin+fm(i))
      fmim=max(fmim,y(i)-ymax+fm(i))
      fmim=max(0._dp,fmim-(cl-clm)*y(i))
@@ -5461,9 +5478,9 @@ end subroutine advseda
   !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
 ! Common blocks:
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
@@ -5536,6 +5553,9 @@ end subroutine advseda
 ! Imported Parameters:
      & pi
 
+  USE data_surface, ONLY : &
+       ustern, z0                  ! frictional velocity, roughness length
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     nf, &
@@ -5556,13 +5576,11 @@ end subroutine advseda
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
       real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
@@ -5683,6 +5701,9 @@ end subroutine advseda
 ! Imported Parameters:
      &     cp              ! Specific heat of dry air, in J/(kg.K)
 
+  USE data_surface, ONLY : &
+       ustern, z0                  ! frictional velocity, roughness length
+
       USE global_params, ONLY : &
 ! Imported Parameters:
      &     n, &
@@ -5704,13 +5725,11 @@ end subroutine advseda
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /kinv_i/ kinv
@@ -6406,9 +6425,9 @@ end subroutine sedc_box
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks, &
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
      &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)

@@ -57,7 +57,8 @@ module config
 ! Modules used:
 
 use data_surface, only : &
-  tw
+     tw,&
+     z0
   
 use precision, only : &
   dp                    ! double precision kind
@@ -117,6 +118,7 @@ namelist /mistra_cfg/ &
      ltwcst,          &
      ntwopt,          &
      rhsurf,          &
+     z0,              &
      mic,             &
      iaertyp,         &
      chem,            &
@@ -220,6 +222,7 @@ tw = 293._dp
 ltwcst = .true.
 ntwopt = 1
 rhsurf = 1._dp
+z0 = 0.01_dp
 mic = .false.
 iaertyp = 3
 chem = .false.
