@@ -52,6 +52,7 @@
 !     - profr: output of radiation variables
 
 
+
 subroutine outm
 !
 ! Description:
@@ -71,6 +72,7 @@ subroutine outm
 !
 ! 1.0       ?        Original code.                           <Andreas Bott>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -197,6 +199,7 @@ subroutine outc
 !
 ! 1.0       ?        Original code.                           <Andreas Bott>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -323,6 +326,7 @@ subroutine ploutj (fogtype,n_bln)
 !
 ! 1.0       ?        Original code.                          <Roland von Glasow>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -446,6 +450,7 @@ subroutine ploutcg (fogtype,n_bl)
 !
 ! 1.0       ?        Original code.      <Roland von Glasow>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -543,6 +548,7 @@ subroutine ploutci (fogtype,n_bl)
 !
 ! 1.0       ?        Original code.      <Roland von Glasow>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -659,6 +665,7 @@ subroutine ploutcl (fogtype,n_bl)
 !
 ! 1.0       ?        Original code.      <Roland von Glasow>
 !
+
 !
 ! Declarations:
 ! Modules used:
@@ -888,6 +895,7 @@ subroutine ploucgr (fogtype,n_bl8)
 ! Local arrays:
   real (kind=dp) :: i0(n_bl8,nrxn)  ! the local array where are written the photolysis
                                     !   rates, up to the selected level (1:n_bl8)
+
 
 ! Common blocks:
   common /budg/ bg(2,nrxn,nlev),il(nlev)
@@ -1590,6 +1598,7 @@ subroutine constc
 ! 1.0       ?        Original code.                           <Andreas Bott>
 !
 
+
 ! Declarations:
 ! Modules used:
   USE config, ONLY : &
@@ -2014,6 +2023,7 @@ subroutine profc (dt,mic)
      do k=1,nf
         xfac(k)=1._dp             !mol/m^3_air       --> mol/m^3_air
      enddo
+
      write (60,6020) (eta(k),sion1(1,kc,k)*xfac(k),sion1(2,kc,k)* &
           xfac(k),sion1(14,kc,k)*xfac(k),sion1(24,kc,k)*xfac(k), &
           (sion1(l,kc,k)*xfac(k),l=5,8), &
@@ -2150,5 +2160,6 @@ subroutine profr
 6030 format (/,'#level',4x,'pres',4x,'temp',10x,'fs1',10x,'fs2',12x, &
           'ss',11x,'fl1',11x,'fl2')
 6031 format(i4,f10.1,f8.1,5f14.3)
+
 
 end subroutine profr
