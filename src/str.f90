@@ -1437,7 +1437,7 @@ subroutine openm (fogtype)
      &     xm2,xmol3, &
 ! double precision single vars
      &     a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
-     &     trdep, &
+     &     trdep, z0, &
 ! integer arrays
      &     nar, &
 ! integer single vars
@@ -1795,7 +1795,7 @@ subroutine sedp (dt)
               x1     = psi(2)
               psi(1) = x1
 
-! vertical advection of f(ia, jt)
+! vertical advection of ff(ia, jt)
 ! simplified upstream advection for small particles
               if (rq(jt,ia) .lt. 1._dp) then
                  call advsed0(c, psi)
@@ -2498,7 +2498,7 @@ subroutine difm (dt)
 
 ! turbulent kinetic energy with 'k_e' (atke):
   xa(1)=atke(1)*dt/(detw(1)*deta(1))
-  xe(1)=0._dp
+  !xe(1)=0._dp
   do k=2,nm
      xa(k)=atke(k)*dt/(detw(k)*deta(k))
      xc(k)=xa(k-1)*detw(k-1)/detw(k)
@@ -2516,6 +2516,7 @@ subroutine difm (dt)
 
 ! turbulent exchange with 'k_h' (atkh):
   xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  !xe(1)=0._dp
   do k=2,nm
      xa(k)=atkh(k)*dt/(detw(k)*deta(k))
      xc(k)=xa(k-1)*detw(k-1)/detw(k)
@@ -2612,7 +2613,7 @@ subroutine difp (dt)
   integer :: k, kp, ia, jt      ! running indices
 
 ! Local arrays:
-  real (kind=dp) :: c(n), am3(nm+1) ! am3: [air] in mol/m^3
+  real (kind=dp) :: c(n), acm3(nm+1) ! acm3: [air] in mol/cm^3
   real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm)!,oldf(nf)
 
 ! Common blocks:
@@ -2635,39 +2636,44 @@ subroutine difp (dt)
 ! solution of the diffusive equation for particles
 !-------------------------------------------------
 
-  ! jjb: recompute am3 to be independent from chemistry
-  !     (if chem == .false., am3 will either not be initialised (rst=T)
-  !      or not be updated (rst=F) )
-  am3(:)=rho(:nm+1)/m_air
+! mass specific particle conversion
+! constant particle distribution in layer nm+1 is used to update ff(nm)
+  do k=2,nm+1
+     ff(:,:,k) = ff(:,:,k) / rho(k)
+  end do
 
 ! turbulent exchange of aerosol and droplets with 'k_h' (atkh)
-  xe(1)=0._dp
-  xa(1)=atkh(1)*dt/(detw(1)*deta(1))
+  xa(1) = atkh(1) * dt / (detw(1) * deta(1))
+  xe(1) = 0._dp
 !  do k=2,nf
   do k=2,nm
-     xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
-     xb(k)=1._dp+xa(k)+xc(k)
-     xd(k)=xb(k)-xc(k)*xe(k-1)
-     xe(k)=xa(k)/xd(k)
-     c(k)=w(k)*dt/deta(k)
+     xa(k) = atkh(k) * dt / (detw(k) * deta(k))
+     xc(k) = xa(k-1) * detw(k-1) / detw(k) * acm3(k-1) / acm3(k)
+     xb(k) = 1._dp + xa(k) + xc(k)
+     xd(k) = xb(k) - xc(k) * xe(k-1)
+     xe(k) = xa(k) / xd(k)
+     c(k)  = w(k) * dt / deta(k)
   enddo
 !  if (lct.gt.1) then
      do ia=1,nka
         do jt=1,nkt
-           xf(1)=ff(jt,ia,2)/am3(2)*1.e6_dp
+           xf(1) = ff(jt,ia,2)
 !           do k=2,nf
            do k=2,nm
-              xf(k)=(ff(jt,ia,k)/am3(k)*1.e6_dp+xc(k)*xf(k-1))/xd(k)
+              xf(k) = (ff(jt,ia,k) + xc(k) * xf(k-1)) / xd(k)
            enddo
 !           do k=nf,2,-1
            do k=nm,2,-1
-              ff(jt,ia,k)=(xe(k)*ff(jt,ia,k+1)/am3(k+1)*1.e6_dp+xf(k))*am3(k)/1.e6_dp
+              ! result and conversion back to 1/cm^3
+              ff(jt,ia,k) = (xe(k) * ff(jt,ia,k+1) + xf(k)) * rho(k)
            enddo
+           ! convert back specifically level nm+1
+           ff(jt,ia,nm+1) = ff(jt,ia,nm+1) * rho(nm+1)
+
 !          large scale subsidence
            do k=2,nm
               kp=k+1
-              ff(jt,ia,k)=ff(jt,ia,k)-c(k)*(ff(jt,ia,kp)-ff(jt,ia,k))
+              ff(jt,ia,k) = ff(jt,ia,k) - c(k) * (ff(jt,ia,kp) - ff(jt,ia,k))
            enddo
         enddo
      enddo
@@ -2675,10 +2681,10 @@ subroutine difp (dt)
 ! update of fsum
 !     do k=2,nf
      do k=2,n
-        fsum(k)=0._dp
+        fsum(k) = 0._dp
         do ia=1,nka
            do jt=1,nkt
-              fsum(k)=fsum(k)+ff(jt,ia,k)
+              fsum(k) = fsum(k) + ff(jt,ia,k)
            enddo
         enddo
      enddo

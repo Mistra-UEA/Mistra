@@ -63,6 +63,7 @@ subroutine outm
 ! History:
 ! Version   Date     Comment
 ! -------   ----     -------
+!          05/2021   Bugfix: add z0 in restart file           <Josue Bock>
 ! 1.2      08/2016   Use module for parameters                <Josue Bock>
 !                    Comments / header
 !                    Removed one unused argument
@@ -76,6 +77,10 @@ subroutine outm
 !
 ! Declarations:
 ! Modules used:
+  USE data_surface, ONLY : &
+! Imported Parameters:
+       z0
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
@@ -167,7 +172,7 @@ subroutine outm
        xm2,xmol3, &
 ! double precision single vars
        a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
-       trdep, &
+       trdep, z0, &
 ! integer arrays
        nar, &
 ! integer single vars
