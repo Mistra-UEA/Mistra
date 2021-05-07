@@ -2590,6 +2590,10 @@ subroutine difp (dt)
 ! Declarations :
 ! ------------
 ! Modules used:
+  USE constants, ONLY : &
+! Imported Parameters:
+       m_air
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n,                   &
@@ -2610,11 +2614,9 @@ subroutine difp (dt)
   integer :: k, kp, ia, jt      ! running indices
 
 ! Local arrays:
-  real (kind=dp) :: c(n)
+  real (kind=dp) :: c(n), am3(nm+1) ! am3: [air] in mol/m^3
 
 ! Common blocks:
-  common /blck01/ am3(n),cm3(n)
-  real (kind=dp) :: am3, cm3
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
 
@@ -2626,7 +2628,8 @@ subroutine difp (dt)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
-
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb57/ xa(n),xb(n),xc(n),xd(n),xe(n),xf(n),oldf(n)
   real(kind=dp) :: xa, xb, xc, xd, xe, xf, oldf ! jjb warning change of name, oldu=oldf
 
@@ -2634,6 +2637,11 @@ subroutine difp (dt)
 
 ! solution of the diffusive equation for particles
 !-------------------------------------------------
+
+  ! jjb: recompute am3 to be independent from chemistry
+  !     (if chem == .false., am3 will either not be initialised (rst=T)
+  !      or not be updated (rst=F) )
+  am3(:)=rho(:nm+1)/m_air
 
 ! turbulent exchange of aerosol and droplets with 'k_h' (atkh)
   xe(1)=0._dp
