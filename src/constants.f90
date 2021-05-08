@@ -58,7 +58,7 @@ real(kind=dp), parameter :: gas_const = 8.3144743_dp             ! [J/K/mol]
 real(kind=dp), parameter :: r0 = gas_const / M_air               ! [J/(kg.K)]
 
 ! Specific gas constant of water vapour
-!     r1 = R / M_water
+!     r1 = R / M_water ~= 461.51
 real(kind=dp), parameter :: r1 = gas_const / M_wat               ! [J/(kg.K)]
 
 ! Water density

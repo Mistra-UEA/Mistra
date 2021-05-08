@@ -29,6 +29,9 @@ c initialization of chemistry module
      &     Avogadro,
      &     m_air
 
+      USE file_unit, ONLY :
+     &     jpfunprofc
+
       USE gas_common, ONLY :
 ! Imported Parameters:
      &     j1,
@@ -150,17 +153,17 @@ c initialization of chemistry module
 ! ------------------------------------------------------------
 ! initial mixing ratio of gas phase species in nmol mol-1 (=ppb)
       ! mixing ratio at ground
-      write (60,6010)
+      write (jpfunprofc,6010)
  6010 format (6x,'initial gas concentration at the surface [ppb]')
-      write (60,6020) (s1_init_grd(j),j=1,j1)
+      write (jpfunprofc,6020) (s1_init_grd(j),j=1,j1)
       ! mixing ratio at top
-      write (60,6012)
+      write (jpfunprofc,6012)
  6012 format (6x,'initial gas concentration at the top [ppb]')
-      write (60,6020) (s1_init_top(j),j=1,j1)
+      write (jpfunprofc,6020) (s1_init_top(j),j=1,j1)
 ! emission rates of gas phase species in molecules/cm**2/s
-      write (60,6025)
+      write (jpfunprofc,6025)
  6025 format (6x,'emission rates [molecules/cm**2/s]')
-      write (60,6020) (es1(j),j=1,j1)
+      write (jpfunprofc,6020) (es1(j),j=1,j1)
  6020 format (1x,10e12.5)
 
 
@@ -340,23 +343,23 @@ c            else
           end do
 
 c print initial concentrations (continued)
-      write (60,6030)
+      write (jpfunprofc,6030)
  6030 format (6x,'sa1(nka,4)')
-      write (60,6020) (sa1(ia,4),ia=1,nka)
-      write (60,6040)
+      write (jpfunprofc,6020) (sa1(ia,4),ia=1,nka)
+      write (jpfunprofc,6040)
  6040 format (6x,'sa1(nka,6)')
-      write (60,6020) (sa1(ia,6),ia=1,nka)
-      write (60,6050)
+      write (jpfunprofc,6020) (sa1(ia,6),ia=1,nka)
+      write (jpfunprofc,6050)
 c 6050 format (6x,'sa1(nka,j2-j3+4)')
-c      write (60,6020) (sa1(ia,j2-j3+4),ia=1,nka)
-c      write (60,6060)
+c      write (jpfunprofc,6020) (sa1(ia,j2-j3+4),ia=1,nka)
+c      write (jpfunprofc,6060)
 c 6060 format (6x,'sa1(nka,j2-j3+5)')
-c      write (60,6020) (sa1(ia,j2-j3+5),ia=1,nka)
+c      write (jpfunprofc,6020) (sa1(ia,j2-j3+5),ia=1,nka)
  6050 format (6x,'sa1(nka,14)')
-      write (60,6020) (sa1(ia,14),ia=1,nka)
-      write (60,6060)
+      write (jpfunprofc,6020) (sa1(ia,14),ia=1,nka)
+      write (jpfunprofc,6060)
  6060 format (6x,'sa1(nka,24)')
-      write (60,6020) (sa1(ia,24),ia=1,nka)
+      write (jpfunprofc,6020) (sa1(ia,24),ia=1,nka)
 
 c levels for  rate output
       il(1) =  5
@@ -427,6 +430,11 @@ c nkc=4; 1: sulfate aerosol, 2: seasalt aerosol, 3: sulfate droplets
 c        4: seasalt droplets
 c xra: aerodynamic resistence, needed for calculation of dry deposition velocities
 
+      USE constants, ONLY :
+! Imported Parameters:
+     &     Avogadro,
+     &     m_air
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -476,10 +484,10 @@ c free path length (lambda=freep):
 
 c conversion of gaseous species and air density
 c air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*6.022d20/29.
-      am3(1)=rho(1)/29.d-3
-      cm3(nmin2:nmax)=rho(nmin2:nmax)*6.022d20/29.        ! [air] in mlc/cm^3
-      am3(nmin2:nmax)=rho(nmin2:nmax)/29.d-3              ! [air] in mol/m^3
+      cm3(1)=rho(1)*Avogadro/m_air
+      am3(1)=rho(1)/m_air
+      cm3(nmin2:nmax)=rho(nmin2:nmax)*Avogadro/m_air      ! [air] in mlc/cm^3
+      am3(nmin2:nmax)=rho(nmin2:nmax)/m_air               ! [air] in mol/m^3
 
 
 c dry deposition velocities for gas phase
@@ -3010,10 +3018,10 @@ c calculation of sea salt aerosol source
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,z0,ebs,psis,aks,
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
-      double precision g,a0m,b0m,ug,vg,z0,ebs,psis,aks,
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax,tw
+      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks,
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+      double precision g,a0m,b0m,ug,vg,ebs,psis,aks,
+     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       double precision u, v, w
@@ -4384,6 +4392,9 @@ c Seinfeld and Pandis, 1999
 ! 3) correction of one formula, double check
 
 
+      USE data_surface, ONLY :
+     &     ustern               ! frictional velocity
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -4409,11 +4420,9 @@ c Seinfeld and Pandis, 1999
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 !      common /gas_vdd/ vg(j1)
-      common /cb46/ ustern,gclu,gclt
-      real (kind=dp) :: ustern, gclu, gclt
 !     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
 !    &     f0(j1)
-      dimension tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
+      real (kind=dp) :: tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
      &          f0(ind_gas(j1))
 c function used in calculation of Hstar
       funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))

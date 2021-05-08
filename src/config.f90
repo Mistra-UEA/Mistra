@@ -55,11 +55,17 @@ module config
 ! Declarations:
 ! ------------
 ! Modules used:
+
+use data_surface, only : &
+     tw,&
+     z0
+  
 use precision, only : &
   dp                    ! double precision kind
 
 
 implicit none
+
 
 public
 save
@@ -76,17 +82,21 @@ logical :: &
   BL_box,  & ! BL_box   : box only, average init cond over BL and/or mean of J-values over BL
   nuc,     & ! nuc      : nucleation on/off
   Napari,  & ! Napari   : nuc only, Napari = ternary H2SO4-H2O-NH3 nucleation
-  Lovejoy    ! Lovejoy  : nuc only, Lovejoy = homogeneous OIO nucleation
+  Lovejoy, & ! Lovejoy  : nuc only, Lovejoy = homogeneous OIO nucleation
+  ltwcst     ! ltwcst   : constant tw (if not, ntwopt must be set)
 
 integer :: &
   iaertyp, & ! iaertyp  : type of aerosol; 1=urban, 2=rural, 3=ocean, 4=background
   ifeed,   & ! ifeed    : retroaction over microphysics, and/or chemistry. See manual.
+  isurf,   & ! isurf    : type of surface, (0) for water or snow, (1) for bare soil
   lstmax,  & ! lstmax   : integration time in hours
   neula,   & ! neula    : eulerian (0) or lagrangian (1) view
   nlevbox, & ! nlevbox  : box only, level to be used for init cond of box if  BL_box=false
-  nkc_l      ! nkc_l    : number of output classes for aq. chem.
+  nkc_l,   & ! nkc_l    : number of output classes for aq. chem.
+  ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
 
 real (KIND=dp) :: &
+  rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
 
@@ -97,11 +107,18 @@ character (len=109) :: cinpdir_phot ! input directory for photolysis data files
 character (len=100) :: coutdir      ! output directory
 character (len=100) :: cmechdir     ! mechanism directory
 
+
 namelist /mistra_cfg/ &
      rst,             &
      lstmax,          &
      netcdf,          &
      binout,          &
+     isurf,           &
+     tw,              &
+     ltwcst,          &
+     ntwopt,          &
+     rhsurf,          &
+     z0,              &
      mic,             &
      iaertyp,         &
      chem,            &
@@ -170,7 +187,9 @@ subroutine read_config
 
   implicit none
 
+  character (len=3) :: clstat
   integer :: istat
+
 
 ! =======================================================
 ! -- 1. -- get I/O directories from environment variables
@@ -199,6 +218,12 @@ rst = .false.
 lstmax = 1
 netCDF = .false.
 binout = .false.
+isurf = 0
+tw = 293._dp
+ltwcst = .true.
+ntwopt = 1
+rhsurf = 1._dp
+z0 = 0.01_dp
 mic = .false.
 iaertyp = 3
 chem = .false.
@@ -230,7 +255,13 @@ end if
 ! =====================================================
 ! -- 3. -- Export current configuration in file cfg.out
 ! =====================================================
-  open (unit=jpfuncfgout, FILE=trim(coutdir)//'cfg.out', STATUS='new', FORM='formatted', IOSTAT=istat)
+
+  if (rst) then
+     clstat = 'old'
+  else
+     clstat = 'new'
+  end if
+  open (unit=jpfuncfgout, FILE=trim(coutdir)//'cfg.out', STATUS=clstat, FORM='formatted', POSITION='append', IOSTAT=istat)
   if (istat /= 0) call abortM ('Error in SR read_config: cannot open cfg.out file in dir: '//coutdir)
 
   write (jpfuncfgout,'(a)') 'Mistra configuration:'
