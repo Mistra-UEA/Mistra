@@ -639,7 +639,7 @@ subroutine openm (fogtype)
         fname(2:2)='b'
         clpath=trim(coutdir)//trim(fname)
         open (jpfunpb, file=trim(clpath), status='new',form='unformatted')
-        close (jpfunpb)
+        !close (jpfunpb) ! closed by initm
 
         fname(2:2)='r'
         clpath=trim(coutdir)//trim(fname)
@@ -729,7 +729,7 @@ subroutine openc (fogtype)
         fname(4:4)=fogtype
         clpath=trim(coutdir)//trim(fname)
         open (jpfunsg1, file=trim(clpath), status='new',form='unformatted')
-        close (jpfunsg1)
+        !close (jpfunsg1) !do not close, used in kpp without opening
         fname='ion .out'
         fname(4:4)=fogtype
         clpath=trim(coutdir)//trim(fname)
@@ -744,7 +744,7 @@ subroutine openc (fogtype)
         fname(4:4)=fogtype
         clpath=trim(coutdir)//trim(fname)
         open (jpfunsr1, file=trim(clpath), status='new',form='unformatted')
-        close (jpfunsr1)
+        !close (jpfunsr1) !do not close, used in kpp without opening
         fname='gr .out'
         fname(3:3)=fogtype
         clpath=trim(coutdir)//trim(fname)
@@ -808,6 +808,8 @@ end subroutine openc
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
+  USE file_unit, ONLY : &
+       jpfunpb        ! ploutm files: pm*, pb*
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1150,8 +1152,8 @@ end subroutine openc
       write (97,6000) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
  6000 format (5e16.8)
       close (97)
-      write (19) zb
-      close (19)
+      write (jpfunpb) zb
+      close (jpfunpb)
       do jt=1,nkt
 !         jtp=min0(jt+1,nkt) ! jjb variable unreferenced
 !         de0=dew(jt)  ! jjb variable unreferenced
@@ -1176,214 +1178,250 @@ end subroutine openc
 !-------------------------------------------------------------
 !
 
-      subroutine grid
+subroutine grid
+!
+! Description:
+! -----------
+  ! numerical grid for the atmosphere, soil, aerosols and water droplets
 
 
 ! Author:
 ! ------
   !    Andreas Bott
+  !    Roland von Glasow (aerosol + cloud chemistry part)
 
 
 ! Modifications :
 ! -------------
-  !
+  ! Josue Bock : minor bugfix in dlgenw and dlgew calculations: divide by nka and nkt
+  !              instead of nka-1 nkt-1, respectively (to be consistent with enw(1) and
+  !              ew(1) expressions: lower bound of first class, higher bound of last class)
 
 ! == End of header =============================================================
 
 
-      USE constants, ONLY : &
+  USE config, ONLY : &
+! External subroutine
+       abortM, &
+       isurf, &
+       detamin, etaw1 ! atmospheric grid: constant height, and top of grid [m]
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     pi, &
-     &     rho3, &               ! Aerosol density [kg/m**3]
-     &     rhow                  ! Water density [kg/m**3]
+       pi, &
+       rho3, &               ! Aerosol density [kg/m**3]
+       rhow                  ! Water density [kg/m**3]
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt
+       jpfunerr, jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf, &
+       n, &
+       nb, &
+       nka, &
+       nkt
 
-      implicit double precision (a-h,o-z)
-! numerical grid for the atmosphere, aerosols and water droplets
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-! jjb test new grid
-      double precision, parameter :: rho_aerosol = 2000  ! [kg/m**3]
-      double precision, parameter :: kg_2_mg     = 1.e6  ! [mg/kg]
-      double precision, parameter :: vol_fact    = 4./3.*pi ! [-]
-      double precision, parameter :: r_min     =  0.005 ! [um]
-      double precision, parameter :: r_max_dry = 15.    ! [um]
-      double precision, parameter :: r_max_wet = 60.    ! [um]
+  implicit none
+
+! Local parameters:
+  real (kind=dp), parameter :: etaw1_max = 2500._dp ! max authorised height for prognostic grid
+  real (kind=dp), parameter :: rnw0 = 0.005_dp, rnw1 =  15._dp ! min / max radius of dry aerosol
+  real (kind=dp), parameter :: rw0  = 0.005_dp, rw1  = 150._dp ! min / max equivalent radius of total particle
+  real (kind=dp), parameter :: dzbw0 = 0.001_dp, zbw1 = 1._dp ! minimum-maximum values of soil grid
+! Local scalars:
+  integer :: ia, jt, j, k, nf1
+  real (kind=dp) :: ax, dlgzbw
+  real (kind=dp) :: enwmin, enwmax
+  real (kind=dp) :: ewmin, ewmax
+  real (kind=dp) :: x0, x1, x2, x3
+  real (kind=dp) :: xfac
+  real (kind=dp) :: zbw0, zbw
 
 ! Common blocks:
-      common /cb08/ re1(nkt), re2(nkt), re3(nkt)
-      double precision re1, re2, re3
+  common /cb08/ re1(nkt), re2(nkt), re3(nkt)
+  real (kind=dp) :: re1, re2, re3
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+       &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+       &              e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb51/ dlgew,dlgenw,dlne
+  real (kind=dp) :: dlgew, dlgenw, dlne
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+! == End of declarations =======================================================
 
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+! atmospheric vertical grid
+! -------------------------
 
-      common /cb51/ dlgew,dlgenw,dlne
-      real (kind=dp) :: dlgew, dlgenw, dlne
-
-      common /blck06/ kw(nka),ka
-! density and molecular weight of pure water
-! minimum (rnw0) maximum (rnw1) radius of dry aerosol   [um]
-! minimum (rw0) maximum (rw1) radius of total particle  [um]
-      data rnw0,rnw1,rw0,rw1 /0.005,15.,0.005,150./
-! minimum-maximum values of soil and atmospheric grid
-      data dzbw0,zbw1,detamin,etaw1 /0.001,1.,10.,2000./
-
-! vertical grid
 ! equidistant grid between earth's surface and eta(nf)
-      etw(1)=0.
-      do 1000 k=2,nf
- 1000 etw(k)=float(k-1)*detamin
-! nonequidistant grid above eta(nf)
-      nf1=nf+1
-      j=0
-      x0=detamin
- 3000 x0=x0+detamin
-      j=j+1
-      x3=detamin/x0+1.
-      etw(nf1)=x0
-      do k=nf+2,n
-         etw(k)=etw(k-1)*x3
-      enddo
-      if (j.gt.10000) stop 4000
-      if (etw(n)-etw(nf1).gt.etaw1-etw(nf)) go to 3000
-      x0=nf*detamin-etw(nf1)
-      do k=nf1,n
-         etw(k)=etw(k)+x0
-      enddo
-      detw(1)=detamin
-      eta(1)=0.
-      do k=2,n
-         detw(k)=etw(k)-etw(k-1)
-         eta(k)=0.5*(etw(k)+etw(k-1))
-         deta(k-1)=eta(k)-eta(k-1)
-      enddo
-      deta(n)=(1.+x3)*0.5*etw(n)-eta(n)
+  etw(1) = 0._dp
+  do k=2,nf
+     etw(k) = float(k-1) * detamin
+  end do
+
+! logarithmically equidistant grid above eta(nf)
+! maximum prognostic height: etaw1
+  nf1 = nf +1
+
+! check input
+  ! Case 1: detamin too high as compared to etaw1, or too many layers requested between nf and n
+  if (etaw1 .lt. etw(nf) + (n-nf)*detamin) then
+     write (jpfunerr,*) 'Error: impossible to get n-nf layers with increasing height'
+     write (jpfunerr,*) '  decrease detamin, or increase etaw1, or change the layer numbers'
+     call abortM ('Error in SR grid')
+  end if
+  ! Case 2: etaw1 set too high
+  if (etaw1 .gt. etaw1_max) then
+     write (jpfunout,*) 'Warning: uppermost prognostic level input too high'
+     write (jpfunout,*) 'The value has been reset: etw1 = 2500 m'
+     etaw1 = etaw1_max
+  end if
+
+  j  = 0
+  x0 = detamin
+  x1 = etaw1
+  do while (x1 .gt. etaw1-etw(nf))
+     x0 = x0 + detamin
+     j = j + 1
+     x3 = detamin / x0 + 1._dp
+     etw(nf1) = x0
+     do k=nf+2,n
+        etw(k) = etw(k-1) * x3
+     enddo
+     x1 = etw(n) - etw(nf1)
+     if (j.gt.10000) call abortM ('Error in atmospheric grid')
+  end do
+
+! fill the etw grid
+  x0 = nf * detamin - etw(nf1)
+  do k=nf1,n
+     etw(k) = etw(k) + x0
+  enddo
+! deduce detw, eta and deta from etw
+  detw(1) = detamin
+  eta(1)  = 0._dp
+  do k=2,n
+     detw(k)   = etw(k) - etw(k-1)
+     eta(k)    = 0.5_dp * (etw(k) + etw(k-1))
+     deta(k-1) = eta(k) - eta(k-1)
+  enddo
+  deta(n) = (1._dp + x3) * 0.5_dp * etw(n) - eta(n)
 
 ! grid within the soil
-      zbw0=0.
- 3010 zbw0=zbw0+0.0001
-      dlgzbw=dlog10(zbw1/zbw0)/float(nb)
-      x3=10.**dlgzbw
-      zbw=zbw0*x3
-      if (zbw-zbw0.lt.dzbw0) go to 3010
-      zb(1)=zbw
-      dzbw(1)=zbw-zbw0
-      do k=2,nb
-         zbw0=zbw
-         zbw=zbw0*x3
-         zb(k)=0.5*(zbw+zbw0)
-         dzbw(k)=zbw-zbw0
-         dzb(k-1)=zb(k)-zb(k-1)
-      enddo
-      dzb(nb)=(1.+x3)*0.5*zbw-zb(nb)
-      x0=zb(1)
-      do k=1,nb
-         zb(k)=zb(k)-x0
-      enddo
+! --------------------
+  if (isurf == 1) then
+     zbw0 = 0._dp
+     x2 = 0._dp
+     do while (x2.lt.dzbw0)
+        zbw0   = zbw0 + 0.0001_dp
+        dlgzbw = log10(zbw1/zbw0)/float(nb)
+        x3     = 10._dp**dlgzbw
+        zbw    = zbw0 * x3
+        x2     = zbw-zbw0
+     end do
+
+     zb(1)   = zbw
+     dzbw(1) = zbw-zbw0
+     do k=2,nb
+        zbw0     = zbw
+        zbw      = zbw0 * x3
+        zb(k)    = 0.5_dp * (zbw + zbw0)
+        dzbw(k)  = zbw - zbw0
+        dzb(k-1) = zb(k) - zb(k-1)
+     enddo
+     dzb(nb) = (1._dp + x3) * 0.5 * zbw - zb(nb)
+     ! substract zb(1) to the whole grid so that the first layer has 0-depth
+     x0 = zb(1)
+     do k=1,nb
+        zb(k)=zb(k)-x0
+     enddo
+  end if
 
 ! aerosol grid
-      x0=1./3.
-      x1=4.*x0*pi*rhow
-      x2=4.*x0*pi*rho3
+! ------------
+  x0=1._dp/3._dp
+  x1=4._dp*x0*pi*rhow
+  x2=4._dp*x0*pi*rho3
 
-! aerosol mass en(i) in mg
-      enwmin=x2*rnw0**3*1.d-12
-      enwmax=x2*rnw1**3*1.d-12
-! begin prescribed lowest and largest aerosol class
-      dlgenw=dlog10(enwmax/enwmin)/float(nka)
-      x3=10.**dlgenw
-      enw(1)=enwmin*x3
-      en(1)=0.5*(enw(1)+enwmin)
-      rn(1)=(en(1)/x2)**x0*1.d+04
-      do ia=2,nka
-         enw(ia)=enw(ia-1)*x3
-         en(ia)=0.5*(enw(ia)+enw(ia-1))
-         rn(ia)=(en(ia)/x2)**x0*1.d+04
-      enddo
-      print*,enwmax,enw(nka)
+! aerosol mass en(i) in mg: prescribed lowest and largest aerosol class
+  enwmin = x2 * rnw0**3 * 1.e-12_dp
+  enwmax = x2 * rnw1**3 * 1.e-12_dp
+! logarithmic equidistant mass grid en(i), enw(i)
+  dlgenw = log10(enwmax/enwmin) / float(nka)
+  x3 = 10._dp**dlgenw
+
+  enw(1) = enwmin * x3
+  en(1)  = 0.5_dp * (enw(1) + enwmin)
+  rn(1)  = (en(1) / x2)**x0 * 1.e4_dp
+  do ia=2,nka
+     enw(ia) = enw(ia-1) * x3
+     en(ia)  = 0.5_dp * (enw(ia) + enw(ia-1))
+     rn(ia)  = (en(ia)/x2)**x0 * 1.e4_dp
+  enddo
+
+! water mass ew in mg  (lowest and largest class)
+  ewmin = x1 * rw0**3 * 1.e-12_dp
+  ewmax = x1 * rw1**3 * 1.e-12_dp
+  dlgew = log10(ewmax/ewmin) / float(nkt) ! jjb nkt, not nkt-1
+  ax = 10._dp**dlgew
 ! ax: growth factor for consecutive masses
-! old water grid
-      ewmin=x1*rw0**3*1.d-12
-      ewmax=x1*rw1**3*1.d-12
-      dlgew=dlog10(ewmax/ewmin)/float(nkt) ! jjb nkt, not nkt-1
-      ax=10.**dlgew
-! new water grid
-! prescribed doubling of water mass after scal bins
-!      scal=1.36
-! ln(10)=2.3025851  ln(x)=log(10)*log(x)
-!      dlgew=dlog10(scal)
-      dlne = 2.3025851_dp * dlgew
-!      ax=2.d0**(1.0/scal)
-      ew(1)=ewmin*ax
-      e(1)=0.5*(ew(1)+ewmin)
-      dew(1)=ew(1)-ewmin
-      do jt=2,nkt
-         ew(jt)=ew(jt-1)*ax
-         e(jt)=0.5*(ew(jt)+ew(jt-1))
-         dew(jt)=ew(jt)-ew(jt-1)
-      enddo
+! ln(10)=2.3025851  ln(x)=ln(10)*log(x)
+  dlne = log(10._dp) * dlgew
 
-      ! equivalent radius of (pure) water droplet (in [m]), for effective radius calculation used in the radiative code
-      do jt=1,nkt
-         re1(jt) = (e(jt)*1.e-6/x1)**x0
-         re2(jt) = re1(jt)*re1(jt)
-         re3(jt) = re1(jt)*re2(jt)
-      enddo
+  ew(1)  = ewmin * ax
+  e(1)   = 0.5_dp * (ew(1)+ewmin)
+  dew(1) = ew(1) - ewmin
+  do jt=2,nkt
+     ew(jt)  = ew(jt-1) * ax
+     e(jt)   = 0.5_dp * (ew(jt) + ew(jt-1))
+     dew(jt) = ew(jt) - ew(jt-1)
+  enddo
 
-      do ia=1,nka
-      do jt=1,nkt
-         rq(jt,ia)=(e(jt)*1.d-06/x1+(rn(ia)*1.d-06)**3)**x0*1.d+06
-!         rq(jt,ia)=dmax1(rq(jt,ia),rn(ia))
-         rw(jt,ia)=(ew(jt)*1.d-06/x1+(rn(ia)*1.d-06)**3)**x0*1.d+06
-      enddo
-      enddo
-! partitioning of particle spectrum into aerosols, first and second
-! liquid species region for chemical reactions
-!      kg=-1
-!      kd=-1
-!      do jt=1,nkt
-!         if (rq(jt,1).gt.3.d0.and.kg.lt.0) kg=jt-1
-!         if (rq(jt,1).gt.15.d0.and.kd.lt.0) kd=jt-1
-!      enddo
+  ! equivalent radius of (pure) water droplet (in [m]), for effective radius calculation used in the radiative code
+  do jt=1,nkt
+     re1(jt) = (e(jt) * 1.e-6_dp / x1)**x0
+     re2(jt) = re1(jt)*re1(jt)
+     re3(jt) = re1(jt)*re2(jt)
+  enddo
+  do ia=1,nka
+     do jt=1,nkt
+        rq(jt,ia) = (e(jt)  * 1.e-6_dp / x1 + (rn(ia)*1.e-6_dp)**3)**x0 * 1.e6_dp
+        rw(jt,ia) = (ew(jt) * 1.e-6_dp / x1 + (rn(ia)*1.e-6_dp)**3)**x0 * 1.e6_dp
+     enddo
+  enddo
+
 ! aerosol + cloud chemistry: partition into small and large aerosol  : ka
 !                       and small and large water content (aer-drop) : kw(nka)
-      ka=-1
-      do ia=1,nka
-         if (rn(ia).gt..5d0.and.ka.lt.0) ka=ia-1
-         kw(ia)=-1
-      enddo
-      if (ka.lt.0) ka=nka
+  ka=-1
+  do ia=1,nka
+     if (rn(ia).gt..5_dp .and. ka.lt.0) ka=ia-1
+     kw(ia)=-1
+  enddo
+  if (ka.lt.0) ka=nka
 ! xfac: dilution as volume ratio: V_dry*x = V_water (r_dry*(x)^(1./3.)=r_water)
-      xfac=10. ! volume ratio is 1000
-      do ia=1,nka
-         do jt=1,nkt
-            if ((e(jt)*1.e-6/x1)**(1./3.)*1.e6.gt.xfac*rn(ia).and.kw(ia).lt.0) kw(ia)=jt-1
-         enddo
-         if (kw(ia).lt.0) kw(ia)=nkt
-      enddo
+  xfac=10._dp ! volume ratio is 1000
+  do ia=1,nka
+     do jt=1,nkt
+        if ((e(jt)*1.e-6_dp/x1)**x0 * 1.e6_dp .gt.xfac*rn(ia).and.kw(ia).lt.0) kw(ia)=jt-1
+     enddo
+     if (kw(ia).lt.0) kw(ia)=nkt
+  enddo
 ! end aerosol + cloud chemistry
 
-
-
-      end subroutine grid
+end subroutine grid
 
 !
 !-------------------------------------------------------------
@@ -2629,7 +2667,16 @@ subroutine difp (dt)
 
 ! Modifications :
 ! -------------
+  ! 07-May-2021  Josue Bock  several changes in the units conversion, am3 undefined in restart
+  !                          There was actually a bug if chem = .false.
+  !                          First redefined a local am3 = rho/M_air, with a further 1e6 factor
+  !                            in the conversion (thus acm3 = am3 * 1e6)
+  !                          After tests, using rho instead of acm3 gives exactely the same result
+  !                          But am3(k-1)/am3(k) has also been introduced in xc coefficient
+  !                          It seems wrong, thus removed
   !
+  ! 08-May-2021  Josue Bock  Turn xf(nm) into xf(nkt,nka,n) for matrix operation.
+  !                          On a test case, it was 10 times faster this way
 
 ! == End of header =============================================================
 
@@ -2658,7 +2705,8 @@ subroutine difp (dt)
 
 ! Local arrays:
   real (kind=dp) :: c(n)
-  real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm)!,oldf(nf)
+  real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm)
+  real (kind=dp) :: xf(nkt,nka,nm)
 
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -2698,59 +2746,35 @@ subroutine difp (dt)
      xe(k) = xa(k) / xd(k)
      c(k)  = w(k) * dt / deta(k)
   enddo
-!  if (lct.gt.1) then
-     do ia=1,nka
-        do jt=1,nkt
-           xf(1) = ff(jt,ia,2)
-!           do k=2,nf
-           do k=2,nm
-              xf(k) = (ff(jt,ia,k) + xc(k) * xf(k-1)) / xd(k)
-           enddo
-!           do k=nf,2,-1
-           do k=nm,2,-1
-              ! result and conversion back to 1/cm^3
-              ff(jt,ia,k) = (xe(k) * ff(jt,ia,k+1) + xf(k)) * rho(k)
-           enddo
-           ! convert back specifically level nm+1
-           ff(jt,ia,nm+1) = ff(jt,ia,nm+1) * rho(nm+1)
 
-!          large scale subsidence
-           do k=2,nm
-              kp=k+1
-              ff(jt,ia,k) = ff(jt,ia,k) - c(k) * (ff(jt,ia,kp) - ff(jt,ia,k))
-           enddo
-        enddo
-     enddo
+  xf(:,:,1) = ff(:,:,2)
+  do k=2,nm
+     xf(:,:,k) = (ff(:,:,k) + xc(k) * xf(:,:,k-1)) / xd(k)
+  end do
+  do k=nm,2,-1
+     ff(:,:,k) = xe(k) * ff(:,:,k+1) + xf(:,:,k)
+  enddo
+! conversion back to 1/cm^3
+  do k=2,nm+1
+     ff(:,:,k) = ff(:,:,k) * rho(k)
+  end do
+
+! large scale subsidence
+  do k=2,nm
+     kp=k+1
+     ff(:,:,k) = ff(:,:,k) - c(k) * (ff(:,:,kp) - ff(:,:,k))
+  enddo
 
 ! update of fsum
-!     do k=2,nf
-     do k=2,n
-        fsum(k) = 0._dp
-        do ia=1,nka
-           do jt=1,nkt
-              fsum(k) = fsum(k) + ff(jt,ia,k)
-           enddo
+!  do k=2,nf
+  do k=2,n
+     fsum(k) = 0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           fsum(k) = fsum(k) + ff(jt,ia,k)
         enddo
      enddo
-
-!  else
-!     xf(1)=fsum(2)
-!     do k=2,nf
-!        oldf(k)=fsum(k)
-!        xf(k)=(fsum(k)+xc(k)*xf(k-1))/xd(k)
-!     enddo
-!     do k=nf,2,-1
-!        fsum(k)=xe(k)*fsum(k+1)+xf(k)
-!     enddo
-!     do k=2,nf
-!        x0=fsum(k)/oldf(k)
-!        do ia=1,nka
-!        do jt=1,nkt
-!           ff(jt,ia,k)=ff(jt,ia,k)*x0
-!        enddo
-!        enddo
-!     enddo
-!  endif
+  enddo
 
 end subroutine difp
 

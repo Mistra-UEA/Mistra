@@ -30,7 +30,9 @@ c initialization of chemistry module
      &     m_air
 
       USE file_unit, ONLY :
-     &     jpfunprofc
+     &     jpfunprofc,
+     &     jpfunsg1,
+     &     jpfunsr1
 
       USE gas_common, ONLY :
 ! Imported Parameters:
@@ -387,10 +389,10 @@ c            write (542,12) k,am3(k,1),am3(k,2)
 c            write (543,12) k,cm3(k,1),cm3(k,2)
       enddo
 ! 12   format (i3,2d16.8)
-      write (61) is4
-      close (61)
-      write (64) is4
-      close (64)
+      write (jpfunsg1) is4
+      close (jpfunsg1)
+      write (jpfunsr1) is4
+      close (jpfunsr1)
 
 ! Initialise vmean (constant factor calculation)
       call v_mean_init
