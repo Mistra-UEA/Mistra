@@ -1438,7 +1438,7 @@ subroutine startm (fogtype)
 
 ! Modifications :
 ! -------------
-  !
+  ! Josue Bock: add some data in rst file to avoid recomputing missing ones here
 
 ! == End of header =============================================================
 
@@ -1447,6 +1447,10 @@ subroutine startm (fogtype)
        tw, &                       ! water surface temperature
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout, jpfunrstm
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1460,7 +1464,7 @@ subroutine startm (fogtype)
 ! Imported Parameters:
        dp
 
-  implicit double precision (a-h,o-z)!none
+  implicit none
 
   character (len=1), intent(in) :: fogtype
   character (len=10) :: fname
@@ -1468,28 +1472,19 @@ subroutine startm (fogtype)
 ! Common blocks:
   common /cb11/ totrad (mb,n)
   real (kind=dp) :: totrad
-
   common /cb18/ alat,declin                ! for the SZA calculation
   real (kind=dp) :: alat,declin
-
   common /cb40/ time,lday,lst,lmin,it,lcl,lct
   real (kind=dp) :: time
   integer :: lday, lst, lmin, it, lcl, lct
-
-  common /cb41/ detw(n),deta(n),eta(n),etw(n)
-  real (kind=dp) :: detw, deta, eta, etw
-
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
-
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-
   common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
                 bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
   real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
                     bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -1498,58 +1493,40 @@ subroutine startm (fogtype)
        ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
   common /cb48/ sk,sl,dtrad(n),dtcon(n)
   real (kind=dp) :: sk, sl, dtrad, dtcon
-
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
-
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb53a/ thet(n),theti(n)
   real(kind=dp) :: thet, theti
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
   common /cb63/ fcs(nka),xmol3(nka)
   real(kind=dp) :: fcs, xmol3
+
+! == End of declarations =======================================================
 
   fname='rstm .dat'
   fname(5:5)=fogtype
 
-  open (15,file=fname,status='old',form='unformatted')
+  open (jpfunrstm,file=fname,status='old',form='unformatted')
+  read (jpfunrstm)  &
 ! double precision arrays
-  read (15)  &
        atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum, &
-       gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a, &
-       xm2,xmol3, &
+       gh,p,rho,t,talt,tb,thet,theta,theti,thetl,tke,tkep, &
+       totrad,u,v,w,xl,xm1,xm1a,xm2,xmol3, &
 ! double precision single vars
-       a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
-       trdep, z0, &
+       a0m,alat,declin,ds1,ds2,gclt,gclu,reif,sk,sl,tau, &
+       trdep,tw,ustern,z0, &
 ! integer arrays
        nar, &
 ! integer single vars
        it,lcl,lct,lday,lmin,lst
-  close (15)
+  close (jpfunrstm)
 
-! set/diagnose some parameters
-  tw = t(1)
-  do k=1,n
-     thet(k)  = theta(k) / t(k)
-     theti(k) = 1._dp / thet(k)
-     thetl(k) = theta(k) * (1._dp + 0.61_dp * xm1(k))
-  enddo
-
-  vbt   = sqrt(u(2)*u(2) + v(2)*v(2))
-  zp    = deta(1) + z0
-  zpdz0 = log(zp/z0)
-  zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
-  call claf (zpdl,zpdz0,cu,ctq)
-  ustern = max(0.01_dp, vbt/cu)
-  gclu   = cu
-  gclt   = ctq
-
-  print *,"restart file for meteo read, filename: ",fname
-  print *,lday,lst,lmin
+  write(jpfunout,*)"restart file for meteo read, filename: ",fname
+  write(jpfunout,*)lday,lst,lmin
 
 end subroutine startm
 
@@ -1557,12 +1534,13 @@ end subroutine startm
 !-------------------------------------------------------------
 !
 
-      subroutine startc (fogtype)
+subroutine startc (fogtype)
+! profiles of chemical data if the program is restarted
 
 
 ! Author:
 ! ------
-  !    Andreas Bott, RvG
+  !    Andreas Bott
 
 
 ! Modifications :
@@ -1572,100 +1550,130 @@ end subroutine startm
 ! == End of header =============================================================
 
 
-      USE gas_common, ONLY : &
-     &     s1, &
-     &     es1, &
-     &     s3
+  USE config, ONLY : &
+       binout, coutdir
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc, &
-     &     nlev, &
-     &     nrxn, &
-     &     nphrxn
+       jpfunout, jpfunrstc,&
+       jpfunsg1, jpfunsr1
 
-      USE precision, ONLY : &
+  USE gas_common, ONLY : &
+       s1, &
+       es1, &
+       s3
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc, &
+       nlev, &
+       nrxn, &
+       nphrxn
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-! profiles of chemical data if the program is restarted
+  implicit none
+
+  character (len=1), intent(in) :: fogtype
+  character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
+  integer :: k
+  real (kind=dp) :: is4(n,3)
 
 ! Common blocks:
-      common /band_rat/ photol_j(nphrxn,n)
-      common /blck01/ am3(n),cm3(n)
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /blck78/ sa1(nka,j2),sac1(nka,j2)
+  common /band_rat/ photol_j(nphrxn,n)
+  real (kind=dp) :: photol_j
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
+  common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
+  real (kind=dp) :: conv2
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /blck78/ sa1(nka,j2),sac1(nka,j2)
+  real (kind=dp) :: sa1, sac1
+  common /budg/ bg(2,nrxn,nlev),il(nlev)
+  real (kind=dp) :: bg
+  integer :: il
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /kinv_i/ kinv
+  integer :: kinv
+  common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
+  real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
+  common /kpp_l1/ cloudt(nkc,n)
+  logical :: cloudt
+  common /kpp_mol/ xgamma(nf,j6,nkc)
+  real (kind=dp) :: xgamma
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real (kind=dp) :: vt, vd, vdm
 
-      common /budg/ bg(2,nrxn,nlev),il(nlev)
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! == End of declarations =======================================================
 
-      common /kinv_i/ kinv
-      integer :: kinv
-      common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
-
-      common /kpp_l1/ cloudt(nkc,n)
-      logical cloudt
-
-      common /kpp_mol/ xgamma(nf,j6,nkc)
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
-      double precision is4(n,3)
-      character *10 fname
-      character *1 fogtype
-      fname='rstc .dat'
-      fname(5:5)=fogtype
-      open (16,file=fname,status='unknown',form='unformatted')
+  fname='rstc .dat'
+  fname(5:5)=fogtype
+  open (jpfunrstc,file=fname,status='unknown',form='unformatted')
 ! alpha, henry, vmean, xkmt are not read in because they depend on the
 ! chemical mechanism used (aer, tot) and are calculated every time step
 ! anyways
 
+  read (jpfunrstc) &
 ! double precision arrays
-      read (16) am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
-     &     sac1,sl1,sion1,vd,vdm,vt,xgamma, &
+       am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
+       sac1,sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
-     &     xcryssulf,xcrysss,xdelisulf,xdeliss, &
+       xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
-     &     cloudt, &
+       cloudt, &
 ! integers
-     &     il,kinv,lday,lmin,lst
-      close (16)
+       il,kinv,lday,lmin,lst
+  close (jpfunrstc)
 
 ! initial output for plotting - only needed for binary output
-      do k=1,n
-            is4(k,1)=am3(k) ! stay consistent with plot routine array size!
-            is4(k,2)=0.
-            is4(k,3)=0.
-!            write (542,12) k,am3(k,1),am3(k,2)
-!            write (543,12) k,cm3(k,1),cm3(k,2)
-      enddo
-! 12   format (i3,2d16.8)
-      write (61) is4
-      close (61)
-      write (64) is4
-      close (64)
+  if (binout) then
+     do k=1,n
+        is4(k,1)=am3(k) ! stay consistent with plot routine array size!
+        is4(k,2)=0._dp
+        is4(k,3)=0._dp
+     enddo
 
-      print *,"restart file for chemistry read, filename: ",fname
-      print *,lday,lst,lmin
+     fname='sg1 .out'
+     fname(4:4)=fogtype
+     clpath=trim(coutdir)//trim(fname)
+     open (jpfunsg1, file=trim(clpath), status='old',form='unformatted')
+     write (61) is4
+     close (61)
 
-      print *,'deliquescense',xdelisulf,xdeliss
-      print *,'crystallization',xcryssulf,xcrysss
+     fname='sr1 .out'
+     fname(4:4)=fogtype
+     clpath=trim(coutdir)//trim(fname)
+     open (jpfunsr1, file=trim(clpath), status='old',form='unformatted')
+     write (64) is4
+     close (64)
+  end if
+
+  write(jpfunout,*)"restart file for chemistry read, filename: ",fname
+  write(jpfunout,*)lday,lst,lmin
+  write(jpfunout,*)'deliquescense',xdelisulf,xdeliss
+  write(jpfunout,*)'crystallization',xcryssulf,xcrysss
+
 ! get alpha's
-      call st_coeff_a
-      call st_coeff_t
+  call st_coeff_a
+  call st_coeff_t
 
-      end subroutine startc
+end subroutine startc
 
 !
 !-------------------------------------------------------------
@@ -3740,15 +3748,27 @@ end subroutine surf0
 !-------------------------------------------------------------
 !
 
-      function p31(t)
+function p31(t)
 ! water vapour pressure over ice
-      implicit double precision (a-h,o-z)
-      parameter (t1=273.16)
-      xlog10=-9.09685*(t1/t-1.)-3.56654*dlog10(t1/t) &
-     & +0.87682*(1.-t/t1)+0.78614
-      p31=100.*(10.**xlog10)
 
-      end function p31
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real (kind=dp), intent(in) :: t
+  real (kind=dp) :: p31
+  real (kind=dp), parameter :: t1=273.16_dp
+  real (kind=dp) :: xlog10
+
+  xlog10 = -9.09685_dp * (t1/t - 1._dp) &
+           -3.56654_dp * log10(t1/t) &
+           +0.87682_dp * (1._dp - t/t1) + 0.78614_dp
+
+  p31=100._dp*(10._dp**xlog10)
+
+end function p31
 
 !
 !-------------------------------------------------------------
