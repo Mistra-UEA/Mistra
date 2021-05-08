@@ -17,7 +17,7 @@
 
 
 
-! outp.f : output
+! outp.f90: output
 ! box: the initial (const*) and overview (prof*) output SRs are not adjusted,
 !      i.e. they produce a heap of output that's irrelevant. To avoid huge
 !     output files, the size of the plou* SRs has been adjusted by using
@@ -29,8 +29,8 @@
 !     - outm: restart files, meteorological data
 !     - outc: restart files, chemical data
 !
+! plout* routines are called if binout=true
 !     - ploutj: output of photolysis rates up to level n_bln
-!
 !     - ploutc: driving subroutine of chemistry output, calls the following subroutines:
 !              - ploutcg: output of gas phase chemical species
 !              - ploutci: output of liquid phase ionic species (sion1)
@@ -38,7 +38,6 @@
 !              - ploutcr:
 !              - ploutcgr: output of instantaneous rates
 !              - ploutcgs:
-!
 !     - ploutm: output of meteorological data
 !     - ploutp: output of particle distributions
 !     - ploutr: output of radiation data
@@ -335,6 +334,12 @@ subroutine ploutj (fogtype,n_bln)
 !
 ! Declarations:
 ! Modules used:
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunjra
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
@@ -353,6 +358,7 @@ subroutine ploutj (fogtype,n_bln)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: j,k
   real (kind=dp) :: xday,xst,xmin
 
@@ -369,9 +375,6 @@ subroutine ploutj (fogtype,n_bln)
 
 ! == End of declarations =======================================================
 
-  fname='jra .out'
-  fname(4:4)=fogtype
-
   do k=1,n_bln
      do j=1,nphrxn
         i0(j,k)=photol_j(j,k)
@@ -382,11 +385,14 @@ subroutine ploutj (fogtype,n_bln)
   xst  = real(lst,dp)
   xmin = real(lmin,dp)
 
- 3000 continue
-  open (69, file=fname,status='old',form='unformatted', position='append',err=3000)
-!  write (69) lday,lst,lmin,i0
-  write (69) xday,xst,xmin,i0
-  close (69)
+  fname='jra .out'
+  fname(4:4)=fogtype
+  clpath=trim(coutdir)//trim(fname)
+
+  open (jpfunjra, file=trim(clpath), status='old',form='unformatted', position='append')
+!  write (jpfunjra) lday,lst,lmin,i0
+  write (jpfunjra) xday,xst,xmin,i0
+  close (jpfunjra)
 
 end subroutine ploutj
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -459,6 +465,12 @@ subroutine ploutcg (fogtype,n_bl)
 !
 ! Declarations:
 ! Modules used:
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunsg1
+
   USE gas_common, ONLY : &
 ! Imported Parameters:
        j1, &
@@ -483,6 +495,7 @@ subroutine ploutcg (fogtype,n_bl)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: j,k, nmax
 
 ! Local arrays:
@@ -512,13 +525,14 @@ subroutine ploutcg (fogtype,n_bl)
         i0(nf,j)=etw(lct)
      enddo
   endif
+
   fname='sg1 .out'
   fname(4:4)=fogtype
+  clpath=trim(coutdir)//trim(fname)
 
-3000 continue
-  open (61, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (61) lday,lst,lmin,i0
-  close (61)
+  open (jpfunsg1, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunsg1) lday,lst,lmin,i0
+  close (jpfunsg1)
 
 end subroutine ploutcg
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -558,7 +572,11 @@ subroutine ploutci (fogtype,n_bl)
 ! Declarations:
 ! Modules used:
   USE config, ONLY: &
+       coutdir, &
        nkc_l
+
+  USE file_unit, ONLY : &
+       jpfunion
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -582,6 +600,7 @@ subroutine ploutci (fogtype,n_bl)
   ! Local scalars:
   integer :: i, j, k, nmax
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
 
 ! Local arrays:
   real (kind=dp) :: i0(n_bl,j6,nkc_l)
@@ -617,13 +636,14 @@ subroutine ploutci (fogtype,n_bl)
         enddo
      enddo
   endif
+
   fname='ion .out'
   fname(4:4)=fogtype
+  clpath=trim(coutdir)//trim(fname)
 
-3000 continue
-  open (62, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (62) lday,lst,lmin,i0
-  close (62)
+  open (jpfunion, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunion) lday,lst,lmin,i0
+  close (jpfunion)
 
 end subroutine ploutci
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -675,7 +695,11 @@ subroutine ploutcl (fogtype,n_bl)
 ! Declarations:
 ! Modules used:
   USE config, ONLY: &
+       coutdir, &
        nkc_l
+
+  USE file_unit, ONLY : &
+       jpfunsl1
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -701,6 +725,7 @@ subroutine ploutcl (fogtype,n_bl)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: i, ia, j, jt, k, kc, nmax
   real (kind=dp) :: x0
 
@@ -757,8 +782,10 @@ subroutine ploutcl (fogtype,n_bl)
         enddo
      enddo
   endif
+
   fname='sl1 .out'
   fname(4:4)=fogtype
+  clpath=trim(coutdir)//trim(fname)
 
   do kc=1,nkc_l
      do k=1,n_bl
@@ -767,10 +794,9 @@ subroutine ploutcl (fogtype,n_bl)
      enddo
   enddo
 
-3000 continue
-  open (63, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (63) lday,lst,lmin,i0,irc,icw
-  close (63)
+  open (jpfunsl1, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunsl1) lday,lst,lmin,i0,irc,icw
+  close (jpfunsl1)
 
 end subroutine ploutcl
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -800,6 +826,12 @@ subroutine ploutcr (fogtype,n_bl)
 !                            thus it could not be recognised by the newly developed routine searching
 !                            for exchanged species.
 
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunsr1
+
   USE gas_common, ONLY: &
 ! Imported Parameters:
        j5, &
@@ -823,6 +855,7 @@ subroutine ploutcr (fogtype,n_bl)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: nmax, j, k
 
 ! Local arrays:
@@ -856,10 +889,11 @@ subroutine ploutcr (fogtype,n_bl)
 
   fname='sr1 .out'
   fname(4:4)=fogtype
-3000 continue
-  open (64, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (64) lday,lst,lmin,i0
-  close (64)
+  clpath=trim(coutdir)//trim(fname)
+
+  open (jpfunsr1, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunsr1) lday,lst,lmin,i0
+  close (jpfunsr1)
 
 end subroutine ploutcr
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -877,6 +911,12 @@ subroutine ploucgr (fogtype,n_bl8)
 
 ! Declarations:
 ! Modules used:
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfungr
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        nlev, &
@@ -895,6 +935,7 @@ subroutine ploucgr (fogtype,n_bl8)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: j, k
 
 ! Local arrays:
@@ -918,13 +959,14 @@ subroutine ploucgr (fogtype,n_bl8)
         i0(k,j)=bg(1,j,k)
      enddo
   enddo
+
   fname='gr .out'
   fname(3:3)=fogtype
+  clpath=trim(coutdir)//trim(fname)
 
-3000 continue
-  open (66, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (66) lday,lst,lmin,il,i0
-  close (66)
+  open (jpfungr, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfungr) lday,lst,lmin,il,i0
+  close (jpfungr)
 
 end subroutine ploucgr
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -944,6 +986,12 @@ subroutine ploucgs (fogtype,n_bl)
 
 ! Declarations:
 ! Modules used:
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfungs
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n
@@ -961,6 +1009,7 @@ subroutine ploucgs (fogtype,n_bl)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: j, k
 
 ! Local arrays:
@@ -982,13 +1031,14 @@ subroutine ploucgs (fogtype,n_bl)
         i1(k,j)=bgs(2,j,k)
      enddo
   enddo
+
   fname='gs .out'
   fname(3:3)=fogtype
+  clpath=trim(coutdir)//trim(fname)
 
-3000 continue
-  open (67, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (67) lday,lst,lmin,i0,i1
-  close (67)
+  open (jpfungs, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfungs) lday,lst,lmin,i0,i1
+  close (jpfungs)
 
 end subroutine ploucgs
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -997,6 +1047,12 @@ end subroutine ploucgs
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 subroutine ploutm (fogtype,n_bln)
 ! output of meteorological data
+
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunpm, jpfunpb        ! ploutm files: pm*, pb*
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1019,6 +1075,7 @@ subroutine ploutm (fogtype,n_bln)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: j, k
 ! Local arrays:
   real (kind=dp) :: i0(12,n_bln)
@@ -1074,20 +1131,22 @@ subroutine ploutm (fogtype,n_bln)
         i0(j,n)=etw(lct)
      enddo
   endif
+
+! ploutm file 1 = pm*
   fname='pm .out'
   fname(3:3)=fogtype
+  clpath=trim(coutdir)//trim(fname)
+  open (jpfunpm, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunpm) lday,lst,lmin,i0
+  close (jpfunpm)
 
-3000 continue
-  open (17, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (17) lday,lst,lmin,i0
-  close (17)
+! ploutm file 2 = pb*
   fname(2:2)='b'
- 3010 continue
-  write (77,*) 'in pba'
-  open (19, file=fname,status='old',form='unformatted', position='append',err=3010)
-  write (19) lday,lst,lmin,tb,eb,ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2, &
+  clpath=trim(coutdir)//trim(fname)
+  open (jpfunpb, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunpb) lday,lst,lmin,tb,eb,ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2, &
        ajm,reif,tau,trdep,sl,sk,fnseb,flgeg
-  close (19)
+  close (jpfunpb)
 
 end subroutine ploutm
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1099,6 +1158,12 @@ subroutine ploutp (fogtype)
 
 
 ! 22-Sep-2020   Josue Bock   Remove remaining hard coded nf,n,nka, nkt parameter values
+
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunf1, jpfunf2, jpfunf3  ! ploutp files: f1*, f2*, f3*
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1118,6 +1183,7 @@ subroutine ploutp (fogtype)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: kk, ia, jt, k     ! loop indexes
   real (kind=dp) :: x0, x1, x2
 ! Local arrays:
@@ -1142,9 +1208,8 @@ subroutine ploutp (fogtype)
 
   fname='f1 .out'
   fname(3:3)=fogtype
-
-3000 continue
-  open (41, file=fname,status='old',form='unformatted', position='append',err=3000)
+  clpath=trim(coutdir)//trim(fname)
+  open (jpfunf1, file=trim(clpath), status='old',form='unformatted', position='append')
   do kk=1,3
 !     if (kk.eq.1) k=lcl-5
 !     if (kk.eq.2) k=lcl
@@ -1161,13 +1226,14 @@ subroutine ploutp (fogtype)
      x0=xm2(k)
      x1=feu(k)
      x2=eta(k)
-     write (41) lday,lst,lmin,k,x0,x1,x2,ff2
+     write (jpfunf1) lday,lst,lmin,k,x0,x1,x2,ff2
   enddo
-  close (41)
+  close (jpfunf1)
 
   fname(2:2)='2'
+  clpath=trim(coutdir)//trim(fname)
 3010 continue
-  open (42, file=fname,status='old',form='unformatted', position='append',err=3010)
+  open (jpfunf2, file=trim(clpath), status='old',form='unformatted', position='append',err=3010)
   do kk=1,3
 !     if (kk.eq.1) k=lct-4
 !     if (kk.eq.2) k=lct-2
@@ -1184,13 +1250,14 @@ subroutine ploutp (fogtype)
      x0=xm2(k)
      x1=feu(k)
      x2=eta(k)
-     write (42) lday,lst,lmin,k,x0,x1,x2,ff2
+     write (jpfunf2) lday,lst,lmin,k,x0,x1,x2,ff2
   enddo
-  close (42)
+  close (jpfunf2)
 
   fname(2:2)='3'
+  clpath=trim(coutdir)//trim(fname)
 3020 continue
-  open (43, file=fname,status='old',form='unformatted', position='append',err=3020)
+  open (jpfunf3, file=trim(clpath), status='old',form='unformatted', position='append',err=3020)
   do kk=1,3
 !     if (kk.eq.1) k=lct+2
 !     if (kk.eq.2) k=lct+4
@@ -1207,9 +1274,9 @@ subroutine ploutp (fogtype)
      x0=xm2(k)
      x1=feu(k)
      x2=eta(k)
-     write (43) lday,lst,lmin,k,x0,x1,x2,ff2
+     write (jpfunf3) lday,lst,lmin,k,x0,x1,x2,ff2
   enddo
-  close (43)
+  close (jpfunf3)
 
 end subroutine ploutp
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1218,6 +1285,12 @@ end subroutine ploutp
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 subroutine ploutr (fogtype,n_bln)
 ! output of radiation data
+
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunpr                ! ploutr file: pr*
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1242,6 +1315,7 @@ subroutine ploutr (fogtype,n_bln)
 
 ! Local scalars:
   character (len=10) :: fname
+  character (len=150) :: clpath  ! complete path to file
   integer :: ia, ib, j, jt, k
   real (kind=dp) :: rsum1, rsum3
   real (kind=dp) :: x0, x1
@@ -1319,12 +1393,14 @@ subroutine ploutr (fogtype,n_bln)
      i0(1,n-2)=fnseb
      i0(1,n-3)=flgeg
   endif
+
+! ploutr file = pr*
   fname='pr .out'
   fname(3:3)=fogtype
-3000 continue
-  open (14, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (14) lday,lst,lmin,i0
-  close (14)
+  clpath=trim(coutdir)//trim(fname)
+  open (jpfunpr, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunpr) lday,lst,lmin,i0
+  close (jpfunpr)
 
 end subroutine ploutr
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1336,6 +1412,12 @@ subroutine ploutt (fogtype,n_bln)
 
 
 ! 22-Sep-2020   Josue Bock   Remove remaining hard coded nf,n,nka, nkt parameter values
+
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunpt                 ! ploutt files: pt*
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1350,6 +1432,7 @@ subroutine ploutt (fogtype,n_bln)
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
   character (len=1), intent(in) :: fogtype
+  character (len=150) :: clpath  ! complete path to file
   integer, intent(in) :: n_bln
 
 ! Local scalars:
@@ -1402,18 +1485,38 @@ subroutine ploutt (fogtype,n_bln)
   endif
   fname='pt .out'
   fname(3:3)=fogtype
-3000 continue
-  open (18, file=fname,status='old',form='unformatted', position='append',err=3000)
-  write (18) lday,lst,lmin,i0
-  close (18)
+  clpath=trim(coutdir)//trim(fname)
+  open (jpfunpt, file=trim(clpath), status='old',form='unformatted', position='append')
+  write (jpfunpt) lday,lst,lmin,i0
+  close (jpfunpt)
 
 end subroutine ploutt
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-subroutine constm (chem,mic,rst)
-! output of constants and parameters used in the current run
+subroutine constm
+
+! Description :
+! -----------
+!   output of constants and parameters used in the current run
+!    (called only once during model initialisation)
+
+! Author :
+! ------
+!    Andreas Bott
+
+! Modifications :
+! -------------
+!    Josue Bock  Review, add header, missing declarations, f90
+
+! == End of header =============================================================
+
+  USE config, ONLY : &
+! Imported Parameters:
+       chem, &
+       mic, &
+       rst
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1424,6 +1527,9 @@ subroutine constm (chem,mic,rst)
   USE data_surface, ONLY : &
        tw, &                       ! water surface temperature
        z0                          ! roughness length
+
+  USE file_unit, ONLY : &
+       jpfunprofm
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1440,10 +1546,6 @@ subroutine constm (chem,mic,rst)
        dp
 
   implicit none
-
-! Subroutine arguments
-! Scalar arguments with intent(in):
-  logical, intent(in) ::  chem,mic,rst
 
 ! Local scalars:
   real (kind=dp) :: xxsum
@@ -1484,81 +1586,79 @@ subroutine constm (chem,mic,rst)
 
 ! == End of declarations =======================================================
 
-  write (26,6000)
- 6000 format (16x,'constants and parameters of the current run' &
-  & ,///,6x,'numerical grid',/,6x,'eta:')
-
-  write (26,6010) (eta(k),k=1,n)
+  write (jpfunprofm,6000)
+6000 format (16x,'constants and parameters of the current run' &
+          ,///,6x,'numerical grid',/,6x,'eta:')
+  write (jpfunprofm,6010) (eta(k),k=1,n)
 6010 format (1x,13e12.5)
-
-  write (26,6020)
+  write (jpfunprofm,6020)
 6020 format (6x,'etw:')
-  write (26,6010) (etw(k),k=1,n)
-  write (26,6030)
+  write (jpfunprofm,6010) (etw(k),k=1,n)
+  write (jpfunprofm,6030)
 6030 format (6x,'deta:')
-  write (26,6010) (deta(k),k=1,n)
-  write (26,6040)
+  write (jpfunprofm,6010) (deta(k),k=1,n)
+  write (jpfunprofm,6040)
 6040 format (6x,'detw:')
-  write (26,6010) (detw(k),k=1,n)
-  write (26,6050)
+  write (jpfunprofm,6010) (detw(k),k=1,n)
+  write (jpfunprofm,6050)
 6050 format (6x,'enw:')
-  write (26,6010) (enw(k),k=1,nka)
-  write (26,6060)
+  write (jpfunprofm,6010) (enw(k),k=1,nka)
+  write (jpfunprofm,6060)
 6060 format (6x,'en:')
-  write (26,6010) (en(k),k=1,nka)
-  write (26,6070)
+  write (jpfunprofm,6010) (en(k),k=1,nka)
+  write (jpfunprofm,6070)
 6070 format (6x,'rn:')
-  write (26,6010) (rn(k),k=1,nka)
-  write (26,6090)
+  write (jpfunprofm,6010) (rn(k),k=1,nka)
+  write (jpfunprofm,6090)
 6090 format (6x,'ew:')
-  write (26,6010) (ew(k),k=1,nkt)
-  write (26,6100)
+  write (jpfunprofm,6010) (ew(k),k=1,nkt)
+  write (jpfunprofm,6100)
 6100 format (6x,'e:')
-  write (26,6010) (e(k),k=1,nkt)
-  write (26,6110)
+  write (jpfunprofm,6010) (e(k),k=1,nkt)
+  write (jpfunprofm,6110)
 6110 format (6x,'dew:')
-  write (26,6010) (dew(k),k=1,nkt)
-  write (26,6120)
+  write (jpfunprofm,6010) (dew(k),k=1,nkt)
+  write (jpfunprofm,6120)
 6120 format (6x,'rq(k,1):')
-  write (26,6010) (rq(k,1),k=1,nkt)
-  write (26,6130)
+  write (jpfunprofm,6010) (rq(k,1),k=1,nkt)
+  write (jpfunprofm,6130)
 6130 format (6x,'rq(k,nka):')
-  write (26,6010) (rq(k,nka),k=1,nkt)
-  write (26,6140)
+  write (jpfunprofm,6010) (rq(k,nka),k=1,nkt)
+  write (jpfunprofm,6140)
 6140 format (6x,'zb:')
-  write (26,6010) (zb(k),k=1,nb)
-  write (26,6150)
+  write (jpfunprofm,6010) (zb(k),k=1,nb)
+  write (jpfunprofm,6150)
 6150 format (6x,'dzb:')
-  write (26,6010) (dzb(k),k=1,nb)
-  write (26,6160)
+  write (jpfunprofm,6010) (dzb(k),k=1,nb)
+  write (jpfunprofm,6160)
 6160 format (6x,'dzbw:')
-  write (26,6010) (dzbw(k),k=1,nb)
-  write (26,6170)
+  write (jpfunprofm,6010) (dzbw(k),k=1,nb)
+  write (jpfunprofm,6170)
 6170 format (//,16x,'constants and parameters'/)
-  write (26,6173)
+  write (jpfunprofm,6173)
 6173 format (6x,'aerosol type: 1=urban 2=rural 3=ocean 4=background')
-  write (26,6176) (nar(k),k=1,n)
+  write (jpfunprofm,6176) (nar(k),k=1,n)
 6176 format (6x,60i2)
-  write (26,6177)
+  write (jpfunprofm,6177)
 6177 format (6x,'solution term b0m of droplet growth equation')
-  write (26,6010) (b0m(k),k=1,nka)
-  write (26,6180)
+  write (jpfunprofm,6010) (b0m(k),k=1,nka)
+  write (jpfunprofm,6180)
 6180 format (6x,'r0,r1,g,cp,a0m,ug,vg,dlgew,dlgenw,dlne')
-  write (26,6010) r0,r1,g,cp,a0m,ug,vg,dlgew,dlgenw,dlne
-  write (26,6190)
+  write (jpfunprofm,6010) r0,r1,g,cp,a0m,ug,vg,dlgew,dlgenw,dlne
+  write (jpfunprofm,6190)
 6190 format (6x,'z0')
-  write (26,6010) z0
-  write (26,6195) ka,kw
+  write (jpfunprofm,6010) z0
+  write (jpfunprofm,6195) ka,kw
 6195 format (//,16x,'ka and kw for aqueous phase reactions',21i6)
-  write (26,6200)
+  write (jpfunprofm,6200)
 6200 format (//,16x,'dimensions of arrays: n,nrlay,nrlev,nb,nka,nkt')
-  write (26,6210) n,nrlay,nrlev,nb,nka,nkt
+  write (jpfunprofm,6210) n,nrlay,nrlev,nb,nka,nkt
 6210 format (/,1x,6i10)
-  write (26,6220) alat,declin,wmin,wmax,tw,scaleo3_m
+  write (jpfunprofm,6220) alat,declin,wmin,wmax,tw,scaleo3_m
 6220 format (//,6x,'geogr. latitude ',f9.1,' declination ',f9.1, &
           ' large scale subsidence in m/s',2f9.5, &
           ' water temperature',f8.2,' O3 column (hv only) ',f4.0,//)
-  write (26,6230) chem,mic,rst
+  write (jpfunprofm,6230) chem,mic,rst
 6230 format (6x,'current program evaluation: ','   chem: ',l1, &
           ' mic: ',l1,'   rst: ',l1,//)
   xxsum=0._dp
@@ -1572,11 +1672,11 @@ subroutine constm (chem,mic,rst)
      xsum(k)=xsum(k)*1.e+09
      xxsum=xxsum+xsum(k)*detw(k)
   enddo
-  write (26,6240)
+  write (jpfunprofm,6240)
 6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
-  write (26,6250) xsum
+  write (jpfunprofm,6250) xsum
 6250 format (1x,15f8.3)
-  write (26,6260) xxsum
+  write (jpfunprofm,6260) xxsum
 6260 format(6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
 
 end subroutine constm
@@ -1609,6 +1709,9 @@ subroutine constc
   USE config, ONLY : &
        neula
 
+  USE file_unit, ONLY : &
+       jpfunprofc
+
   USE gas_common, ONLY : &
 ! Imported Parameters:
        j1, &
@@ -1634,15 +1737,15 @@ subroutine constc
 
 ! == End of declarations =======================================================
 
-  write (60,5900) neula
-  write (60,5910) (nspec(j),xadv(j),j=1,10)
+  write (jpfunprofc,5900) neula
+  write (jpfunprofc,5910) (nspec(j),xadv(j),j=1,10)
 5900 format ('euler (=0) or lagrangean view (=1): ',i3,' the following' &
           ,' species are advected only if neula=0')
 5910 format (i3,d12.3)
 
-  write (60,6090)
+  write (jpfunprofc,6090)
 6090 format (//,16x,'dimension of arrays: j1, j2, j5')
-  write (60,6100) j1,j2,j5
+  write (jpfunprofc,6100) j1,j2,j5
 6100 format (/,1x,5i10,//)
 
 end subroutine constc
@@ -1659,6 +1762,9 @@ subroutine profm (dt)
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
+
+  USE file_unit, ONLY : &
+       jpfunprofm
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1727,20 +1833,20 @@ subroutine profm (dt)
 ! == End of declarations =======================================================
 
   srname='          '
-  write (26,6000) it,dt,lday,lst,lmin
+  write (jpfunprofm,6000) it,dt,lday,lst,lmin
 6000 format (//,6x,i8,'-th. timestep dt = ',f4.1,' sec ',i2,' day ', &
           i2,' hour ',i2,' min '/)
-  write (26,6010)
+  write (jpfunprofm,6010)
 6010 format (1x,'k  height  d/dz(thetl)*100  atkm  atkh  xl', &
           '  tke  tkep  thetl   d/dt(dtrad)*3600   d/dt(dtcon)*3600')
-  write (26,6020) (k,etw(k),(thetl(k+1)-thetl(k))/deta(k)*100._dp, &
+  write (jpfunprofm,6020) (k,etw(k),(thetl(k+1)-thetl(k))/deta(k)*100._dp, &
        atkm(k),atkh(k),xl(k), &
        tke(k),tkep(k),thetl(k),dtrad(k)*3600._dp,dtcon(k)*3600._dp,k=n-1,1,-1)
 6020 format (1x,i3,f7.1,3f9.3,f7.1,f9.4,e12.4,f9.3,2f12.4)
-  write (26,6030)
+  write (jpfunprofm,6030)
 6030 format (/,1x,'k  height       u         v         t          p', &
           '      theta      feu          q        m2        fsum')
-  write (26,6040) (k,eta(k),u(k),v(k), &
+  write (jpfunprofm,6040) (k,eta(k),u(k),v(k), &
        t(k)-273.15_dp,p(k)/100._dp,theta(k), &
        feu(k)*100._dp,1000._dp*xm1(k),1000._dp*xm2(k), &
        fsum(k),k=n,1,-1)
@@ -1753,28 +1859,28 @@ subroutine profm (dt)
 ! xxm1 in g/m**2 vapour content of atm., xxm2 in g/m**2 liquid water content of atm.
   enddo
 6040 format (1x,i3,f10.1,9f10.3)
-  write (26,6050) xxm1,xxm2,tau*1000._dp,reif*1000._dp,trdep*1000._dp,ds1*1000._dp,ds2*1000._dp
+  write (jpfunprofm,6050) xxm1,xxm2,tau*1000._dp,reif*1000._dp,trdep*1000._dp,ds1*1000._dp,ds2*1000._dp
 6050 format (/,1x,'sum(xm1*detw*rho)',f10.3,1x,'sum(xm2*detw)',f10.3, &
           1x,'dew',f10.3,5x,'rime',f10.3,5x,'particles',f10.3,5x,'aerosol', &
           f10.3,5x,'droplets',f10.3)
-  write (26,6060) u0,sk,sl,-5.6697d-8*t(1)**4
+  write (jpfunprofm,6060) u0,sk,sl,-5.6697d-8*t(1)**4
 6060 format (1x,'surface radiative fluxes'/,10x,'u0: ',f10.4, &
           10x,'solar: ',e11.4,3x,'infrared: ',e11.4,3x,'emission: ',e11.4)
-  write (26,6070) z0,ustern,ajq,ajs,ajm,ajd
+  write (jpfunprofm,6070) z0,ustern,ajq,ajs,ajm,ajd
 6070 format (1x,'roughness length ',e10.3,' friction velocity u*', &
           f8.3,/,1x,'surface moisture fluxes'/, &
           10x,'water vapor: ',e11.4,3x,'droplet sedimentation: ',e11.4,3x, &
           'ground moisture: ',e11.4,3x,'dew storage: ',e11.4)
-  write (26,6080) ajb,ajl,ajt,sk+sl-5.669d-8*t(1)**4
+  write (jpfunprofm,6080) ajb,ajl,ajt,sk+sl-5.669d-8*t(1)**4
 6080 format (1x,'surface heat fluxes'/, &
           10x,'ground heat: ',e11.4,3x,'latent heat: ',e11.4,3x, &
           'sensible heat: ',e11.4,3x,'net radiation: ',e11.4)
-  write (26,6090)
+  write (jpfunprofm,6090)
 6090 format (/,1x,'temperature and volumetric moisture content in', &
           ' ground:')
-  write (26,6100) (zb(k),k=1,nb)
-  write (26,6110) (tb(k)-273.15_dp,k=1,nb)
-  write (26,6120) (eb(k),k=1,nb)
+  write (jpfunprofm,6100) (zb(k),k=1,nb)
+  write (jpfunprofm,6110) (tb(k)-273.15_dp,k=1,nb)
+  write (jpfunprofm,6120) (eb(k),k=1,nb)
 6100 format (4x,'zb:',/,10f10.3,/,10f10.3)
 6110 format (4x,'tb:',/,10f10.3,/,10f10.3)
 6120 format (4x,'eb:',/,10f10.3,/,10f10.3)
@@ -1789,11 +1895,11 @@ subroutine profm (dt)
      xsum(k)=xsum(k)*1.e+09
      xxsum=xxsum+xsum(k)*detw(k)
   enddo
-  write (26,6240)
+  write (jpfunprofm,6240)
 6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
-  write (26,6250) xsum
+  write (jpfunprofm,6250) xsum
 6250 format (1x,15f8.3)
-  write (26,6260) xxsum
+  write (jpfunprofm,6260) xxsum
 6260 format(6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
 
 ! 141  format (2i3,9d12.4)
@@ -1827,6 +1933,9 @@ subroutine profc (dt,mic)
 
   USE config, ONLY: &
        nkc_l
+
+  USE file_unit, ONLY : &
+       jpfunprofc
 
   USE gas_common, ONLY : &
 ! Imported parameter
@@ -1897,10 +2006,10 @@ subroutine profc (dt,mic)
 
 !     Write header
 !     ------------
-  write (60,6000) it,dt,lday,lst,lmin
+  write (jpfunprofc,6000) it,dt,lday,lst,lmin
 6000 format (//,6x,i8,'-th. timestep dt = ',f4.1,' sec ',i2,' day ', &
           i2,' hour ',i2,' min '/)
-  write (60,6010)
+  write (jpfunprofc,6010)
 6010 format (10x,'gas phase species in ppb; at the ground total', &
           ' deposition in molecules/cm**2')
 
@@ -1935,11 +2044,11 @@ subroutine profc (dt,mic)
      end do
 
      ! write gas names
-     write (60,6015)'height',(TRIM(gas_name(10*jblock+jspec)),jspec=1,jspec_max)
+     write (jpfunprofc,6015)'height',(TRIM(gas_name(10*jblock+jspec)),jspec=1,jspec_max)
 6015 format (3x,a7,10a12)
      ! write gas concentrations (and deposition at the ground)
      write (fmt,'( "(f10.1,",i2,"e12.5)" )')jspec_max
-     write (60,fmt) (eta(jlay),(si(jspec,jlay),jspec=1,jspec_max),jlay=n,1,-1)
+     write (jpfunprofc,fmt) (eta(jlay),(si(jspec,jlay),jspec=1,jspec_max),jlay=n,1,-1)
 
      jblock = jblock + 1
   end do
@@ -1964,10 +2073,10 @@ subroutine profc (dt,mic)
      end do
 
      ! write radicals names
-     write (60,6015)'height',(TRIM(rad_name(10*jblock+jspec)),jspec=1,jspec_max)
+     write (jpfunprofc,6015)'height',(TRIM(rad_name(10*jblock+jspec)),jspec=1,jspec_max)
      ! write radicals concentrations
      write (fmt,'( "(f10.1,",i2,"e12.5)" )')jspec_max
-     write (60,fmt) (eta(jlay),(si(jspec,jlay),jspec=1,jspec_max),jlay=n,2,-1)
+     write (jpfunprofc,fmt) (eta(jlay),(si(jspec,jlay),jspec=1,jspec_max),jlay=n,2,-1)
 
      jblock = jblock + 1
   end do
@@ -1979,12 +2088,12 @@ subroutine profc (dt,mic)
 ! ==============================================================================
 
 !     output of reaction rates integrated (later: over 1 hour), converted to mol/(mol*h)
-  write (60,6170)
-  write (60,6180) eta(il(1)),eta(il(2)),eta(il(3))
+  write (jpfunprofc,6170)
+  write (jpfunprofc,6180) eta(il(1)),eta(il(2)),eta(il(3))
   nrate=600
   if (nkc_l.eq.4) nrate=1120
   do l=1,nrate
-     write (60,6190) l,bg(2,l,1)/am3(il(1)),bg(1,l,1)/am3(il(1)), &
+     write (jpfunprofc,6190) l,bg(2,l,1)/am3(il(1)),bg(1,l,1)/am3(il(1)), &
           bg(2,l,2)/am3(il(2)),bg(1,l,2)/am3(il(2)), &
           bg(2,l,3)/am3(il(3)),bg(1,l,3)/am3(il(3))
   enddo
@@ -2001,24 +2110,24 @@ subroutine profc (dt,mic)
   if (.not.mic) return
 ! liquid phase chemistry
   do kc=1,nkc_l
-     write (60,6040) kc
+     write (jpfunprofc,6040) kc
 6040 format (/,10x,'aqueous phase species in mole/m**3;', &
           ' at the ground total deposition in mole/m**2 for bin:',i3,//, &
           4x,'height',5x,'cw',7x,'rc',7x,'hno3',6x,'nh3',7x,'so2',5x, &
           'h2so4',7x,'o3',9x,'h2o2',7x,'fe(3)',6x,'mn(2)')
-     write (60,6020) (eta(k),cw(kc,k),rc(kc,k),sl1(3,kc,k), &
+     write (jpfunprofc,6020) (eta(k),cw(kc,k),rc(kc,k),sl1(3,kc,k), &
           sl1(4,kc,k),sl1(5,kc,k),sl1(6,kc,k),sl1(7,kc,k), &
           sl1(19,kc,k),sl1(44,kc,k),sl1(45,kc,k),k=nf,1,-1)
 !          sl1(19,kc,k),sl1(44,kc,k),sl1(45,kc,k),k=lct,lcl,-1)
-     write (60,6041)
+     write (jpfunprofc,6041)
 6041 format (4x,'height',5x,'OH',7x,'HO2',7x,'NO3',6x,'NO',7x,'NO2',5x, &
           'HONO',7x,'HCHO')
-     write (60,6042) (eta(k),sl1(j2-j3+2,kc,k),sl1(j2-j3+3,kc,k), &
+     write (jpfunprofc,6042) (eta(k),sl1(j2-j3+2,kc,k),sl1(j2-j3+3,kc,k), &
           sl1(36,kc,k),sl1(1,kc,k),sl1(2,kc,k),sl1(21,kc,k),sl1(17,kc,k), &
           k=nf,1,-1)
 !          k=lct,lcl,-1)
 6042 format (f10.1,7e10.3)
-     write (60,6050) kc
+     write (jpfunprofc,6050) kc
 ! 6050 format (/,20x,'ion concentrations in mole/liter',//, &
 6050 format (/,20x,'ion concentrations in mol/m^3 for bin:',i3,//, &
 !          4x,'height',7x,'h+',7x,'nh4+',6x,'cl-',2x,'ch2ohso3-',2x, &
@@ -2029,7 +2138,7 @@ subroutine profc (dt,mic)
         xfac(k)=1._dp             !mol/m^3_air       --> mol/m^3_air
      enddo
 
-     write (60,6020) (eta(k),sion1(1,kc,k)*xfac(k),sion1(2,kc,k)* &
+     write (jpfunprofc,6020) (eta(k),sion1(1,kc,k)*xfac(k),sion1(2,kc,k)* &
           xfac(k),sion1(14,kc,k)*xfac(k),sion1(24,kc,k)*xfac(k), &
           (sion1(l,kc,k)*xfac(k),l=5,8), &
 !          sion1(17,kc,k)*xfac(k),k=lct,lcl,-1)
@@ -2038,7 +2147,7 @@ subroutine profc (dt,mic)
 6020 format (f10.1,10e10.3)
   end do
 
-  write (60,*) 'done with profc'
+  write (jpfunprofc,*) 'done with profc'
 
 end subroutine profc
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2086,6 +2195,9 @@ subroutine profr
 ! Declarations:
 ! ------------
 ! Modules used:
+  USE file_unit, ONLY : &
+       jpfunprofr
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        nrlay, &
@@ -2130,24 +2242,24 @@ subroutine profr
 
 
   ! Time stamp
-  write (40,6000) lday,lst,lmin,u0
+  write (jpfunprofr,6000) lday,lst,lmin,u0
 
   ! Solar bands (middle of layer (or half level) values)
-  write (40,6010)
+  write (jpfunprofr,6010)
   do i=1,nrlay
-     write (40,6011) i,(totrad(ib,i),ib=1,mbs),hr(i)
+     write (jpfunprofr,6011) i,(totrad(ib,i),ib=1,mbs),hr(i)
   enddo
 
   ! IR bands (middle of layer (or half level) values)
-  write (40,6020)
+  write (jpfunprofr,6020)
   do i=1,nrlay
-     write (40,6021) i,(totrad(ib,i),ib=mbs+1,mb)
+     write (jpfunprofr,6021) i,(totrad(ib,i),ib=mbs+1,mb)
   enddo
 
   ! P, T, and fluxes (level values)
-  write (40,6030)
+  write (jpfunprofr,6030)
   do i=1,nrlev
-     write (40,6031) i,p(i),t(i),fs1(i),fs2(i),ss(i),fl1(i),fl2(i)
+     write (jpfunprofr,6031) i,p(i),t(i),fs1(i),fs2(i),ss(i),fl1(i),fl2(i)
   enddo
 
 

@@ -29,6 +29,9 @@ c initialization of chemistry module
      &     Avogadro,
      &     m_air
 
+      USE file_unit, ONLY :
+     &     jpfunprofc
+
       USE gas_common, ONLY :
 ! Imported Parameters:
      &     j1,
@@ -150,17 +153,17 @@ c initialization of chemistry module
 ! ------------------------------------------------------------
 ! initial mixing ratio of gas phase species in nmol mol-1 (=ppb)
       ! mixing ratio at ground
-      write (60,6010)
+      write (jpfunprofc,6010)
  6010 format (6x,'initial gas concentration at the surface [ppb]')
-      write (60,6020) (s1_init_grd(j),j=1,j1)
+      write (jpfunprofc,6020) (s1_init_grd(j),j=1,j1)
       ! mixing ratio at top
-      write (60,6012)
+      write (jpfunprofc,6012)
  6012 format (6x,'initial gas concentration at the top [ppb]')
-      write (60,6020) (s1_init_top(j),j=1,j1)
+      write (jpfunprofc,6020) (s1_init_top(j),j=1,j1)
 ! emission rates of gas phase species in molecules/cm**2/s
-      write (60,6025)
+      write (jpfunprofc,6025)
  6025 format (6x,'emission rates [molecules/cm**2/s]')
-      write (60,6020) (es1(j),j=1,j1)
+      write (jpfunprofc,6020) (es1(j),j=1,j1)
  6020 format (1x,10e12.5)
 
 
@@ -340,23 +343,23 @@ c            else
           end do
 
 c print initial concentrations (continued)
-      write (60,6030)
+      write (jpfunprofc,6030)
  6030 format (6x,'sa1(nka,4)')
-      write (60,6020) (sa1(ia,4),ia=1,nka)
-      write (60,6040)
+      write (jpfunprofc,6020) (sa1(ia,4),ia=1,nka)
+      write (jpfunprofc,6040)
  6040 format (6x,'sa1(nka,6)')
-      write (60,6020) (sa1(ia,6),ia=1,nka)
-      write (60,6050)
+      write (jpfunprofc,6020) (sa1(ia,6),ia=1,nka)
+      write (jpfunprofc,6050)
 c 6050 format (6x,'sa1(nka,j2-j3+4)')
-c      write (60,6020) (sa1(ia,j2-j3+4),ia=1,nka)
-c      write (60,6060)
+c      write (jpfunprofc,6020) (sa1(ia,j2-j3+4),ia=1,nka)
+c      write (jpfunprofc,6060)
 c 6060 format (6x,'sa1(nka,j2-j3+5)')
-c      write (60,6020) (sa1(ia,j2-j3+5),ia=1,nka)
+c      write (jpfunprofc,6020) (sa1(ia,j2-j3+5),ia=1,nka)
  6050 format (6x,'sa1(nka,14)')
-      write (60,6020) (sa1(ia,14),ia=1,nka)
-      write (60,6060)
+      write (jpfunprofc,6020) (sa1(ia,14),ia=1,nka)
+      write (jpfunprofc,6060)
  6060 format (6x,'sa1(nka,24)')
-      write (60,6020) (sa1(ia,24),ia=1,nka)
+      write (jpfunprofc,6020) (sa1(ia,24),ia=1,nka)
 
 c levels for  rate output
       il(1) =  5

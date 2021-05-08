@@ -191,7 +191,7 @@ program mistra
   endif
 ! open input/output files
   call openm (fogtype)
-  call openc (fogtype,nuc)
+  call openc (fogtype)
 ! netCDF output
   if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
 ! numerical gridpoints
@@ -199,8 +199,9 @@ program mistra
   nz_box = 0
   if (box) call get_n_box (z_box,nz_box)
   call write_grid ! writes information on grid that is not f(t)
-  dt = 60. ! jjb moved from below, was missing for restart case
-  if (rst) go to 2000
+  dt = 60._dp
+
+  if (.not.rst) then
 
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
@@ -216,18 +217,12 @@ program mistra
 ! initial position of humidified aerosols on Köhler curve
   call equil(0)
 
-! output of meteorological and chemical constants of current run
-  call constm (chem,mic,rst)
-  if (chem) call constc
-! output of initial vertical profiles
-  call profm (0.d0)
-  if (chem) call profc (0.d0,mic)
-  go to 2010
+  else
 
 ! Continue the initialisation, restart case
 ! -----------------------------------------
 ! read meteorological and chemical input from output of previous run
- 2000 call startm (fogtype)
+  call startm (fogtype)
 ! init some microphysical data that's not in SR startm
   call mic_init (iaertyp,fogtype)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
@@ -237,21 +232,24 @@ program mistra
 
 ! number of iterations
   itmax=it0+60*lstmax
-! output of meteorological and chemical constants of current run
-  call constm (chem,mic,rst)
-! output of initial profiles of restart run
-  call profm (dt)
-  if (chem) call profc (dt,mic)
+
 ! allocate arrays and initialise vmean
   if (chem) call v_mean_init
   if (chem) call v_mean (t(:nmax_chem_aer))
 
-
+  end if
 ! Continue the initialisation, both cases
 ! ---------------------------------------
 
+! output of meteorological and chemical constants of current run
+  call constm
+  if (chem) call constc
+! output of initial vertical profiles
+  call profm (dt)
+  if (chem) call profc (dt,mic)
+
 ! initialization of radiation code, and first calculation
- 2010 call radiation (llinit)
+ call radiation (llinit)
 
 ! initial photolysis rates
 !  if (chem) call photol
@@ -266,11 +264,15 @@ program mistra
      if (mic.and..not.box) call ploutp (fogtype)
      call ploutr (fogtype,n_bln)
      call ploutt (fogtype,n_bln)
-     if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
-     if (chem) call ploutj (fogtype,n_bln)
+     if (chem) then
+        call ploutc (fogtype,mic,n_bl,n_bl8)
+        call ploutj (fogtype,n_bln)
+     end if
   endif
+
   if (chem) call out_mass
   if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+
   time=60.*float(it0)
 ! local time: day (lday), hours (lst), minutes (lmin)
   fname='tim .out'
@@ -444,14 +446,15 @@ program mistra
            call ploutr (fogtype,n_bln)
            call ploutt (fogtype,n_bln)
            if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
+!         if (chem.and.lmin/60*60.eq.lmin) call ploutj(fogtype,n_bln)
         endif
+
 ! netCDF output
         if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
 ! output of data from nucleation
         if (chem.and.nuc) call nucout2
 ! output from mass balance
         if (chem) call out_mass
-!         if (chem.and.lmin/60*60.eq.lmin) call ploutj(fogtype,n_bln)
      endif
 ! hourly output of profiles in ascii files
      if (lmin/60*60.eq.lmin) then
@@ -575,11 +578,24 @@ subroutine openm (fogtype)
 ! == End of header =============================================================
 
 
-  USE config, ONLY : cinpdir
+  USE config, ONLY : &
+       binout, &
+       cinpdir,&
+       coutdir, &
+       rst, mic, box
+
+  USE file_unit, ONLY : &
+       jpfunprofm, jpfunprofr, &
+       jpfunpm, jpfunpb, &        ! ploutm files: pm*, pb*
+       jpfunpr, &                 ! ploutr file: pr*
+       jpfunpt, &                 ! ploutt file: pt*
+       jpfunf1, jpfunf2, jpfunf3  ! ploutp files: f1*, f2*, f3*
 
   USE data_surface, ONLY : fu, ft, xzpdl, xzpdz0
 
-  USE file_unit, ONLY : jpfunclarke
+  USE file_unit, ONLY : &
+       jpfunclarke
+
   implicit none
 
 ! Subroutine arguments
@@ -587,8 +603,9 @@ subroutine openm (fogtype)
   character (len=1), intent(in) :: fogtype
 
 ! Local scalars:
-  character (len=10) fname    ! I/O files names
-  integer i,k                 ! implied do loops indexes
+  character (len=10) :: fname    ! I/O files names
+  character (len=150) :: clpath  ! complete path to file
+  integer :: i,k                 ! implied do loops indexes
 
 !- End of header ---------------------------------------------------------------
 
@@ -600,51 +617,75 @@ subroutine openm (fogtype)
   read (jpfunclarke,5020) (xzpdz0(i),i=1,7)
   close (jpfunclarke)
 
- 5000 format (9f8.4)
- 5010 format (9f6.2)
- 5020 format (7f5.0)
-! output vertical profiles of meteorological variables
-      fname='profm .out'
-      fname(6:6)=fogtype
-      open (26, file=fname,status='unknown')
+5000 format (9f8.4)
+5010 format (9f6.2)
+5020 format (7f5.0)
 
-! output plot files for meteorological data
-      fname='pm .out'
-      fname(3:3)=fogtype
-      open (17, file=fname,status='unknown',form='unformatted')
-      close (17)
-      fname(2:2)='t'
-      open (18, file=fname,status='unknown',form='unformatted')
-      close (18)
-      fname(2:2)='b'
-      open (19, file=fname,status='unknown',form='unformatted')
-!      close (19)
-      fname(2:2)='r'
-      open (14, file=fname,status='unknown',form='unformatted')
-      close (14)
+! output vertical profiles of meteorological variables
+  fname='profm .out'
+  fname(6:6)=fogtype
+  open (jpfunprofm, file=fname,status='unknown')
+
+! Create output files by opening them once, only if no restart
+  if (.not.rst) then
+     ! plout* output
+     if (binout) then
+        fname='pm .out'
+        fname(3:3)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunpm, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunpm)
+
+        fname(2:2)='b'
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunpb, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunpb)
+
+        fname(2:2)='r'
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunpr, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunpr)
+
+        fname(2:2)='t'
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunpt, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunpt)
+
+        if (mic.and..not.box) then
+           fname='f1 .out'
+           fname(3:3)=fogtype
+           clpath=trim(coutdir)//trim(fname)
+           open (jpfunf1, file=trim(clpath), status='new',form='unformatted')
+           close (jpfunf1)
+
+           fname(2:2)='2'
+           fname(3:3)=fogtype
+           clpath=trim(coutdir)//trim(fname)
+           open (jpfunf2, file=trim(clpath), status='new',form='unformatted')
+           close (jpfunf2)
+
+           fname(2:2)='3'
+           fname(3:3)=fogtype
+           clpath=trim(coutdir)//trim(fname)
+           open (jpfunf3, file=trim(clpath), status='new',form='unformatted')
+           close (jpfunf3)
+        end if
+
+     end if
+  end if
 
 ! output radiative fluxes and heating rates
-      fname='profr .out'
-      fname(6:6)=fogtype
-      open (40, file=fname,status='unknown')
-      fname='f1 .out'
-      fname(3:3)=fogtype
-      open (41, file=fname,status='unknown',form='unformatted')
-      close (41)
-      fname(2:2)='2'
-      open (42, file=fname,status='unknown',form='unformatted')
-      close (42)
-      fname(2:2)='3'
-      open (43, file=fname,status='unknown',form='unformatted')
-      close (43)
+  fname='profr .out'
+  fname(6:6)=fogtype
+  open (jpfunprofr, file=fname,status='unknown')
 
-      end subroutine openm
+end subroutine openm
 
 !
 !-------------------------------------------------------------
 !
 
-      subroutine openc (fogtype,nuc)
+subroutine openc (fogtype)
 ! input/output files of chemical species
 
 
@@ -658,22 +699,19 @@ subroutine openm (fogtype)
   !
 
 ! == End of header =============================================================
+  USE config, ONLY : &
+       binout, &
+       coutdir, &
+       rst
 
-      character *10 fname
-      character *1 fogtype
-      logical nuc
-! nucleation output:
-      if (nuc) then
-! de-comment if .asc output for gnu-plotting is desired
-!        open (21,file='nuc+part.asc',status='unknown',form='formatted')
-!        open (22,file='ternuc.asc',status='unknown',form='formatted')
-!        open (23,file='nh3_h2so4.asc',status='unknown',form='formatted')
-!        open (24,file='NUCV.asc',status='unknown',form='formatted')
+  USE file_unit, ONLY : &
+       jpfunprofc, &
+       jpfunsg1, jpfunion, jpfunsl1, jpfunsr1, jpfungr, jpfungs, &
+       jpfunjra
+  character *10 fname
+  character *1 fogtype
+  character (len=150) :: clpath  ! complete path to file
 
-! un-comment if the output from SR nucout2 is desired
-!        open (unit=25, file='nucout2.out', status='unknown',
-!     &        form='unformatted')
-      endif
 ! chemical concentrations for initialization
 !      fname='initc .dat'
 !      fname(6:6)=fogtype
@@ -681,48 +719,55 @@ subroutine openm (fogtype)
 ! vertical profiles of chemical species
       fname='profc .out'
       fname(6:6)=fogtype
-      open (60,file=fname,status='unknown')
+      open (jpfunprofc,file=fname,status='unknown')
 ! all plotfiles for chemical species
-      fname='sg1 .out'
-      fname(4:4)=fogtype
-      open (61,file=fname,status='unknown',form='unformatted')
-      fname='sl1 .out'
-      fname(4:4)=fogtype
-      open (62,file=fname,status='unknown',form='unformatted')
-      close (62)
-      fname='ion .out'
-      fname(4:4)=fogtype
-      open (63,file=fname,status='unknown',form='unformatted')
-      close (63)
-      fname='sr1 .out'
-      fname(4:4)=fogtype
-      open (64,file=fname,status='unknown',form='unformatted')
-      fname='ara .out'
-      fname(4:4)=fogtype
-      open (65,file=fname,status='unknown',form='unformatted')
-      close (65)
-      fname='gr .out'
-      fname(3:3)=fogtype
-      open (66,file=fname,status='unknown',form='unformatted')
-      close (66)
-      fname='gs .out'
-      fname(3:3)=fogtype
-      open (67,file=fname,status='unknown',form='unformatted')
-      close (67)
-      fname='jra .out'
-      fname(4:4)=fogtype
-      open (69,file=fname,status='unknown',form='unformatted')
-      close (69)
-!      open (64,file=fname,status='unknown',form='unformatted')
-      fname='sle .out'
-      fname(4:4)=fogtype
-      open (67,file=fname,status='unknown',form='unformatted')
-      close (67)
-      open (74,file='mass.out',status='unknown')
-      write (74,101)
-      write (74,102)
-      write (74,103)
-      close (74)
+! Create output files by opening them once, only if no restart
+  if (.not.rst) then
+     ! plout* output
+     if (binout) then
+        fname='sg1 .out'
+        fname(4:4)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunsg1, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunsg1)
+        fname='ion .out'
+        fname(4:4)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunion, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunion)
+        fname='sl1 .out'
+        fname(4:4)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunsl1, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunsl1)
+        fname='sr1 .out'
+        fname(4:4)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunsr1, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunsr1)
+        fname='gr .out'
+        fname(3:3)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfungr, file=trim(clpath), status='new',form='unformatted')
+        close (jpfungr)
+        fname='gs .out'
+        fname(3:3)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfungs, file=trim(clpath), status='new',form='unformatted')
+        close (jpfungs)
+        fname='jra .out'
+        fname(4:4)=fogtype
+        clpath=trim(coutdir)//trim(fname)
+        open (jpfunjra, file=trim(clpath), status='new',form='unformatted')
+        close (jpfunjra)
+     end if
+  end if
+
+  open (74,file='mass.out',status='unknown')
+  write (74,101)
+  write (74,102)
+  write (74,103)
+  close (74)
  101  format ('output of molecule burden/deposit/source; unit is', &
      & ' [mol/m2]')
  102  format ('to get balance: divide last output by first; to get', &
@@ -730,7 +775,7 @@ subroutine openm (fogtype)
  103  format ('multiply xnass with 68.108 (=23 g(Na)/mol(Na) / 0.3377', &
      & ' g(Na)/g(seasalt))')
 
-      end subroutine openc
+end subroutine openc
 
 !
 !-------------------------------------------------------------
@@ -1344,7 +1389,8 @@ subroutine openm (fogtype)
 !-------------------------------------------------------------
 !
 
-      subroutine startm (fogtype)
+subroutine startm (fogtype)
+! vertical profiles of meteorological data if the program is restarted
 
 
 ! Author:
@@ -1364,108 +1410,110 @@ subroutine openm (fogtype)
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt, &
-     &     mb
+       n, &
+       nb, &
+       nka, &
+       nkt, &
+       mb
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-! vertical profiles of meteorological data if the program is restarted
+  implicit double precision (a-h,o-z)!none
+
+  character (len=1), intent(in) :: fogtype
+  character (len=10) :: fname
 
 ! Common blocks:
-      common /cb11/ totrad (mb,n)
-      double precision totrad
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
 
-      common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+  common /cb18/ alat,declin                ! for the SZA calculation
+  real (kind=dp) :: alat,declin
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      real (kind=dp) :: gm, gh, sm, sh, xl
+  common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+  real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,ebs,psis,aks, &
-     &              bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
+                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
+                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb48/ sk,sl,dtrad(n),dtcon(n)
+  real (kind=dp) :: sk, sl, dtrad, dtcon
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
-      common /cb63/ fcs(nka),xmol3(nka)
-      character *10 fname
-      character *1 fogtype
-      fname='rstm .dat'
-      fname(5:5)=fogtype
-      open (15,file=fname,status='unknown',form='unformatted')
+  common /cb63/ fcs(nka),xmol3(nka)
+  real(kind=dp) :: fcs, xmol3
+
+  fname='rstm .dat'
+  fname(5:5)=fogtype
+
+  open (15,file=fname,status='old',form='unformatted')
 ! double precision arrays
-      read (15)  &
-     &     atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum, &
-     &     gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a, &
-     &     xm2,xmol3, &
+  read (15)  &
+       atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum, &
+       gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a, &
+       xm2,xmol3, &
 ! double precision single vars
-     &     a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
-     &     trdep, z0, &
+       a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
+       trdep, z0, &
 ! integer arrays
-     &     nar, &
+       nar, &
 ! integer single vars
-     &     it,lcl,lct,lday,lmin,lst
+       it,lcl,lct,lday,lmin,lst
+  close (15)
 
 ! set/diagnose some parameters
-      tw = t(1)
-      do k=1,n
-         thet(k)=theta(k)/t(k)
-         theti(k)=1./thet(k)
-         thetl(k)=theta(k)*(1.+0.61*xm1(k))
-      enddo
+  tw = t(1)
+  do k=1,n
+     thet(k)  = theta(k) / t(k)
+     theti(k) = 1._dp / thet(k)
+     thetl(k) = theta(k) * (1._dp + 0.61_dp * xm1(k))
+  enddo
 
-      vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
-      zp    = deta(1)+z0
-      zpdz0 = log(zp/z0)
-      zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern = max(0.01_dp, vbt/cu)
-      gclu   = cu
-      gclt   = ctq
+  vbt   = sqrt(u(2)*u(2) + v(2)*v(2))
+  zp    = deta(1) + z0
+  zpdz0 = log(zp/z0)
+  zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
+  call claf (zpdl,zpdz0,cu,ctq)
+  ustern = max(0.01_dp, vbt/cu)
+  gclu   = cu
+  gclt   = ctq
 
-      close (15)
+  print *,"restart file for meteo read, filename: ",fname
+  print *,lday,lst,lmin
 
-      print *,"restart file for meteo read, filename: ",fname
-      print *,lday,lst,lmin
-
-      end subroutine startm
+end subroutine startm
 
 !
 !-------------------------------------------------------------
@@ -2589,10 +2637,6 @@ subroutine difp (dt)
 ! Declarations :
 ! ------------
 ! Modules used:
-  USE constants, ONLY : &
-! Imported Parameters:
-       m_air
-
   USE global_params, ONLY : &
 ! Imported Parameters:
        n,                   &
@@ -2613,7 +2657,7 @@ subroutine difp (dt)
   integer :: k, kp, ia, jt      ! running indices
 
 ! Local arrays:
-  real (kind=dp) :: c(n), acm3(nm+1) ! acm3: [air] in mol/cm^3
+  real (kind=dp) :: c(n)
   real (kind=dp) :: xa(nm),xb(nm),xc(nm),xd(nm),xe(nm),xf(nm)!,oldf(nf)
 
 ! Common blocks:
@@ -2648,7 +2692,7 @@ subroutine difp (dt)
 !  do k=2,nf
   do k=2,nm
      xa(k) = atkh(k) * dt / (detw(k) * deta(k))
-     xc(k) = xa(k-1) * detw(k-1) / detw(k) * acm3(k-1) / acm3(k)
+     xc(k) = xa(k-1) * detw(k-1) / detw(k)
      xb(k) = 1._dp + xa(k) + xc(k)
      xd(k) = xb(k) - xc(k) * xe(k-1)
      xe(k) = xa(k) / xd(k)

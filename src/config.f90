@@ -187,6 +187,7 @@ subroutine read_config
 
   implicit none
 
+  character (len=3) :: clstat
   integer :: istat
 
 
@@ -254,7 +255,13 @@ end if
 ! =====================================================
 ! -- 3. -- Export current configuration in file cfg.out
 ! =====================================================
-  open (unit=jpfuncfgout, FILE=trim(coutdir)//'cfg.out', STATUS='new', FORM='formatted', IOSTAT=istat)
+
+  if (rst) then
+     clstat = 'old'
+  else
+     clstat = 'new'
+  end if
+  open (unit=jpfuncfgout, FILE=trim(coutdir)//'cfg.out', STATUS=clstat, FORM='formatted', POSITION='append', IOSTAT=istat)
   if (istat /= 0) call abortM ('Error in SR read_config: cannot open cfg.out file in dir: '//coutdir)
 
   write (jpfuncfgout,'(a)') 'Mistra configuration:'

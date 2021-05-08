@@ -498,12 +498,18 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+       coutdir
+
   USE constants, ONLY : &
        conv1,           & ! multiply by conv1 to get cm^3(air)/mlc --> m^3(air)/mol
        pi,              &
        r1,              &
        ro_nuc => rho3,  & ! nuclei density [kg/m3] (same as assumed aesosol density rho3)
        rhow
+
+  USE file_unit, ONLY : &
+       jpfunnuc0
 
   USE gas_common, ONLY: &
 ! Imported Parameters:
@@ -643,7 +649,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 ! == End of declarations =======================================================
 
 
-  open(unit=20,file='nuc.out',status='unknown',form='formatted')
+  open(unit=jpfunnuc0,file=trim(coutdir)//'nuc.out',status='unknown',form='formatted')
 
   zdpmin = rn(1) * zconv_r2d ! rn is the radius in micro m, dp is the diameter in nm
 
@@ -669,7 +675,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
      end do
 
 !     --- 1D size distribution of background particles wrt total droplet diameter ---
-     write (20,1070)
+     write (jpfunnuc0,1070)
      partsa(jz) = 0._dp
      do jt = 1,nkt
         zdp(jt) = zconv_r2d * rq(jt,1) !first dry aerosol class defines size bins for 1D distribution
@@ -693,7 +699,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 2002       continue
         enddo
 2001    continue
-        write (20,1080) jz, jt, zdp(jt), Np(jt)
+        write (jpfunnuc0,1080) jz, jt, zdp(jt), Np(jt)
 !         -- background particle surface area --
         partsa(jz) = partsa(jz) + Np(jt) * zdp(jt)**2 *3.1416* 1.d-6 !in um2/cm3
 !         -- 1D particle distribution --
@@ -955,22 +961,22 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 
         xn_apacc(jz) = xn_apacc(jz) + xn_app(jz)*dt                        ! accumulated number [/cm3]
         xv_apacc(jz) = xv_apacc(jz) + pi/6._dp * zdpmint**3 *xn_app(jz)*dt ! acculumated volume [nm3/cm3]
-        write (20,109)
-        write (20,110) jz,jts,xn_apacc(jz),xn_app(jz),ssum(jz)
+        write (jpfunnuc0,109)
+        write (jpfunnuc0,110) jz,jts,xn_apacc(jz),xn_app(jz),ssum(jz)
      endif
      !dnucv(jz) = soldsum(jz) - ssum(jz)                      ! change in nucleating vapors (sum) [mol/m3]
      dnucv(jz) = (soldsum(jz) - ssum(jz)) / am3(jz) *1.e12_dp  ! change in nucleating vapors (sum) [ppt]
      grorate(jz) = gr                                       ! 1D growth rate for output (for non-volatiles)
 
 !     --- Output (Test) ---
-     write(20,1003)
+     write(jpfunnuc0,1003)
      do jv=1,nvap
         if (j_real.gt.0._dp) then
-           write(20,1004) jz,d_nucini,zdpmin,zdpmint,d_mean,Nges,temp, &
+           write(jpfunnuc0,1004) jz,d_nucini,zdpmin,zdpmint,d_mean,Nges,temp, &
                 press,rh,ro_nuc,m_vap(jv),conc(jv),cs,gr,eta,gamma, &
                 J_real,J_app,(J_app/J_real)
         else
-           write(20,1004) jz,d_nucini,zdpmin,zdpmint,d_mean,Nges,temp, &
+           write(jpfunnuc0,1004) jz,d_nucini,zdpmin,zdpmint,d_mean,Nges,temp, &
                 press,rh,ro_nuc,m_vap(jv),conc(jv),cs,gr,eta,gamma, &
                 J_real,J_app
         endif
@@ -986,7 +992,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
  1004 format (I4,10F14.3,E12.5,7F14.5)
  110  format (2i4,9d16.8)
 
-  close (20)
+  close (jpfunnuc0)
 
 end subroutine appnucl
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1092,6 +1098,9 @@ subroutine ternucl (dt,kz,Napari)
   USE gas_common, ONLY: &
        s1
 
+  USE file_unit, ONLY : &
+       jpfunnuc0
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n
@@ -1173,8 +1182,8 @@ subroutine ternucl (dt,kz,Napari)
   c_nh3   = min(100._dp,c_nh3)               ! NH3 <= 100 ppt
   c_h2so4 = s1(ind_H2SO4,kz) * conv1          ! H2SO4 in [molec/cm3]
   !c_h2so4 = c_h2so4 * 1000._dp               ! artificial amplification for test
-  write (20,120)
-  write (20,110) kz,rh,c_nh3,c_h2so4
+  write (jpfunnuc0,120)
+  write (jpfunnuc0,110) kz,rh,c_nh3,c_h2so4
   Temp    = t(kz)                             ! temperature [K]
   Jn = 0._dp
   nn = 0._dp
@@ -1201,8 +1210,8 @@ subroutine ternucl (dt,kz,Napari)
         endif
         xn_acc(kz) = xn_acc(kz) + xn_new(kz)*dt                  ! accumulated number of new clusters [/cm3]
         xv_acc(kz) = xv_acc(kz) + 4.18879_dp*rc**3*xn_new(kz)*dt ! acculumated volume of new clusters [nm3/cm3]
-        write (20,109)
-        write (20,110) kz,dc,nn,nh,xn_acc(kz),xn_new(kz)
+        write (jpfunnuc0,109)
+        write (jpfunnuc0,110) kz,dc,nn,nh,xn_acc(kz),xn_new(kz)
      endif
   endif
 !  dnh3(kz)   = (c_nh3*am3(kz)/1.e12_dp) - s1(ind_NH3,kz)  ![mol/m3]
@@ -1265,6 +1274,9 @@ subroutine oionucl (dt,kz,Lovejoy)
   USE constants, ONLY : &
        conv1 ! multiply by conv1 to get cm^3(air)/mlc --> m^3(air)/mol
 
+  USE file_unit, ONLY : &
+       jpfunnuc0
+
   USE gas_common, ONLY: &
        s3
 
@@ -1320,8 +1332,8 @@ subroutine oionucl (dt,kz,Lovejoy)
 
 ! convert units
   c_oio   = s3(ind_OIO,kz) / am3(kz) *1.e12_dp
-  write (20,120)
-  write (20,110) kz,c_oio
+  write (jpfunnuc0,120)
+  write (jpfunnuc0,110) kz,c_oio
 
   dcio = 2._dp * rc
   Temp = t(kz)
@@ -1338,8 +1350,8 @@ subroutine oionucl (dt,kz,Lovejoy)
         endif
         xn_accio(kz) = xn_accio(kz) + xn_newio(kz)*dt !accumulated number of new clusters [/cm3]
         xv_accio(kz) = xv_accio(kz) + 4.18879_dp*rc**3*xn_newio(kz)*dt ! acculumated volume of new clusters [nm3/cm3]
-        write (20,109)
-        write (20,110) kz,dcio,n_oio,xn_accio(kz),xn_newio(kz)
+        write (jpfunnuc0,109)
+        write (jpfunnuc0,110) kz,dcio,n_oio,xn_accio(kz),xn_newio(kz)
      endif
   endif
 
@@ -1491,12 +1503,19 @@ subroutine nucout1
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+       coutdir
+
   USE constants, ONLY : &
        conv1 ! multiply by conv1 to get cm^3(air)/mlc --> m^3(air)/mol
 
   USE gas_common, ONLY: &
        s1,              & ! non radical gas concentration
        s3                 ! radical gas concentration
+
+  USE file_unit, ONLY : &
+       jpfunnuc1, jpfunnuc2, &
+       jpfunnuc3, jpfunnuc4
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1512,6 +1531,9 @@ subroutine nucout1
        dp
 
   implicit none
+
+! Local scalars:
+  character (len=150) :: clpath  ! complete path to file
 
 ! Common blocks:
   common /blck01/ am3(n),cm3(n)
@@ -1533,12 +1555,27 @@ subroutine nucout1
 
 ! == End of declarations =======================================================
 
-  write (21,106) xn_app(2),xn_apacc(2),bd_mean(2),bn_ges(2),grorate(2),concnuc(2)
-  write (22,104) xn_new(2),xn_acc(2),xn_newio(2),xn_accio(2)
-  write (23,106) (s1(ind_NH3,2)/am3(2)*1.e12_dp),(s1(ind_H2SO4,2)*conv1), &
+  clpath=trim(coutdir)//'nuc+part.asc'
+  open (unit=jpfunnuc1, file=clpath, status='unknown')
+  write (jpfunnuc1,106) xn_app(2),xn_apacc(2),bd_mean(2),bn_ges(2),grorate(2),concnuc(2)
+  close (jpfunnuc1)
+
+  clpath=trim(coutdir)//'ternuc.asc'
+  open (unit=jpfunnuc2, file=clpath, status='unknown')
+  write (jpfunnuc2,104) xn_new(2),xn_acc(2),xn_newio(2),xn_accio(2)
+  close (jpfunnuc2)
+
+  clpath=trim(coutdir)//'nh3_h2so4.asc'
+  open (unit=jpfunnuc3, file=clpath, status='unknown')
+  write (jpfunnuc3,106) (s1(ind_NH3,2)/am3(2)*1.e12_dp),(s1(ind_H2SO4,2)*conv1), &
                  dnh3(2),dh2so4(2), &
                  (s3(ind_OIO,2)/am3(2)*1.e12_dp),doio(2)
-  write (24,102) (ssum(2)/am3(2)*1.e12_dp),dnucv(2)
+  close (jpfunnuc3)
+
+  clpath=trim(coutdir)//'NUCV.asc'
+  open (unit=jpfunnuc4, file=clpath, status='unknown')
+  write (jpfunnuc4,102) (ssum(2)/am3(2)*1.e12_dp),dnucv(2)
+  close (jpfunnuc4)
 
  102  format (2d16.8)
  104  format (4d16.8)
@@ -1577,6 +1614,12 @@ subroutine nucout2
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+       coutdir
+
+  USE file_unit, ONLY : &
+       jpfunnuc5
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n
@@ -1588,6 +1631,7 @@ subroutine nucout2
   implicit none
 
 ! Local scalars:
+  character (len=150) :: clpath  ! complete path to file
   integer :: jz
 
 ! Common blocks:
@@ -1608,18 +1652,23 @@ subroutine nucout2
 
 ! == End of declarations =======================================================
 
-  write (25,104) lday,lst,lmin
+  clpath=trim(coutdir)//'nucout2.out'
+  open (unit=jpfunnuc5, file=clpath, status='unknown')
+
+  write (jpfunnuc5,104) lday,lst,lmin
   do jz=1,n
-     write (25,105) jz,xn_new(jz),xn_acc(jz),xv_acc(jz)
+     write (jpfunnuc5,105) jz,xn_new(jz),xn_acc(jz),xv_acc(jz)
   enddo
-  write (25,104) lday,lst,lmin
+  write (jpfunnuc5,104) lday,lst,lmin
   do jz=1,n
-     write (25,105) jz,xn_newio(jz),xn_accio(jz),xv_accio(jz)
+     write (jpfunnuc5,105) jz,xn_newio(jz),xn_accio(jz),xv_accio(jz)
   enddo
-  write (25,104) lday,lst,lmin
+  write (jpfunnuc5,104) lday,lst,lmin
   do jz=1,n
-     write (25,105) jz,xn_app(jz),xn_apacc(jz),xv_apacc(jz)
+     write (jpfunnuc5,105) jz,xn_app(jz),xn_apacc(jz),xv_apacc(jz)
   enddo
+
+  close (jpfunnuc5)
 
  104  format (3i4)
  105  format (i4,3d16.8)
