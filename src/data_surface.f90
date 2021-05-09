@@ -38,6 +38,7 @@ module data_surface
   public ! confirm this property with an explicit statement
   save   ! not mandatory if called from main program
 
+
 ! Prandtl layer, Clarke functions, frictional velocity
 !-----------------------------------------------------
   real (kind=dp) :: &
@@ -55,5 +56,10 @@ module data_surface
   real (kind=dp) :: &
        tw           ! water surface temperature                          (K)
 
+
+  !-------------------------------------
+  !  data_soil
+  !-------------------------------------
+  real (kind=dp), parameter :: ebs = .435_dp ! eta_s - soil porosity = soil moisture potential (cm3 / cm3)
 
 end module data_surface
