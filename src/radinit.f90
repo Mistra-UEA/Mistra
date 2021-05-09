@@ -806,9 +806,9 @@ subroutine initr
   real (kind=dp) :: detw, deta, eta, etw
 
   common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+                bs,rhoc,ebc,anu0,bs0,wmin,wmax
   real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
+                    bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb56/ o3un(52)
   real (kind=dp) :: o3un

@@ -1173,8 +1173,8 @@ integer :: get_atom_nb
 
 ! Function arguments
 ! Scalar arguments with intent(in):
-character (len=*) :: spec_name
-character (len=*) :: atom_name
+character (len=*), intent(in) :: spec_name
+character (len=*), intent(in) :: atom_name
 
 ! Local scalars:
 character (len=len_trim(spec_name)) :: s_name
@@ -1193,13 +1193,13 @@ a_name = trim(atom_name)
 lta = len_trim(atom_name)
 
 i = index(s_name,a_name)
-if(i.eq.0) then
-   return ! atom not found. Return with value 0
-else
+
+!if(i.eq.0) then ! atom not found. Return with value 0
+if(i.ne.0) then
    do while (len_trim(s_name)-lta.ge.0 .and. i.gt.0)
       if(len_trim(s_name).eq.lta) then ! The (remaining) species name is exactly the length of the atom name
          get_atom_nb = get_atom_nb + 1
-         return
+         exit ! exit do while and return
       end if
       s_name = s_name(i+lta:len_trim(s_name))
       ascii = iachar(s_name(1:1))
