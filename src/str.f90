@@ -5596,7 +5596,7 @@ end subroutine advseda
 !----------------------------------------------------------------------
 !
 
-      subroutine adjust_f
+subroutine adjust_f
 ! adjustment of initial aerosol size distribution for specific scenarios
 
 
@@ -5611,82 +5611,81 @@ end subroutine advseda
 
 ! == End of header =============================================================
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 !! Imported Parameters:
-!     & pi,              &
+!       pi,              &
        rho3,            &       ! aerosol density
        rhow                     ! water density
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka, &
-     &     nkt
+       n, &
+       nka, &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
 ! Local parameters:
   ! optimisation: define parameters that will be computed only once
   real (kind=dp), parameter :: zrho_frac = rho3 / rhow
   !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
+  integer :: ia, k, kl
+  real (kind=dp) :: a0, b0, x0, rg !,eg
+  real (kind=dp), external :: rgl
+  real (kind=dp) :: f_inter(nka)
+
 ! Common blocks:
-      common /cb44/ g,a0m,b0m(nka),ug,vg, &
-     &              ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg, &
-     &              ebc,anu0,bs0,wmin,wmax
-
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
-
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      dimension f_inter(nka)
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
+                ebc,anu0,bs0,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
+                   ebc,anu0,bs0,wmin,wmax
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
 ! == End of declarations =======================================================
 
-      x0=1.
+  x0 = 1._dp
 
-      do k=2,n
-         do ia=1,nka
-            f_inter(ia)=ff(1,ia,k)
-         enddo
+  do k=2,n
+     do ia=1,nka
+        f_inter(ia) = ff(1,ia,k)
+     enddo
 
-         fsum(k)=0.
-         do ia=nka,1,-1
-            if (rn(ia).gt.0.5) x0=0.1
-! init spectrum:aerosols in equilibrium with rH=76.2 %
+     fsum(k)=0._dp
+     do ia=nka,1,-1
+        if (rn(ia).gt.0.5_dp) x0 = 0.1_dp
+! init spectrum:aerosols in equilibrium with rH=76.2 % (below: last argument in rgl)
 ! "dry" them !(this is not really exact..)
 ! equilibrium radius at 76 %
-            a0=a0m/t(k)
-            b0=b0m(ia)*zrho_frac
+        a0 = a0m / t(k)
+        b0 = b0m(ia) * zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-            rg=rgl(rn(ia),a0,b0,.762d0)
-!!            eg=4.d-09*pi/3.*(rg**3-rn(ia)**3)
-!            eg=z4pi3*(rg**3-rn(ia)**3)
-            do kl=1,nka
-               if (rg.le.rn(kl)) then
-!               if (eg.le.enw(kl)) then
-                  ff(1,ia,k)=x0*f_inter(kl)
-                  goto 1000
-               endif
-            enddo
- 1000       continue
-            fsum(k)=fsum(k)+ff(1,ia,k)
-         enddo
+        rg = rgl(rn(ia),a0,b0,.762_dp)
+!        eg = z4pi3 * (rg**3 - rn(ia)**3)
+        do kl=1,nka
+           if (rg.le.rn(kl)) then
+!           if (eg.le.enw(kl)) then
+              ff(1,ia,k) = x0 * f_inter(kl)
+              exit
+           endif
+        enddo
+        fsum(k) = fsum(k) + ff(1,ia,k)
+     enddo
 
-      enddo
+  enddo
 
-      end subroutine adjust_f
+end subroutine adjust_f
 
 !----------------------------------------------------------------------
 

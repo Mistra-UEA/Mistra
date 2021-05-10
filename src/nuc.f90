@@ -853,7 +853,8 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
      b0mn = 1._dp * 1._dp * 0.018_dp/m_vapmean  !fcs=1 and xnue=1 are assumed -> please adjust!
      a0 = a0mn/temp
 !       ---  b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-     b0 = b0mn*zrho_frac
+     b0 = b0mn*zrho_frac ! jjb: not sure zrho_frac is correct: a0mn is computed with ro_nuc instead of rhow, shouldn't
+                         !      that be the same here? I.e. rho3/ro_nuc?
      rmin = zdpmin * zconv_d2r
      rg = rgl(rmin,a0,b0,rh) !equilibrium total aerosol radius
      do jt = 1,nkt !find correct droplet size bin jts to smallest dry bin
