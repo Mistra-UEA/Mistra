@@ -206,7 +206,7 @@ program mistra
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
 ! initial meteorological and chemical input
-  call initm (iaertyp,fogtype)
+  call initm (iaertyp,fogtype,rst)
   call initc(box,n_bl)
 ! number of iterations
   it0=0
@@ -224,7 +224,7 @@ program mistra
 ! read meteorological and chemical input from output of previous run
   call startm (fogtype)
 ! init some microphysical data that's not in SR startm
-  call mic_init (iaertyp,fogtype)
+  call initm (iaertyp,fogtype,rst)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
   it0=0
   it=0
@@ -777,7 +777,7 @@ end subroutine openc
 !-------------------------------------------------------------
 !
 
-      subroutine initm (iaertyp,fogtype) !change also SR surf0 !_aerosol_nosub
+      subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 
 ! Author:
@@ -823,6 +823,7 @@ end subroutine openc
       implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
 
+      logical, intent(in) :: rst
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
@@ -908,6 +909,10 @@ end subroutine openc
      &               wn(ka,3)*dexp(-ws(ka,3)*dlog10(rr/wr(ka,3))**2)
       dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
      &                wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)
+
+! no restart only for the following block
+  if (.not.rst) then
+
 ! after Jaenicke/Sander/Kim:
 !      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2) &
 !     & **2/(2*0.1106**2))+ &
@@ -995,15 +1000,21 @@ end subroutine openc
 !            fsum(k)=fsum(k)+ff(1,ia,k)
 !         enddo
 !      enddo
+
+   end if ! no restart
+
 ! parameters a0m, b0m of koehler curve of subroutine subkon:
 ! sr(ia,jt)=exp(a0m/(r(ia,jt)*t)-b0m(ia)*en(ia)/ew(jt)))
 ! a0m see p. 141 pruppacher and klett a0m=2 sigma/(r1*t*rhow*a)
 ! 152200= 2 sigma*10**6 with sigma is surface tension = 76.1*10**-3
 ! see pruppacher and klett p. 104
-      a0m=152200./(r1*rhow)
+  if (.not.rst) then
+     a0m=152200./(r1*rhow)
+  !else restart case: a0m is read in startm
+  end if
 ! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
-      k0=nar(2)
-      do 1030 ia=1,nka
+      k0=nar(2) !=iaertyp
+      do ia=1,nka
       if (k0-2) 2000,2010,2020
 ! b0m=fcs*xnue*xmol2/xmol3: fcs(ia) fraction of soluble species
 ! xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
@@ -1034,10 +1045,20 @@ end subroutine openc
       xnue=0.32*3.+0.64*2+0.04*2
       xmol3(ia)=0.32*132.+0.64*115+0.04*80
 ! large are NaCl
-      if (rn(ia).lt.0.5) go to 1030
+      if (rn(ia).ge.0.5) then
       xnue=2.     !no change in microphysics due to halogen chemistry
       xmol3(ia)=58.4
- 1030 b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
+      end if
+
+1030  continue
+      if (.not.rst) then
+      b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
+      !else restart case: b0m is read in startm
+      end if
+   end do
+
+  if (.not.rst) then
+
 ! initial temperature
 ! in radiation code: background aerosol = rural aerosol
       t(1)=tw
@@ -1140,7 +1161,9 @@ end subroutine openc
          eb(k)=x0
          if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
       enddo
-! initial output for plotting
+  end if ! no restart only
+
+! initial output for plotting: both restart and no-restart cases
       fname='pi .out'
       fname(3:3)=fogtype
       open (97, file=fname,status='unknown')
@@ -6528,132 +6551,6 @@ end subroutine sedc_box
 !
 !---------------------------------------------------------------------
 !
-
-      subroutine mic_init (iaertyp,fogtype)
-! initialization of microphysics for restart (cut and paste from SR initm)
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit double precision (a-h,o-z)
-! initial profiles of meteorological variables
-! Common blocks:
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
-
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb63/ fcs(nka),xmol3(nka)
-      dimension sr(nka,nkt)
-!      dimension xb0m(nka) ! jjb used for a test at the end, probably useless
-      character *1 fogtype
-      character *10 fname
-!      data xmol2 /18./ ! jjb variable unreferenced (commented below)
-
-! == End of declarations =======================================================
-
-! these write statements are in SR initm, has to be done here as well, to be consistent
-! with plot progs
-! initial output for plotting
-      fname='pi .out'
-      fname(3:3)=fogtype
-      open (97, file=fname,status='unknown')
-      write (97,6000) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
- 6000 format (5e16.8)
-      close (97)
-      write (19) zb
-      close (19)
-      do jt=1,nkt
-!         jtp=min0(jt+1,nkt)  ! jjb variable unreferenced
-!         de0=dew(jt)  ! jjb variable unreferenced
-!         dep=dew(jtp) ! jjb variable unreferenced
-!         de0p=de0+dep ! jjb variable unreferenced
-         do ia=1,nka
-            rk=rw(jt,ia)
-            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2)) &
-     &                -b0m(ia)*en(ia)/ew(jt)))
-         enddo
-      enddo
-      fname='fi .out'
-      fname(3:3)=fogtype
-      open (44, file=fname,status='unknown')
-      write (44,6010) rn,en,rq,e,sr
-      close (44)
- 6010 format (5e16.8)
-
-! parameters a0m, b0m of koehler curve of subroutine subkon:
-! sr(ia,jt)=exp(a0m/(r(ia,jt)*t)-b0m(ia)*en(ia)/ew(jt)))
-! a0m see p. 141 pruppacher and klett a0m=2 sigma/(r1*t*rhow*a)
-! 152200= 2 sigma*10**6 with sigma is surface tension = 76.1*10**-3
-! see pruppacher and klett p. 104
-!      a0m=152200./(r1*rhow) - is read in in SR startm
-! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
-      k0=iaertyp
-      do ia=1,nka
-!         write (77,*)  ia
-         if (k0-2) 2000,2010,2020
-! b0m=fcs*xnue*xmol2/xmol3: fcs(ia) fraction of soluble species
-! xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
-! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
-! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
- 2000    continue
-         fcs(ia)=.4-rn(ia)*(.4-.1)
-         if (rn(ia).gt.1.) fcs(ia)=.1
-         xmol3(ia)=(132.+80.*2.)/3.
-         xnue=(3.+2.*2.)/3.
-         go to 1030
-! soluble part of rural aerosol: pure (NH4)2SO4
-! 2010 fcs(ia)=.5-rn(ia)*(.5-.1)
- 2010    continue
-         fcs(ia)=.9-rn(ia)*(.9-.5)
-         if (rn(ia).gt.1.) fcs(ia)=.5
-!     fcs(ia)=0.1
-         xnue=3.
-         xmol3(ia)=132.
-         go to 1030
-!c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
-! soluble part of ocean aerosol: pure (NH4)2SO4;
- 2020    continue
-         fcs(ia)=1.
-!      xnue=3.
-!      xmol3(ia)=132.
-! 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
-         xnue=0.32*3.+0.64*2+0.04*2
-         xmol3(ia)=0.32*132.+0.64*115+0.04*80
-! large are NaCl
-         if (rn(ia).lt.0.5) go to 1030
-!         xnue=2.                !no change in microphysics due to halogen chemistry ! jjb variable unreferenced
-         xmol3(ia)=58.4
- 1030    continue
-!         xb0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
-! 1030    b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
-!         write (77,*) xb0m(ia),b0m(ia) ! test shows: xb0m and b0m are the same
-      enddo
-
-      end subroutine mic_init
-
 !
 !----------------------------------------------------------------------
 !
