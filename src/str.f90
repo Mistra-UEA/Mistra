@@ -3519,247 +3519,272 @@ end subroutine surf0
 !-------------------------------------------------------------
 !
 
-      subroutine surf1 (dt)
+subroutine surf1 (dt)
 
-      USE constants, ONLY : &
+! calculation of surface temperature and volumetric moisture content
+! by means of balance of fluxes at the surface following Pielke,
+! mesoscale meteorological modelling, chapter 11.
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp, &                   ! Specific heat of dry air, in J/(kg.K)
-     &     r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
-     &     rhow                  ! Water density [kg/m**3]
+       cp, &                   ! Specific heat of dry air, in J/(kg.K)
+       r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
+       rhow                  ! Water density [kg/m**3]
 
   USE data_surface, ONLY : &
        aks, bs, ebs, psis, &
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nb, &
-     &     nka
+       n, &
+       nb, &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-! calculation of surface temperature and volumetric moisture content
-! by means of balance of fluxes at the surface following Pielke,
-! mesoscale meteorological modelling, chapter 11.
-      logical l1
+  implicit none
 
-      real (kind=dp), external :: p21  ! saturation vapour pressure
-      real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+  real (kind=dp), intent(in) :: dt
+
+  real (kind=dp), external :: p21  ! saturation vapour pressure
+  real (kind=dp), external :: p31  ! saturation vapour pressure (ice)
+  real (kind=dp), external :: xl21 ! latent heat of vaporisation = f(temperature)
+
+! Local parameters
+  real (kind=dp), parameter :: al31 = 2.835e+6_dp
+  real (kind=dp), parameter :: sigma = 5.6697e-8_dp  ! Stefan-Boltzmann-constant
+  real (kind=dp), parameter :: t0 = 273.15_dp
+
+  ! Local scalars:
+  integer :: i, iaa
+  logical :: l1
+  real (kind=dp) :: anu, bs3
+  real (kind=dp) :: ctq, cu ! output of claf function
+  real (kind=dp) :: ddew, det, djbde, djbdt, djmde, djqde, djqdt, djtdt
+  real (kind=dp) :: eb1, eb10
+  real (kind=dp) :: f1e, f1t, f2e, f2t, fqs, fts
+  real (kind=dp) :: ps, psi1, psi2, qq2, qs, qst, rak1, rrho
+  real (kind=dp) :: ts, ts0, tst, uwr
+  real (kind=dp) :: uu, vv, vqr, vbt ! surf variables for claf function
+  real (kind=dp) :: x0, x1, xa, xm21s, xnvl, zp, zpdl, zpdz0
+
+! Local arrays:
+  real (kind=dp) :: ebb(40),tss(40),ftss(40),fqss(40)
 
 ! Common blocks:
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
+                rhoc,ebc,anu0,bs0,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
+                   rhoc,ebc,anu0,bs0,wmin,wmax
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb48/ sk,sl,dtrad(n),dtcon(n)
+  real (kind=dp) :: sk, sl, dtrad, dtcon
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg, &
-     &              rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg, &
-     &              rhoc,ebc,anu0,bs0,wmin,wmax
+! statement function
+  real (kind=dp) :: cm, pp
+  cm(pp)=0.62198_dp*pp/(ps-0.37802_dp*pp)
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
-      dimension ebb(40),tss(40),ftss(40),fqss(40)
-! Stefan-Boltzmann-constant
-      parameter (sigma=5.6697d-8)
-      parameter (al31=2.835d+6)
-      parameter (t0=273.15)
-      cm(pp)=0.62198*pp/(ps-0.37802*pp)
 ! == End of declarations =======================================================
-      rrho=rho(1)
-      uu=u(2)
-      vv=v(2)
-      vqr=max(uu*uu+vv*vv,1.d-12)
-      vbt=sqrt(vqr)
-!     gamma=g/cp
-      bs3=2.*bs+3.
-!     bs2=bs+2.
-      psi2=psis*(ebs/eb(2))**bs
-      qq2=xm1(2)
-      ts=t(1)
-      ps=p(1)
-      eb1=eb(1)
-      l1=.false.
+  rrho=rho(1)
+  uu=u(2)
+  vv=v(2)
+  vqr=max(uu*uu+vv*vv,1.d-12)
+  vbt=sqrt(vqr)
+!  gamma=g/cp
+  bs3=2._dp*bs+3._dp
+!  bs2=bs+2._dp
+  psi2=psis*(ebs/eb(2))**bs
+  qq2=xm1(2)
+  ts=t(1)
+  ps=p(1)
+  eb1=eb(1)
+  l1=.false.
 
-      zp    = deta(1) + z0
-      zpdz0 = log(zp/z0)
-      xnvl  = g * (theta(2) - ts) * 2._dp / (theta(2) + ts)
-      zpdl  = zp * xnvl / vqr
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern=max(0.01_dp,vbt/cu)
+  zp    = deta(1) + z0
+  zpdz0 = log(zp/z0)
+  xnvl  = g * (theta(2) - ts) * 2._dp / (theta(2) + ts)
+  zpdl  = zp * xnvl / vqr
+  call claf (zpdl,zpdz0,cu,ctq)
+  ustern=max(0.01_dp,vbt/cu)
+
 ! specific humidity at the surface
-      if (ts.ge.t0) then
-      xm21s=cm(p21(ts))
-      else
-      xm21s=cm(p31(ts))
-      endif
-      psi1=psis*(ebs/eb1)**bs
-      qs=xm21s*dexp(g*psi1/(r1*ts))
+  if (ts.ge.t0) then
+     xm21s = cm(p21(ts))
+  else
+     xm21s = cm(p31(ts))
+  endif
+  psi1=psis*(ebs/eb1)**bs
+  qs=xm21s*exp(g*psi1/(r1*ts))
 ! tstern,qstern
-      tst=(theta(2)-ts*(1.+0.608*qs))/ctq
-      qst=(qq2-qs)/ctq
+  tst=(theta(2)-ts*(1._dp+0.608_dp*qs))/ctq
+  qst=(qq2-qs)/ctq
 ! heatflux from ground
-      x1=dmax1(eb1,ebc)
-      anu=anu0*x1**bs0
-      ajb=anu*(tb(2)-ts)/dzb(1)
+  x1=max(eb1,ebc)
+  anu=anu0*x1**bs0
+  ajb=anu*(tb(2)-ts)/dzb(1)
 ! microturbulent flux of water vapor
-      ajq=rrho*ustern*qst
+  ajq=rrho*ustern*qst
 ! latent microturbulent enthalpy flux
 ! ajs is water flux due to droplet sedimentation;
-      if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-xl21(ts))*ajs
-      else
-      ajl=xl21(ts)*ajq
-      endif
+  if (ts.lt.t0) then
+     ajl=al31*ajq-(al31-xl21(ts))*ajs
+  else
+     ajl=xl21(ts)*ajq
+  endif
 ! sensible microturbulent enthalpy flux
-      ajt=rrho*cp*ustern*tst
+  ajt=rrho*cp*ustern*tst
 ! ground moisture flux
-!     rak1=rhow*aks*(eb1/ebs)**bs3
-      xa=0.5
-      rak1=rhow*aks*((xa*eb1+(1.-xa)*eb(2))/ebs)**bs3
-      ajm=rak1*((psi2-psi1)/dzb(1)-1.)
-!     debs=-bs*aks*psis/ebs
-!     ajm=(debs*((eb1+eb(2))/(2.*ebs))**bs2*(eb(2)-eb1)/dzb(1)-
-!    & aks*((eb1+eb(2))/(2.*ebs))**bs3)*rhow
+!  rak1=rhow*aks*(eb1/ebs)**bs3
+  xa=0.5_dp
+  rak1=rhow*aks*((xa*eb1+(1._dp-xa)*eb(2))/ebs)**bs3
+  ajm=rak1*((psi2-psi1)/dzb(1)-1._dp)
+!  debs=-bs*aks*psis/ebs
+!  ajm=(debs*((eb1+eb(2))/(2._dp*ebs))**bs2*(eb(2)-eb1)/dzb(1)- &
+!      aks*((eb1+eb(2))/(2._dp*ebs))**bs3)*rhow
 ! dew flux
-      ajd=0.
-      x0=ajq+ajm+ajs
-      if (eb1.lt.ebs) go to 2000
-      ajd=-x0
-      ddew=tau/dt
-      if (x0.lt.0.) ajd=dmin1(-x0,ddew)
-      ddew=ddew-ajd
+  ajd=0._dp
+  x0=ajq+ajm+ajs
+  if (eb1.ge.ebs) then
+     ajd=-x0
+     ddew=tau/dt
+     if (x0.lt.0._dp) ajd=min(-x0,ddew)
+     ddew=ddew-ajd
+  end if
 ! flux balances
- 2000 fts=sl+sk+ajb+ajl+ajt-sigma*ts**4
-      fqs=x0+ajd
-      if (l1) goto 2010
+  fts=sl+sk+ajb+ajl+ajt-sigma*ts**4
+  fqs=x0+ajd
+  if (l1) goto 2010
+
 ! 2-dimensional newton-raphson iteration for ts and eb(1)
-      do 1000 iaa=1,20
-      ebb(iaa)=eb1
-      ftss(iaa)=fts
-      fqss(iaa)=fqs
-      tss(iaa)=ts
+  do iaa=1,20
+     ebb(iaa)=eb1
+     ftss(iaa)=fts
+     fqss(iaa)=fqs
+     tss(iaa)=ts
 !     fts0=fts
 !     fqs0=fqs
-      ts0=ts
-      eb10=eb1
+     ts0=ts
+     eb10=eb1
 ! calculation of derivatives d(fluxes)/d(eta) and d(fluxes)/d(T)
 ! djbde=d(ajb)/d(eta); djbdt=d(ajb)/d(T) etc.
-      djbde=0.
-      if (eb1.gt.ebc) djbde=ajb*bs0/eb1
-      djbdt=-anu/dzb(1)
-      djqde=rrho*ustern*qs*g*bs*psi1/(ctq*r1*ts*eb1)
-      x0=p21(ts)
-      djqdt=rrho*ustern*qs/ctq*(g*psi1/(r1*ts*ts)+ &
-     & x0*4027.163/((x0-.37802*ps)*(ts-38.33)**2))
-      djtdt=-rrho*cp*ustern/ctq
+     djbde=0._dp
+     if (eb1.gt.ebc) djbde=ajb*bs0/eb1
+     djbdt=-anu/dzb(1)
+     djqde=rrho*ustern*qs*g*bs*psi1/(ctq*r1*ts*eb1)
+     x0=p21(ts)
+     djqdt=rrho*ustern*qs/ctq*(g*psi1/(r1*ts*ts)+ &
+           x0*4027.163_dp/((x0-.37802_dp*ps)*(ts-38.33_dp)**2))
+     djtdt=-rrho*cp*ustern/ctq
 !     djmde=(ajm*bs3+rak1/dzb(1)*psi1*bs)/eb1
-      djmde=rak1/dzb(1)*psi1*bs/eb1
-!     djmde=(debs*(eb1/ebs)**bs2/dzb(1)*((eb(2)-eb1)*bs2/eb1-1.)-
+     djmde=rak1/dzb(1)*psi1*bs/eb1
+!     djmde=(debs*(eb1/ebs)**bs2/dzb(1)*((eb(2)-eb1)*bs2/eb1-1._dp)-
 !    & bs3*aks/eb1*(eb1/ebs)**bs3)*rhow
-!     djmde=dmin1(djmde,0.)
+!     djmde=min(djmde,0._dp)
 ! coefficients for solution of linear equation system
-      x0=xl21(ts)
-      f1e=djbde+x0*djqde
-      f1t=djbdt-2335.5*ajq+x0*djqdt+djtdt-4.*sigma*ts*ts*ts
-      f2e=djqde+djmde
-      f2t=djqdt
-      det=f1e*f2t-f1t*f2e
-!      if (abs(det).lt.1.d-10) x0=sqrt(1.d0-2.d0)
-      if (abs(det).lt.1.d-10) stop 'SR surf1'
+     x0=xl21(ts)
+     f1e=djbde+x0*djqde
+     f1t=djbdt-2335.5_dp*ajq+x0*djqdt+djtdt-4._dp*sigma*ts*ts*ts
+     f2e=djqde+djmde
+     f2t=djqdt
+     det=f1e*f2t-f1t*f2e
+!     if (abs(det).lt.1.e-10_dp) x0=sqrt(1.d0-2.d0)
+     if (abs(det).lt.1.e-10_dp) stop 'SR surf1'
 ! new values of ts and eb1
-      ts=ts+(fts*f2e-fqs*f1e)/det
-      eb1=eb1+(fqs*f1t-fts*f2t)/det
-      eb1=dmin1(eb1,ebs)
-      eb1=dmax1(eb1,ebs/15.d0)
-      if (ddew.gt.0.) eb1=ebs
-      if (ts.gt.300..or.ts.lt.250.) ts=ts0-0.01
+     ts=ts+(fts*f2e-fqs*f1e)/det
+     eb1=eb1+(fqs*f1t-fts*f2t)/det
+     eb1=min(eb1,ebs)
+     eb1=max(eb1,ebs/15._dp)
+     if (ddew.gt.0._dp) eb1=ebs
+     if (ts.gt.300._dp .or. ts.lt.250._dp) ts = ts0 - 0.01_dp
 ! new surface fluxes
-      if (ts.ge.t0) then
-      xm21s=cm(p21(ts))
-      else
-      xm21s=cm(p31(ts))
-      endif
-      psi1=psis*(ebs/eb1)**bs
-      qs=xm21s*dexp(g*psi1/(r1*ts))
-      qst=(qq2-qs)/ctq
-      tst=(theta(2)-ts*(1.+0.608*qs))/ctq
-      x1=dmax1(eb(1),ebc)
-      anu=anu0*x1**bs0
-      ajb=anu*(tb(2)-ts)/dzb(1)
-      ajq=rrho*ustern*qst
-      if (ts.lt.t0) then
-      ajl=al31*ajq-(al31-xl21(ts))*ajs
-      else
-      ajl=xl21(ts)*ajq
-      endif
-      ajt=rrho*cp*ustern*tst
-      ajm=rak1*((psi2-psi1)/dzb(1)-1.)
-      ajd=0.
-      x0=ajq+ajm+ajs
-      if (eb1.lt.ebs) go to 2020
-      ajd=-x0
-      ddew=tau/dt
-      if (x0.lt.0.) ajd=dmin1(-x0,ddew)
-      ddew=ddew-ajd
+     if (ts.ge.t0) then
+        xm21s = cm(p21(ts))
+     else
+        xm21s = cm(p31(ts))
+     endif
+     psi1=psis*(ebs/eb1)**bs
+     qs=xm21s*exp(g*psi1/(r1*ts))
+     qst=(qq2-qs)/ctq
+     tst=(theta(2)-ts*(1._dp + 0.608_dp * qs))/ctq
+     x1=max(eb(1),ebc)
+     anu=anu0*x1**bs0
+     ajb=anu*(tb(2)-ts)/dzb(1)
+     ajq=rrho*ustern*qst
+     if (ts.lt.t0) then
+        ajl=al31*ajq-(al31-xl21(ts))*ajs
+     else
+        ajl=xl21(ts)*ajq
+     endif
+     ajt=rrho*cp*ustern*tst
+     ajm=rak1*((psi2-psi1)/dzb(1)-1._dp)
+     ajd=0._dp
+     x0=ajq+ajm+ajs
+     if (eb1.ge.ebs) then
+        ajd=-x0
+        ddew=tau/dt
+        if (x0.lt.0._dp) ajd=min(-x0,ddew)
+        ddew=ddew-ajd
+     end if
 ! flux balances
- 2020 fts=sl+sk+ajb+ajl+ajt-sigma*ts**4
-      fqs=x0+ajd
+     fts=sl+sk+ajb+ajl+ajt-sigma*ts**4
+     fqs=x0+ajd
 ! convergence criteria
-      if(dabs(ts-ts0).le.1.d-2.and.dabs(eb1-eb10).le.1.d-3)go to 2030
-      if (dabs(fts).le.1.d-1.and.dabs(fqs).le..1*dabs(ajq)) goto 2030
- 1000 continue
-      write (6,6000) eb1,ts,fts,fqs
+     if(dabs(ts-ts0).le.1.d-2.and.dabs(eb1-eb10).le.1.d-3)go to 2030
+     if (dabs(fts).le.1.d-1.and.dabs(fqs).le..1*dabs(ajq)) goto 2030
+  end do
+
+  write (6,6000) eb1,ts,fts,fqs
  6000 format (10x,'no convergence of ts- and eb1-iteration:'/ &
      & 'eb1',f16.4,'ts',f16.4,'fts',f16.4,'fqs',f16.4)
-      write (6,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
+  write (6,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
  6010 format (10x,3f16.4,e16.4)
- 2030 if (tau.gt.0..and.ts.lt.t0) l1=.true.
-      if (ts.gt.t0.and.reif.gt.0) l1=.true.
-      if (.not.l1) go to 2010
-      ts=t0
+
+2030 if (tau.gt.0..and.ts.lt.t0) l1=.true.
+  if (ts.gt.t0.and.reif.gt.0) l1=.true.
+  if (.not.l1) go to 2010
+  ts=t0
 ! change of dew or rime by evaporation/condensation
  2010 continue
-      if (ts.ge.t0) tau=tau-ajd*dt
-      if (ts.lt.t0) reif=reif-ajd*dt
-      if (.not.l1) goto 2040
+  if (ts.ge.t0) tau=tau-ajd*dt
+  if (ts.lt.t0) reif=reif-ajd*dt
+  if (.not.l1) goto 2040
 ! coexistence of dew and rime
-      uwr=dmin1(dt*fts/3.35d+5,reif)
-      uwr=dmax1(uwr,-tau)
-      tau=tau+uwr
-      reif=reif-uwr
- 2040 tau=dmax1(0.d0,tau)
-      reif=dmax1(0.d0,reif)
+  uwr=min(dt*fts/3.35d+5,reif)
+  uwr=max(uwr,-tau)
+  tau=tau+uwr
+  reif=reif-uwr
+2040 tau=max(0._dp,tau)
+  reif=max(0._dp,reif)
 ! storage of surface values
-      t(1)=ts
-      tb(1)=ts
-      xm1(1)=qs
-      feu(1)=qs/xm21s
-      eb(1)=eb1
-      xnvl = g * (theta(2) - ts) * 2. / (theta(2) + ts)
-      zpdl = zp * xnvl / vqr
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern = max(0.01_dp,vbt/cu)
-      gclu   = cu
-      gclt   = ctq
+  t(1)=ts
+  tb(1)=ts
+  xm1(1)=qs
+  feu(1)=qs/xm21s
+  eb(1)=eb1
 
-      end subroutine surf1
+  xnvl = g * (theta(2) - ts) * 2._dp / (theta(2) + ts)
+  zpdl = zp * xnvl / vqr
+  call claf (zpdl,zpdz0,cu,ctq)
+  ustern = max(0.01_dp,vbt/cu)
+  gclu   = cu
+  gclt   = ctq
+
+end subroutine surf1
 
 !
 !-------------------------------------------------------------
