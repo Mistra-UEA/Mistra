@@ -2959,7 +2959,7 @@ end subroutine difc
 !--------------------------------------------------------------------
 !
 
-      subroutine atk0
+subroutine atk0
 ! calculation of exchange coefficients, mixing length etc at model start
 
 
@@ -2978,72 +2978,75 @@ end subroutine difc
        ustern, z0, &               ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka
+       n, &
+       nka
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
+
+! Local scalars:
+  integer :: k
+  real (kind=dp) :: x0, x1, x2
+  real (kind=dp) :: st, vh, zz
 
 ! Common blocks:
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
-
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
-
-      common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      real (kind=dp) :: gm, gh, sm, sh, xl
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
-
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+  real (kind=dp) :: gm, gh, sm, sh, xl
+  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
 ! == End of declarations =======================================================
 
-! mixing length
-      xl(1)=0.
-      x1=(ug+vg)*2.7
-      do k=2,n
-         x2=0.4*etw(k)
-         xl(k)=x2*x1/(x2+x1)
-         xl(k)=dmin1(xl(k),deta(k))
-      enddo
-      atkm(1)=0.5*eta(2)*ustern/gclu
-      atkh(1)=0.5*eta(2)*ustern/gclt
-      do k=2,n-1
-         vh=((u(k+1)-u(k))**2+(v(k+1)-v(k))**2)/deta(k)**2
-         zz=etw(k)+z0
-         x0=(0.4*zz/(1.+0.4*zz/xl(k)))**2
-         st=g*(theta(k+1)-theta(k))/(deta(k)*theta(k))
-         if (st.le.0.) then
-! unstable case and neutral case
-            atkm(k)=x0*sqrt(vh-11.*st)
-            if ((vh-3.*st).eq.0.) then
-               atkh(k)=atkm(k)
-            else
-               atkh(k)=1.35*atkm(k)*(vh-5.5*st)/(vh-3.*st)
-            endif
-         else
-! stable case
-            atkm(k)=x0*vh/sqrt(vh+6.*st)
-            atkh(k)=1.35*atkm(k)*vh/(vh+6.*st)
-         endif
-         atkm(k)=dmax1(1.d-03,atkm(k))
-         atkh(k)=dmax1(1.d-03,atkh(k))
-      enddo
-      atkm(n)=0.
-      atkh(n)=0.
+! initialisation of mixing length xl
+  xl(1) = 0._dp
+  x1 = (ug + vg) * 2.7_dp
+  do k=2,n
+     x2    = 0.4 * etw(k)
+     xl(k) = x2 * x1 / (x2 + x1)
+     xl(k) = min(xl(k), deta(k))
+  enddo
 
-      end subroutine atk0
+! initial calculation of exchange coefficients
+  atkm(1) = 0.5_dp * eta(2) * ustern / gclu
+  atkh(1) = 0.5_dp * eta(2) * ustern / gclt
+  do k=2,n-1
+     vh = ((u(k+1)-u(k))**2 + (v(k+1)-v(k))**2) / deta(k)**2
+     zz = etw(k) + z0
+     x0 = (0.4_dp * zz / (1._dp + 0.4_dp * zz / xl(k)))**2
+     st = g * (theta(k+1)-theta(k)) / (deta(k)*theta(k))
+     if (st.le.0._dp) then
+        ! unstable case and neutral case
+        atkm(k) = x0 * sqrt(vh - 11._dp * st)
+        if ((vh-3._dp*st).eq.0._dp) then
+           atkh(k) = atkm(k)
+        else
+           atkh(k) = 1.35_dp * atkm(k) * (vh - 5.5_dp * st) / (vh - 3._dp * st)
+        endif
+     else
+        ! stable case
+        atkm(k) = x0 * vh / sqrt(vh + 6._dp * st)
+        atkh(k) = 1.35_dp * atkm(k) * vh / (vh + 6._dp * st)
+     endif
+     atkm(k) = max(1.e-3_dp, atkm(k))
+     atkh(k) = max(1.e-3_dp, atkh(k))
+  enddo
+  atkm(n) = 0._dp
+  atkh(n) = 0._dp
+
+end subroutine atk0
 
 !
 !-------------------------------------------------------------
