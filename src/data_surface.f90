@@ -61,7 +61,8 @@ module data_surface
   !  data_soil
   !-------------------------------------
 ! soil constants for sandy loam
-  real (kind=dp), parameter :: ebs = .435_dp   ! eta_s - soil porosity = soil moisture potential (cm3 / cm3)
-  real (kind=dp), parameter :: psis = -.218_dp ! saturation moisture potential                           (m)
+  real (kind=dp), parameter :: aks = 3.41e-5_dp    ! hydraulic conductivity for saturated soil     (m/s)
+  real (kind=dp), parameter :: ebs = .435_dp       ! volumetric porosity of the soil           (m^3/m^3)
+  real (kind=dp), parameter :: psis = -.218_dp     ! moist potential for saturated soil              (m)
 
 end module data_surface

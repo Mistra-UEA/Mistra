@@ -525,9 +525,9 @@ block data
    implicit double precision (a-h,o-z)
 
 ! Common blocks:
-   common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+   common /cb44/ g,a0m,b0m(nka),ug,vg, &
         bs,rhoc,ebc,anu0,bs0,wmin,wmax
-   double precision g,a0m,b0m,ug,vg,aks,   &
+   double precision g,a0m,b0m,ug,vg,   &
         bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
 ! gravitational acceleration
@@ -554,7 +554,7 @@ block data
 !       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.0015d0/ !aerosol sub (value copied from above)
    data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
 ! soil constants for sandy loam
-   data aks,bs,rhoc /3.41d-05,4.9d0,1.34d+06/
+   data bs,rhoc /4.9d0,1.34d+06/
    data ebc,anu0,bs0 /.0742724d0,43.415524d0,2.128043d0/
 end block data
 
@@ -844,9 +844,9 @@ end subroutine openc
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
@@ -1482,9 +1482,9 @@ subroutine startm (fogtype)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -2437,9 +2437,9 @@ subroutine wfield
   common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
   real (kind=dp) :: detw, deta, eta, etw
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax        ! wmin, wmax: input for vertical wind
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
@@ -2528,9 +2528,9 @@ subroutine difm (dt)
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
@@ -3011,9 +3011,9 @@ end subroutine difc
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
@@ -3119,9 +3119,9 @@ end subroutine difc
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
@@ -3304,7 +3304,7 @@ subroutine soil (dt)
        rhow                  ! Water density [kg/m**3]
 
   USE data_surface, ONLY : &
-       ebs, psis
+       aks, ebs, psis
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -3330,9 +3330,9 @@ subroutine soil (dt)
   real (kind=dp) :: xa(nbm),xb(nbm),xc(nbm),xd(nbm),xe(nbm),xf(nbm)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -3462,9 +3462,9 @@ subroutine surf0 (dt)
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -3528,7 +3528,7 @@ end subroutine surf0
      &     rhow                  ! Water density [kg/m**3]
 
   USE data_surface, ONLY : &
-       ebs, psis, &
+       aks, ebs, psis, &
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
@@ -3555,9 +3555,9 @@ end subroutine surf0
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
@@ -4303,9 +4303,9 @@ subroutine equil (ncase,kk)
   real (kind=dp) :: rg(nka),eg(nka)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &         ! a0m, b0m: Koehler curve
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &         ! a0m, b0m: Koehler curve
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
@@ -4513,9 +4513,9 @@ subroutine subkon (dt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg, &
                    bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
@@ -5610,9 +5610,9 @@ end subroutine advseda
   !real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
 ! Common blocks:
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
@@ -5708,9 +5708,9 @@ end subroutine advseda
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
@@ -5857,9 +5857,9 @@ end subroutine advseda
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -6557,9 +6557,9 @@ end subroutine sedc_box
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
+      common /cb44/ g,a0m,b0m(nka),ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,aks, &
+      double precision g,a0m,b0m,ug,vg, &
      &              bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
