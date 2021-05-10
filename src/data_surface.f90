@@ -63,6 +63,7 @@ module data_surface
 ! soil constants for sandy loam
   real (kind=dp), parameter :: aks = 3.41e-5_dp    ! hydraulic conductivity for saturated soil     (m/s)
   ! (renamed hcs in the latest version)
+  real (kind=dp), parameter :: anu0 = 43.415524_dp ! reference for thermal conductivity
   real (kind=dp), parameter :: bs = 4.9_dp         ! exponent b (calculation of moisture potential)  (1)
   ! (renamed b in the latest version)
   real (kind=dp), parameter :: ebc = .0742724_dp   ! reference value for soil moisture
