@@ -3020,10 +3020,8 @@ c calculation of sea salt aerosol source
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,
-     &              bs0,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,
-     &              bs0,wmin,wmax
+      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
+      double precision g,a0m,b0m,ug,vg,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       double precision u, v, w
