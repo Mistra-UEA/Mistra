@@ -115,9 +115,9 @@ subroutine outm
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
                    bs,rhoc,ebc,anu0,bs0,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -1564,9 +1564,9 @@ subroutine constm
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,psis,aks, &
+  common /cb44/ g,a0m,b0m(nka),ug,vg,aks, &
                 bs,rhoc,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,psis,aks, &
+  real (kind=dp) :: g,a0m,b0m,ug,vg,aks, &
                     bs,rhoc,ebc,anu0,bs0,wmin,wmax
 
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
