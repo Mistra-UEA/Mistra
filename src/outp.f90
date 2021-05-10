@@ -115,8 +115,8 @@ subroutine outm
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -1519,6 +1519,7 @@ subroutine constm
   USE constants, ONLY : &
 ! Imported Parameters:
        cp, &              ! Specific heat of dry air, in J/(kg.K)
+       g,  &              ! Gravitational acceleration (m/s**2)
        r0, &              ! Specific gas constant of dry air, in J/(kg.K)
        r1                 ! Specific gas constant of water vapour, in J/(kg.K)
 
@@ -1561,8 +1562,8 @@ subroutine constm
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
                 ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
   real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &

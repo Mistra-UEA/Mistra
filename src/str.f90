@@ -172,10 +172,10 @@ program mistra
   endif
  5100 format (i3,d8.2)
 
-  call mk_interface
+  if (chem) call mk_interface
 
   Napari = .true. ; Lovejoy = .true.
-  if (nuc) call nuc_init(Napari,Lovejoy,iod)
+  if (chem .and. nuc) call nuc_init(Napari,Lovejoy,iod)
 
   if (box) print *,'box model run'
 ! it's important to keep this n_bl = 2 for box runs as loops are designed that way
@@ -525,11 +525,8 @@ block data
    implicit double precision (a-h,o-z)
 
 ! Common blocks:
-   common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-   double precision g,a0m,b0m,ug,vg,wmin,wmax
-
-! gravitational acceleration
-   data g /9.8065d0/
+   common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+   double precision a0m,b0m,ug,vg,wmin,wmax
 
 ! chose the subsidence velocities depending on
 ! what version of SR initm is used (see ./special_versions/SR_initm)
@@ -777,7 +774,7 @@ end subroutine openc
 !-------------------------------------------------------------
 !
 
-      subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
+subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 
 ! Author:
@@ -792,12 +789,18 @@ end subroutine openc
 ! == End of header =============================================================
 
 
-      USE constants, ONLY : &
+  USE config, ONLY : &
+! Imported Routines:
+       abortM,&
+       zinv, dtinv
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-!     &     pi,           &
-     &     r0,            &      ! Specific gas constant of dry air, in J/(kg.K)
-     &     r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
-     &     rhow                  ! Water density [kg/m**3]
+       cp,           &
+       g,           &
+       r0,            &      ! Specific gas constant of dry air, in J/(kg.K)
+       r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
+       rhow                  ! Water density [kg/m**3]
 
   USE data_surface, ONLY : &
        ebs, &                    ! saturation moisture potential [cm^3 cm^-3]
@@ -806,6 +809,7 @@ end subroutine openc
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE file_unit, ONLY : &
+       jpfunerr, &
        jpfunpb        ! ploutm files: pm*, pb*
 
       USE global_params, ONLY : &
@@ -827,6 +831,7 @@ end subroutine openc
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
+  real (kind=dp), parameter :: gamma = g / cp ! dry adiabatic lapse rate (K/m)
 ! Common blocks:
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
@@ -841,8 +846,8 @@ end subroutine openc
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
+      common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+      double precision a0m,b0m,ug,vg,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -919,27 +924,34 @@ end subroutine openc
 !     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
-      lcl=1
-      lct=1
+     lcl=1
+     lct=1
 ! declination of the sun
-      declin=18.65
+     declin=18.65
 !      declin=0.
 ! geographical latitude
 !      alat=-6.44
-      alat=-5.8544
+     alat=-5.8544
 ! starting time of calculations
-      lday=0
-      lst=0
-      lmin=0
-! initial inversion height
-!      zinv=700.
-!      zinv=500.
-!      zinv=900.
-!      zinv=600.
-      zinv=800.
-      do k=2,nf
-         if (eta(k).lt.zinv.and.eta(k+1).gt.zinv) kinv=k
-      enddo
+     lday=0
+     lst=0
+     lmin=0
+
+! initial inversion height zinv, find the corresponding layer
+     kinv = 1
+     do k=2,nf
+        if (zinv.gt.eta(k) .and. zinv.le.eta(k+1)) then
+           kinv = k
+           exit
+        end if
+     enddo
+     if (kinv.eq.1) then
+        write (jpfunerr,*) 'Error in SR initm: zinv = ',zinv
+        write (jpfunerr,*) 'It must be set lower than the uppermost prognostic layer'
+        write (jpfunerr,*) 'whose height is: ',eta(nf)
+        call abortM ('Error in SR initm')
+     end if
+
 ! maritime size distribution after hoppel et al. 1994, jgr. 14,443
 !      wr(3,1)=0.02
 !      wr(3,2)=0.05
@@ -1063,22 +1075,14 @@ end subroutine openc
 ! in radiation code: background aerosol = rural aerosol
       t(1)=tw
       do k=2,kinv
-         t(k)=t(1)-0.0098*eta(k)
-!         t(k)=t(1)-0.0096*eta(k)
+         t(k)=t(1)-gamma*eta(k)
          if (nar(k).eq.4) nar(k)=2
       enddo
-      x0=t(kinv)+3.
-!      x0=t(kinv) ! no strong inversion
-      do k=kinv+1,n !kinv+10
+      x0=t(kinv)+dtinv
+      do k=kinv+1,n
          t(k)=x0-0.006*(eta(k)-eta(kinv))
-!;         t(k)=x0-0.008*(eta(k)-eta(kinv))
-!;         t(k)=x0-0.0098*(eta(k)-eta(kinv))
          if (nar(k).eq.4) nar(k)=2
       enddo
-!      do k=kinv+11,n
-!         t(k)=x0-0.006*(eta(k)-eta(kinv))
-!         if (nar(k).eq.4) nar(k)=2
-!      enddo
 
 !      call adjust_f !only if Kim aerosol is used!!
 
@@ -1499,8 +1503,8 @@ subroutine startm (fogtype)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -2452,8 +2456,8 @@ subroutine wfield
   common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
   real (kind=dp) :: detw, deta, eta, etw
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax        ! wmin, wmax: input for vertical wind
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax        ! wmin, wmax: input for vertical wind
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w                                 ! w: subsidence
@@ -2541,8 +2545,8 @@ subroutine difm (dt)
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -2997,6 +3001,10 @@ subroutine atk0
 
 ! == End of header =============================================================
 
+  USE constants, ONLY : &
+! Imported Parameters:
+       g
+
   USE data_surface, ONLY : &
        ustern, z0, &               ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
@@ -3024,8 +3032,8 @@ subroutine atk0
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -3075,7 +3083,7 @@ end subroutine atk0
 !-------------------------------------------------------------
 !
 
-      subroutine atk1
+subroutine atk1
 
 
 ! Author:
@@ -3089,15 +3097,18 @@ end subroutine atk0
 
 ! == End of header =============================================================
 
+  USE constants, ONLY : &
+! Imported Parameters:
+       g                           ! Gravitational acceleration
+
   USE data_surface, ONLY : &
        ustern, &                   ! frictional velocity
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nm, &
-     &     nka
+       n, &
+       nm
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -3130,9 +3141,6 @@ end subroutine atk0
 
       common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
       real (kind=dp) :: gm, gh, sm, sh, xl
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
 
       common /cb45/ u(n),v(n),w(n)
       real (kind=dp) :: u, v, w
@@ -3436,6 +3444,10 @@ subroutine surf0 (dt)
 ! Imported Routines:
        abortM
 
+  USE constants, ONLY : &
+! Imported Parameters:
+       g
+
   USE data_surface, ONLY : &
        tw, &                       ! water surface temperature
        ustern, z0,&                ! frictional velocity, roughness length
@@ -3443,8 +3455,7 @@ subroutine surf0 (dt)
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-       n, &
-       nka
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -3467,8 +3478,6 @@ subroutine surf0 (dt)
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -3531,6 +3540,7 @@ subroutine surf1 (dt)
   USE constants, ONLY : &
 ! Imported Parameters:
        cp, &                   ! Specific heat of dry air, in J/(kg.K)
+       g,  &                   ! Gravitational acceleration (m/s**2)
        r1, &                   ! Specific gas constant of water vapour, in J/(kg.K)
        rhow                  ! Water density [kg/m**3]
 
@@ -3542,8 +3552,7 @@ subroutine surf1 (dt)
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
-       nb, &
-       nka
+       nb
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -3581,8 +3590,6 @@ subroutine surf1 (dt)
 ! Common blocks:
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -4329,8 +4336,8 @@ subroutine equil (ncase,kk)
   real (kind=dp) :: rg(nka),eg(nka)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax         ! a0m, b0m: Koehler curve
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax         ! a0m, b0m: Koehler curve
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
                 e(nkt),dew(nkt),rq(nkt,nka)
@@ -4537,8 +4544,8 @@ subroutine subkon (dt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
                 qext(18,nkt,nka,jptaerrad), &
@@ -5637,8 +5644,8 @@ subroutine adjust_f
   real (kind=dp) :: f_inter(nka)
 
 ! Common blocks:
-  common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
                 e(nkt),dew(nkt),rq(nkt,nka)
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
@@ -5700,9 +5707,10 @@ end subroutine adjust_f
 
 ! == End of header =============================================================
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       g, &                        ! Gravitational acceleration (m/s**2)
+       pi
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
@@ -5726,9 +5734,6 @@ end subroutine adjust_f
       common /blck12/ cw(nkc,n),cm(nkc,n)
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       double precision detw, deta, eta, etw
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
      &              e(nkt),dew(nkt),rq(nkt,nka)
@@ -5846,17 +5851,17 @@ end subroutine adjust_f
 !     - integer exponents (**2 instead of **2.)
 !     - removed archaic forms of intrinsic functions (dlog, datan)
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     &     cp              ! Specific heat of dry air, in J/(kg.K)
+       cp,&              ! Specific heat of dry air, in J/(kg.K)
+       g                           ! Gravitational acceleration (m/s**2)
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
 
       USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka
+     &     n
 
       USE precision, ONLY : &
 ! Imported Parameters:
@@ -5873,9 +5878,6 @@ end subroutine adjust_f
 
       common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
       real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
-
-      common /cb44/ g,a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision g,a0m,b0m,ug,vg,wmin,wmax
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho

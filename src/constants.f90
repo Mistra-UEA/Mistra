@@ -68,7 +68,7 @@ real(kind=dp), parameter :: rhow = 1000.0_dp                     ! [kg/m3]
 ! Aerosol density
 real(kind=dp), parameter :: rho3 = 2000.0_dp                     ! [kg/m3]
 
-! Gravity
+! Gravitational acceleration
 real(kind=dp), parameter :: g = 9.80665_dp                       ! [m/s2]
 
 ! Specific heat capacity of dry air at constant pressure
