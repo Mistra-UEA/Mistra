@@ -77,8 +77,13 @@ subroutine outm
 ! Declarations:
 ! Modules used:
   USE data_surface, ONLY : &
+       tw, &                       ! water surface temperature
+       ustern, z0,&                ! frictional velocity, roughness length
+       gclu, gclt                  ! coefficients for momentum, and temperature and humidity
+
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-       z0
+       jpfunrstm
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -101,23 +106,17 @@ subroutine outm
 ! Common blocks:
   common /cb11/ totrad (mb,n)
   real (kind=dp) :: totrad
-
   common /cb18/ alat,declin                ! for the SZA calculation
   real (kind=dp) :: alat,declin
-
   common /cb40/ time,lday,lst,lmin,it,lcl,lct
   real (kind=dp) :: time
   integer :: lday, lst, lmin, it, lcl, lct
-
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
-                   bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -126,16 +125,15 @@ subroutine outm
        ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
   common /cb48/ sk,sl,dtrad(n),dtcon(n)
   real (kind=dp) :: sk, sl, dtrad, dtcon
-
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
-
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-
   common /cb63/ fcs(nka),xmol3(nka)
   real(kind=dp) :: fcs, xmol3
 
@@ -163,20 +161,20 @@ subroutine outm
   fname(5:5)=sub
 
  3000 continue
-  open (15,file=fname,status='unknown',form='unformatted',err=3000)
+  open (jpfunrstm,file=fname,status='unknown',form='unformatted',err=3000)
+  write (jpfunrstm) &
 ! double precision arrays
-  write (15) &
        atkm,atkh,b0m,dfddt,dtrad,eb,ff,fcs,feu,fsum, &
-       gh,p,rho,t,talt,tb,tke,tkep,theta,totrad,u,v,w,xl,xm1,xm1a, &
-       xm2,xmol3, &
+       gh,p,rho,t,talt,tb,thet,theta,theti,thetl,tke,tkep, &
+       totrad,u,v,w,xl,xm1,xm1a,xm2,xmol3, &
 ! double precision single vars
-       a0m,alat,declin,ds1,ds2,reif,sk,sl,tau, &
-       trdep, z0, &
+       a0m,alat,declin,ds1,ds2,gclt,gclu,reif,sk,sl,tau, &
+       trdep,tw,ustern,z0, &
 ! integer arrays
        nar, &
 ! integer single vars
        it,lcl,lct,lday,lmin,lst
-  close (15)
+  close (jpfunrstm)
 
 end subroutine outm
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -207,6 +205,10 @@ subroutine outc
 !
 ! Declarations:
 ! Modules used:
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunrstc
+
   USE gas_common, ONLY: &
 ! Imported Array Variables with intent (in):
        s1, &
@@ -239,7 +241,6 @@ subroutine outc
 ! Common blocks:
   common /band_rat/ photol_j(nphrxn,n)
   real (kind=dp) :: photol_j
-
   common /blck01/ am3(n),cm3(n)
   real (kind=dp) :: am3, cm3
   common /blck11/ rc(nkc,n)
@@ -252,22 +253,18 @@ subroutine outc
   real (kind=dp) :: sl1, sion1
   common /blck78/ sa1(nka,j2),sac1(nka,j2)
   real (kind=dp) :: sa1, sac1
-
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
-
   common /cb40/ time,lday,lst,lmin,it,lcl,lct
   real (kind=dp) :: time
   integer :: lday, lst, lmin, it, lcl, lct
-
   common /kinv_i/ kinv
   integer :: kinv
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
   common /kpp_l1/ cloudt(nkc,n)
   logical :: cloudt
-
   common /kpp_mol/ xgamma(nf,j6,nkc)
   real (kind=dp) :: xgamma
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
@@ -296,9 +293,10 @@ subroutine outc
   fname(5:5)=sub
 
 3000 continue
-  open (16,file=fname,status='unknown',form='unformatted',err=3000)
+  open (jpfunrstc,file=fname,status='unknown',form='unformatted',err=3000)
+  write (jpfunrstc) &
 ! double precision arrays
-  write (16) am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
+       am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
        sac1,sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
        xcryssulf,xcrysss,xdelisulf,xdeliss, &
@@ -306,7 +304,7 @@ subroutine outc
        cloudt, &
 ! integers
        il,kinv,lday,lmin,lst
-  close (16)
+  close (jpfunrstc)
 
 end subroutine outc
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1521,6 +1519,7 @@ subroutine constm
   USE constants, ONLY : &
 ! Imported Parameters:
        cp, &              ! Specific heat of dry air, in J/(kg.K)
+       g,  &              ! Gravitational acceleration (m/s**2)
        r0, &              ! Specific gas constant of dry air, in J/(kg.K)
        r1                 ! Specific gas constant of water vapour, in J/(kg.K)
 
@@ -1563,12 +1562,8 @@ subroutine constm
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-
-  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
                 ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
   real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &

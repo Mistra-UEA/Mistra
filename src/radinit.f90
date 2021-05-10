@@ -747,6 +747,7 @@ subroutine initr
 
   USE constants, ONLY : &
 ! Imported Parameters:
+       g, &             ! Gravitational acceleration (m/s**2)
        r0               ! Specific gas constant of dry air, in J/(kg.K)
 
   USE file_unit, ONLY : &
@@ -758,7 +759,6 @@ subroutine initr
        n,                   &
        nrlay,               &
        nrlev,               &
-       nka,                 &
        mb,                  &
        mbs,                 &
        mbir
@@ -804,11 +804,6 @@ subroutine initr
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-
-  common /cb44/ g,a0m,b0m(nka),ug,vg,ebs,psis,aks, &
-                bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
-  real (kind=dp) :: g,a0m,b0m,ug,vg,ebs,psis,aks, &
-                    bs,rhoc,rhocw,ebc,anu0,bs0,wmin,wmax
 
   common /cb56/ o3un(52)
   real (kind=dp) :: o3un

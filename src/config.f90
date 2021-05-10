@@ -96,9 +96,15 @@ integer :: &
   ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
 
 real (KIND=dp) :: &
+  detamin,        & ! atmospheric grid: height of constant layers [m]
+  etaw1,          & ! atmospheric grid: top of the grid [m]
   rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
+
+real (kind=dp) :: &
+     zinv,        & ! initial inversion height [m]
+     dtinv          ! inversion strength = temperature drop at inversion [K]
 
 character (len=100) :: cnmlfile
 
@@ -113,6 +119,9 @@ namelist /mistra_cfg/ &
      lstmax,          &
      netcdf,          &
      binout,          &
+     detamin, etaw1,  &
+! meteorological data
+     zinv, dtinv, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -218,6 +227,15 @@ rst = .false.
 lstmax = 1
 netCDF = .false.
 binout = .false.
+
+! model grid
+detamin = 10._dp
+etaw1 = 2000._dp
+
+! meteorological data
+zinv = 700._dp
+dtinv = 6._dp
+
 isurf = 0
 tw = 293._dp
 ltwcst = .true.

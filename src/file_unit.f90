@@ -30,10 +30,15 @@ module file_unit
   integer, parameter :: jpfunnam = 1
   integer, parameter :: jpfuncfgout = 2
 
+! prof* files
   integer, parameter :: jpfunprofm = 11
   integer, parameter :: jpfunprofc = 12
   integer, parameter :: jpfunprofr = 13
 
+! restart files
+  integer, parameter :: jpfunrstm = 15
+  integer, parameter :: jpfunrstc = 16
+  
 ! ploutm files: pm*, pb*
   integer, parameter :: jpfunpm = 20
   integer, parameter :: jpfunpb = 21

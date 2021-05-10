@@ -38,6 +38,7 @@ module data_surface
   public ! confirm this property with an explicit statement
   save   ! not mandatory if called from main program
 
+
 ! Prandtl layer, Clarke functions, frictional velocity
 !-----------------------------------------------------
   real (kind=dp) :: &
@@ -55,5 +56,19 @@ module data_surface
   real (kind=dp) :: &
        tw           ! water surface temperature                          (K)
 
+
+  !-------------------------------------
+  !  data_soil
+  !-------------------------------------
+! soil constants for sandy loam
+  real (kind=dp), parameter :: aks = 3.41e-5_dp    ! hydraulic conductivity for saturated soil     (m/s)
+  ! (renamed hcs in the latest version)
+  real (kind=dp), parameter :: anu0 = 43.415524_dp ! reference for thermal conductivity
+  real (kind=dp), parameter :: bs = 4.9_dp         ! exponent (calculation of moisture potential)    (1)
+  ! (renamed b in the latest version)
+  real (kind=dp), parameter :: bs0 = 2.128043_dp   ! reference for exponent bs
+  real (kind=dp), parameter :: ebc = .0742724_dp   ! reference value for soil moisture
+  real (kind=dp), parameter :: ebs = .435_dp       ! volumetric porosity of the soil           (m^3/m^3)
+  real (kind=dp), parameter :: psis = -.218_dp     ! moist potential for saturated soil              (m)
 
 end module data_surface
