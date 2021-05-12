@@ -49,6 +49,9 @@ real(kind=dp), parameter :: M_wat = 18.01528e-3_dp               ! [kg/mol]
 ! Pi
 real(kind=dp), parameter :: pi = 3.1415926535897932_dp
 
+! Rad(1 deg)
+real(kind=dp), parameter :: rad = pi / 180._dp
+
 ! Molar gas constant
 !     ref: Gavioso et al. (2015), Metrologia 52 (S274-S304) doi: 10.1088/0026-1394/52/5/S274
 real(kind=dp), parameter :: gas_const = 8.3144743_dp             ! [J/K/mol]

@@ -12,6 +12,14 @@
  netcdf=T        !<-- netCDF: netCDF output
  binout=F        !<-- binout: binary output
 
+ ! timing and geography
+ nday = 11       !<-- starting time: day
+ nmonth = 05     !<-- starting time: month
+ nyear = 2021    !<-- starting time: year
+ nhour = 0       !<-- starting time: hour (local time with alon=0., or UTC time with actual alon value)
+ alon = 0.       !<-- longitude [deg] (-180 ; 180)
+ alat = 0.       !<-- latitude [deg]
+
  ! Surface setings
 ! isurf = 0       !<-- isurf: 0 = water or snow surface (default), 1 is bare soil
  tw = 299.5      !<-- tw = water temperature [K]

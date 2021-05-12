@@ -95,6 +95,15 @@ integer :: &
   nkc_l,   & ! nkc_l    : number of output classes for aq. chem.
   ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
 
+integer :: &
+     nday,        & ! starting time day
+     nmonth,      & ! starting time month
+     nyear,       & ! starting time year
+     nhour          ! starting time hour
+real (kind=dp) :: &
+     alon,        & ! longitude (in degree, -180 ; 180)
+     alat           ! latitude (in degree)
+
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
   etaw1,          & ! atmospheric grid: top of the grid [m]
@@ -120,6 +129,8 @@ namelist /mistra_cfg/ &
      netcdf,          &
      binout,          &
      detamin, etaw1,  &
+! timing and geography
+     nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
      zinv, dtinv, &
      isurf,           &
@@ -227,6 +238,14 @@ rst = .false.
 lstmax = 1
 netCDF = .false.
 binout = .false.
+
+! timing and geography
+ nday = 01
+ nmonth = 07
+ nyear = 2021
+ nhour = 0
+ alon = 0._dp
+ alat = 0._dp
 
 ! model grid
 detamin = 10._dp

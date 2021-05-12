@@ -466,8 +466,10 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
       dimension freep(nf)
       logical update_now
 
-      itime = int(time)
-
+      itime = int(time) ! jjb bugfix: previously lmin was used, but lmin doesn't change during
+                        !   6 dd dub-timesteps... thus fast_k_mt_* routines were called 6 times
+                        !   during a minute, then not during the next minute...
+                        !   Now called once every 2 minutes, as expected.
       nmin  = 1
       nmin2 = 2
       nmaxf = nf

@@ -307,7 +307,6 @@ program mistra
      endif
 
 ! dry dep velocities
-!     print*,'call partdep'
      call partdep (xra)
 
 ! dd: fractional timestep in sec
@@ -372,8 +371,6 @@ program mistra
 ! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
 !                                      Lovejoy: homogeneous OIO nucleation
 !                                      for further explanation see nuc.f
-                 !Napari = .true.
-                 !Lovejoy = .true.                 ! <jjb> defined previously
                  if ((Napari) .and. (Lovejoy)) then
                     both = .true.
                  else
@@ -383,10 +380,8 @@ program mistra
                     STOP 'Napari or Lovejoy must be true'
                  end if
                  if (both) then
-!         print*,'call appnucl2'
                     call appnucl2 (dd,both)
                  else
-!         print*,'call appnucl'
                     call appnucl (dd,Napari,Lovejoy,both)
                  endif
 !                   --- de-comment if .asc output for gnu-plotting is desired ---
@@ -414,7 +409,6 @@ program mistra
      enddo                  ! ij-loop : end of fractional timestep loop
 
 ! radiative fluxes and heating rates
-!     print*,'call str'
      if (.not.box) call radiation (llinit)
 ! new photolysis rates
      if (chem) then
@@ -792,12 +786,16 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   USE config, ONLY : &
 ! Imported Routines:
        abortM,&
+! Imported Scalar Variables with intent (in):
+       nyear, nmonth, nday, nhour, &
+       zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        zinv, dtinv
 
   USE constants, ONLY : &
 ! Imported Parameters:
        cp,           &
        g,           &
+       pi, rad,          &
        r0,            &      ! Specific gas constant of dry air, in J/(kg.K)
        r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
        rhow                  ! Water density [kg/m**3]
@@ -809,8 +807,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE file_unit, ONLY : &
-       jpfunerr, &
-       jpfunpb        ! ploutm files: pm*, pb*
+       jpfunerr, jpfunout, & ! standard error/output files
+       jpfunpb               ! ploutm files: pm*, pb*
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -831,50 +829,55 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
+  integer, parameter :: jpdaypermonth(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
   real (kind=dp), parameter :: gamma = g / cp ! dry adiabatic lapse rate (K/m)
+
+  integer :: jm ! running indexes
+  integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
+  real (kind=dp) :: deltat, rdec, zgamma
 ! Common blocks:
-      common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+  common /cb18/ alat,declin                ! for the SZA calculation
+  real(kind=dp) :: alat,declin
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real(kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
+  real(kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb51/ dlgew,dlgenw,dlne
-      real (kind=dp) :: dlgew, dlgenw, dlne
+  common /cb51/ dlgew,dlgenw,dlne
+  real (kind=dp) :: dlgew, dlgenw, dlne
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-      common /cb63/ fcs(nka),xmol3(nka)
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb63/ fcs(nka),xmol3(nka)
+  common /kinv_i/ kinv
+  integer :: kinv
 
 !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
 !    &          fnorm(n)
@@ -914,28 +917,84 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      &               wn(ka,3)*dexp(-ws(ka,3)*dlog10(rr/wr(ka,3))**2)
       dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
      &                wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)
-
-! no restart only for the following block
-  if (.not.rst) then
-
 ! after Jaenicke/Sander/Kim:
 !      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2) &
 !     & **2/(2*0.1106**2))+ &
 !     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
+
+! == End of declarations =======================================================
+
+! initialisation of solar time: nyear, nmonth, nday, nhour are read from namelist
+! -----------------------------
+  if (.not.rst) then
+! day of year = julian day
+     idayjul = 0
+     do jm=1,nmonth-1
+        idayjul = idayjul + jpdaypermonth(jm)
+     end do
+     ! leap year?
+     if (mod(nyear,4).eq.0 .and. nmonth.ge.3) then
+        idayjul = idayjul + 1
+        itotyear = 366
+     else
+        itotyear = 365
+     end if
+     idayjul = idayjul + nday
+
+! starting time of calculations
+     lday = 0
+     lmin = 0
+     lst = nhour
+
+! equation of time:
+     ! gamma is the day angle, also called fractional year, in radians
+     zgamma  = 2._dp * pi * real(idayjul - 1,dp) / real(itotyear,dp)
+     ! equation of time (in hour)
+     deltat = 24._dp / (2._dp * pi) * (0.0000075_dp &
+          + 0.001868_dp * cos(zgamma) - 0.032077_dp * sin(zgamma) &
+          - 0.014615_dp * cos(2._dp * zgamma) - 0.040849_dp * sin(2._dp * zgamma))
+! time correction
+     tkorr  = (4._dp * alon / 60._dp) + deltat
+     ! Local time, for output only
+     istort = lst + floor(tkorr)
+     immort = nint((tkorr + real(lst - istort,dp)) * 60._dp)
+
+! declination of the sun
+     rdec   = 0.006918_dp - 0.399912_dp * cos(zgamma) + 0.070257_dp * sin(zgamma) &
+          - 0.006758_dp * cos(2._dp * zgamma) + 0.000907_dp * sin(2._dp * zgamma)
+     ! in cb16, declination is in degree, convert here
+     declin = rdec / rad
+
+! Fill alat in cb16 with alat=zalat from config
+     alat = zalat
+
+! output
+     write (jpfunout,6000)
+     write (jpfunout,6300)
+     write (jpfunout,6301) nday, nmonth, nyear
+     write (jpfunout,6302) int(idayjul)
+     write (jpfunout,6303) tkorr
+     write (jpfunout,6304) istort,immort
+     write (jpfunout,6305) declin
+
+6000 format ('---------------------------------------------------------------&
+             &-----------------')
+6300 format ('Initialization of local time:')
+6302 format ('Julian day: ', i3)
+6301 format ('Date: ',i2.2,'.',i2.2,'.',i4.4)
+6303 format ('Time correction: ',f4.2,' hours')
+6304 format ('Start at local time (incl. time correction): ',i2.2,':',i2.2)
+6305 format ('Declination of the sun: ',f6.2,' deg')
+
+  end if
+
+! no restart only for the following block
+  if (.not.rst) then
+
      lcl=1
      lct=1
-! declination of the sun
-     declin=18.65
-!      declin=0.
-! geographical latitude
-!      alat=-6.44
-     alat=-5.8544
-! starting time of calculations
-     lday=0
-     lst=0
-     lmin=0
 
 ! initial inversion height zinv, find the corresponding layer
      kinv = 1
@@ -1171,8 +1230,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       fname='pi .out'
       fname(3:3)=fogtype
       open (97, file=fname,status='unknown')
-      write (97,6000) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
- 6000 format (5e16.8)
+      write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
+ 6001 format (5e16.8)
       close (97)
       write (jpfunpb) zb
       close (jpfunpb)
@@ -2591,7 +2650,7 @@ subroutine difm (dt)
   fdt=fcor*dt
   xf(1)=0._dp
   do k=2,nm
-     oldu(k)=u(k)
+     oldu(k)=u(k) ! save u for v calculation below
      xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
   enddo
   do k=nm,2,-1
@@ -6225,7 +6284,6 @@ end subroutine ion_mass
       rdec=declin*1.745329e-02
       zeit=lst*3600.+dfloat(lmin-1)*60.
 ! greater intervals and variable dtg is known only in the old chemical module
-!      horang=7.272205e-05*zeit-3.1415927
       horang=7.272205e-05*zeit-pi
       u00=dcos(rdec)*dcos(rlat)*dcos(horang)+dsin(rdec)*dsin(rlat)
       ru0=6371.*u00
