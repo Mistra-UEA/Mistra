@@ -108,6 +108,10 @@ real (kind=dp) :: &
      rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
      rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
      rp0,         & ! Surface pressure [Pa]
+     ug,          & ! geostrophic wind, x-direction [m/s]
+     vg,          & ! geostrophic wind, y-direction [m/s]
+     wmin,        & ! large scale subsidence (min) [m/s]
+     wmax,        & ! large scale subsidence (max) [m/s]
      xm1w,        & ! specific humidity below inversion layer (kg/kg)
      xm1i,        & ! specific humidity above inversion layer (kg/kg)
      zinv,        & ! initial inversion height [m]
@@ -137,7 +141,7 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -264,6 +268,10 @@ rhMaxBL = 1._dp
 rhMaxFT = 1._dp
 zinv = 700._dp
 dtinv = 6._dp
+ug = 6._dp
+vg = 6._dp
+wmin = 0._dp
+wmax = -0.006_dp
 
 isurf = 0
 tw = 293._dp

@@ -115,8 +115,8 @@ subroutine outm
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -1514,7 +1514,8 @@ subroutine constm
 ! Imported Parameters:
        chem, &
        mic, &
-       rst
+       rst, &
+       ug, vg, wmin, wmax
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1562,8 +1563,8 @@ subroutine constm
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
                 ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
   real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &

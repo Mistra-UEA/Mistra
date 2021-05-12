@@ -207,7 +207,7 @@ program mistra
 ! --------------------------------------------
 ! initial meteorological and chemical input
   call initm (iaertyp,fogtype,rst)
-  call initc(box,n_bl)
+  if (chem) call initc(box,n_bl)
 ! number of iterations
   it0=0
   itmax=60*lstmax
@@ -509,46 +509,6 @@ end program mistra
 !-----------------------------------------------------------------------
 !
 
-block data
-! defines parameters that are accessible to all subroutines
-
-   USE global_params, ONLY : &
-! Imported Parameters:
-        nka
-
-   implicit double precision (a-h,o-z)
-
-! Common blocks:
-   common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-   double precision a0m,b0m,ug,vg,wmin,wmax
-
-! chose the subsidence velocities depending on
-! what version of SR initm is used (see ./special_versions/SR_initm)
-
-! geostrophic wind, large scale subsidence
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.005d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.004d0/
-!      data ug,vg,wmin,wmax /10.d0, 0.d0, 0.d0,-0.004d0/
-!      data ug,vg,wmin,wmax /10.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax /8.5d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax /7.0d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 7.d0, 0.d0, 0.d0,-0.006d0/   !cloud sub
-!      data ug,vg,wmin,wmax /8.5d0, 0.d0, 0.d0,-0.0015d0/ !aerosol sub
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.01d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.02d0/
-!       data ug,vg,wmin,wmax /8.0d0, 0.d0, 0.d0, 0.d0/
-!       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, 0.d0/
-!       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.0015d0/ !aerosol sub (value copied from above)
-   data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
-
-end block data
-
-!
-!-------------------------------------------------------------
-!
-
 subroutine openm (fogtype)
 ! input/output files
 
@@ -789,7 +749,9 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Scalar Variables with intent (in):
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
-       rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT
+       rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
+       ug, vg, wmin, wmax
+
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -849,8 +811,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real(kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real(kind=dp) :: a0m,b0m
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -983,8 +945,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 6300 format ('Initialization of local time:')
 6302 format ('Julian day: ', i3)
 6301 format ('Date: ',i2.2,'.',i2.2,'.',i4.4)
-6303 format ('Time correction: ',f4.2,' hours')
-6304 format ('Start at local time (incl. time correction): ',i2.2,':',i2.2)
+6303 format ('Time correction: ',f5.2,' hours')
+6304 format ('Start at local time (incl. time correction): ',i3.2,':',i2.2)
 6305 format ('Declination of the sun: ',f6.2,' deg')
 
   end if
@@ -1573,8 +1535,8 @@ subroutine startm (fogtype)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -2498,14 +2460,17 @@ subroutine wfield
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+! Imported Parameters:
+       wmin, wmax                  ! large scale subsidence
+
   USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-       n,                   &
-       nka
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -2525,9 +2490,6 @@ subroutine wfield
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
   real (kind=dp) :: detw, deta, eta, etw
-
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax        ! wmin, wmax: input for vertical wind
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w                                 ! w: subsidence
@@ -2574,6 +2536,10 @@ subroutine difm (dt)
 ! Declarations :
 ! ------------
 ! Modules used:
+  USE config, ONLY : &
+! Imported Parameters:
+       ug, vg                      ! geostrophic wind
+
   USE constants, ONLY : &
 ! Imported Parameters:
        r0               ! Specific gas constant of dry air, in J/(kg.K)
@@ -2584,8 +2550,7 @@ subroutine difm (dt)
   USE global_params, ONLY : &
 ! Imported Parameters:
        n,                   &
-       nm,                  &
-       nka
+       nm
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -2614,9 +2579,6 @@ subroutine difm (dt)
 
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
-
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -3071,6 +3033,10 @@ subroutine atk0
 
 ! == End of header =============================================================
 
+  USE config, ONLY : &
+! Imported Parameters:
+       ug, vg                      ! geostrophic wind
+
   USE constants, ONLY : &
 ! Imported Parameters:
        g
@@ -3081,8 +3047,7 @@ subroutine atk0
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-       n, &
-       nka
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -3102,8 +3067,6 @@ subroutine atk0
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -4406,8 +4369,8 @@ subroutine equil (ncase,kk)
   real (kind=dp) :: rg(nka),eg(nka)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax         ! a0m, b0m: Koehler curve
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)         ! a0m, b0m: Koehler curve
+  real (kind=dp) :: a0m,b0m
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
                 e(nkt),dew(nkt),rq(nkt,nka)
@@ -4614,8 +4577,8 @@ subroutine subkon (dt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
                 qext(18,nkt,nka,jptaerrad), &
@@ -5714,8 +5677,8 @@ subroutine adjust_f
   real (kind=dp) :: f_inter(nka)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
                 e(nkt),dew(nkt),rq(nkt,nka)
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
