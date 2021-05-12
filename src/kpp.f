@@ -466,8 +466,10 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
       dimension freep(nf)
       logical update_now
 
-      itime = int(time)
-
+      itime = int(time) ! jjb bugfix: previously lmin was used, but lmin doesn't change during
+                        !   6 dd dub-timesteps... thus fast_k_mt_* routines were called 6 times
+                        !   during a minute, then not during the next minute...
+                        !   Now called once every 2 minutes, as expected.
       nmin  = 1
       nmin2 = 2
       nmaxf = nf
@@ -3020,8 +3022,8 @@ c calculation of sea salt aerosol source
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision a0m,b0m,ug,vg,wmin,wmax
+      common /cb44/ a0m,b0m(nka)
+      double precision a0m,b0m
 
       common /cb45/ u(n),v(n),w(n)
       double precision u, v, w

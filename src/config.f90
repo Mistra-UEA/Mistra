@@ -95,16 +95,36 @@ integer :: &
   nkc_l,   & ! nkc_l    : number of output classes for aq. chem.
   ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
 
+integer :: &
+     nday,        & ! starting time day
+     nmonth,      & ! starting time month
+     nyear,       & ! starting time year
+     nhour          ! starting time hour
+real (kind=dp) :: &
+     alon,        & ! longitude (in degree, -180 ; 180)
+     alat           ! latitude (in degree)
+
+integer :: &
+     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=
+real (kind=dp) :: &
+     rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
+     rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
+     rp0,         & ! Surface pressure [Pa]
+     ug,          & ! geostrophic wind, x-direction [m/s]
+     vg,          & ! geostrophic wind, y-direction [m/s]
+     wmin,        & ! large scale subsidence (min) [m/s]
+     wmax,        & ! large scale subsidence (max) [m/s]
+     xm1w,        & ! specific humidity below inversion layer (kg/kg)
+     xm1i,        & ! specific humidity above inversion layer (kg/kg)
+     zinv,        & ! initial inversion height [m]
+     dtinv          ! inversion strength = temperature drop at inversion [K]
+
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
   etaw1,          & ! atmospheric grid: top of the grid [m]
   rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
-
-real (kind=dp) :: &
-     zinv,        & ! initial inversion height [m]
-     dtinv          ! inversion strength = temperature drop at inversion [K]
 
 character (len=100) :: cnmlfile
 
@@ -120,8 +140,10 @@ namelist /mistra_cfg/ &
      netcdf,          &
      binout,          &
      detamin, etaw1,  &
+! timing and geography
+     nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     zinv, dtinv, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -228,13 +250,31 @@ lstmax = 1
 netCDF = .false.
 binout = .false.
 
+! timing and geography
+ nday = 01
+ nmonth = 07
+ nyear = 2021
+ nhour = 0
+ alon = 0._dp
+ alat = 0._dp
+
 ! model grid
 detamin = 10._dp
 etaw1 = 2000._dp
 
 ! meteorological data
+rp0 = 101325._dp
+xm1w = 8.5e-3_dp
+xm1i = 4.0e-3_dp
+rhMaxBL = 1._dp
+rhMaxFT = 1._dp
 zinv = 700._dp
 dtinv = 6._dp
+ug = 6._dp
+vg = 6._dp
+nwProfOpt = 2
+wmin = 0._dp
+wmax = -0.006_dp
 
 isurf = 0
 tw = 293._dp

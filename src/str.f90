@@ -207,7 +207,7 @@ program mistra
 ! --------------------------------------------
 ! initial meteorological and chemical input
   call initm (iaertyp,fogtype,rst)
-  call initc(box,n_bl)
+  if (chem) call initc(box,n_bl)
 ! number of iterations
   it0=0
   itmax=60*lstmax
@@ -249,7 +249,7 @@ program mistra
   if (chem) call profc (dt,mic)
 
 ! initialization of radiation code, and first calculation
- call radiation (llinit)
+  call radiation (llinit)
 
 ! initial photolysis rates
 !  if (chem) call photol
@@ -307,7 +307,6 @@ program mistra
      endif
 
 ! dry dep velocities
-!     print*,'call partdep'
      call partdep (xra)
 
 ! dd: fractional timestep in sec
@@ -372,8 +371,6 @@ program mistra
 ! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
 !                                      Lovejoy: homogeneous OIO nucleation
 !                                      for further explanation see nuc.f
-                 !Napari = .true.
-                 !Lovejoy = .true.                 ! <jjb> defined previously
                  if ((Napari) .and. (Lovejoy)) then
                     both = .true.
                  else
@@ -383,10 +380,8 @@ program mistra
                     STOP 'Napari or Lovejoy must be true'
                  end if
                  if (both) then
-!         print*,'call appnucl2'
                     call appnucl2 (dd,both)
                  else
-!         print*,'call appnucl'
                     call appnucl (dd,Napari,Lovejoy,both)
                  endif
 !                   --- de-comment if .asc output for gnu-plotting is desired ---
@@ -414,7 +409,6 @@ program mistra
      enddo                  ! ij-loop : end of fractional timestep loop
 
 ! radiative fluxes and heating rates
-!     print*,'call str'
      if (.not.box) call radiation (llinit)
 ! new photolysis rates
      if (chem) then
@@ -513,46 +507,6 @@ end program mistra
 
 !
 !-----------------------------------------------------------------------
-!
-
-block data
-! defines parameters that are accessible to all subroutines
-
-   USE global_params, ONLY : &
-! Imported Parameters:
-        nka
-
-   implicit double precision (a-h,o-z)
-
-! Common blocks:
-   common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-   double precision a0m,b0m,ug,vg,wmin,wmax
-
-! chose the subsidence velocities depending on
-! what version of SR initm is used (see ./special_versions/SR_initm)
-
-! geostrophic wind, large scale subsidence
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.005d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.004d0/
-!      data ug,vg,wmin,wmax /10.d0, 0.d0, 0.d0,-0.004d0/
-!      data ug,vg,wmin,wmax /10.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax /8.5d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax /7.0d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 7.d0, 0.d0, 0.d0,-0.006d0/   !cloud sub
-!      data ug,vg,wmin,wmax /8.5d0, 0.d0, 0.d0,-0.0015d0/ !aerosol sub
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0, 0.d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.01d0/
-!      data ug,vg,wmin,wmax / 6.d0, 0.d0, 0.d0,-0.02d0/
-!       data ug,vg,wmin,wmax /8.0d0, 0.d0, 0.d0, 0.d0/
-!       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, 0.d0/
-!       data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.0015d0/ !aerosol sub (value copied from above)
-   data ug,vg,wmin,wmax /15.0d0, 0.d0, 0.d0, -0.006d0/ !cloud sub (value copied from above)
-
-end block data
-
-!
-!-------------------------------------------------------------
 !
 
 subroutine openm (fogtype)
@@ -784,7 +738,11 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! Modifications :
 ! -------------
-  !
+  ! 12-May-2021  Josue Bock  Bugfix for p(1) = rp0. Start do loop at k=2 instead of k=1
+  !                          Initialisation of buoy, allows smoother model spinup (see SR atk1:
+  !                            filtering 80% old + 20% new values, but old has to be initialised though)
+  !                          Introduce nwProfOpt for different subsidence profiles.
+  !                            1- original BTZ96 paper. 2- current parameterisation
 
 ! == End of header =============================================================
 
@@ -792,12 +750,18 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   USE config, ONLY : &
 ! Imported Routines:
        abortM,&
-       zinv, dtinv
+! Imported Scalar Variables with intent (in):
+       nyear, nmonth, nday, nhour, &
+       zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
+       rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
+       ug, vg, wmin, wmax, nwProfOpt
+
 
   USE constants, ONLY : &
 ! Imported Parameters:
        cp,           &
        g,           &
+       pi, rad,          &
        r0,            &      ! Specific gas constant of dry air, in J/(kg.K)
        r1,            &      ! Specific gas constant of water vapour, in J/(kg.K)
        rhow                  ! Water density [kg/m**3]
@@ -809,8 +773,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE file_unit, ONLY : &
-       jpfunerr, &
-       jpfunpb        ! ploutm files: pm*, pb*
+       jpfunerr, jpfunout, & ! standard error/output files
+       jpfunpb               ! ploutm files: pm*, pb*
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -831,55 +795,59 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
+  integer, parameter :: jpdaypermonth(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
   real (kind=dp), parameter :: gamma = g / cp ! dry adiabatic lapse rate (K/m)
+
+  integer :: jm ! running indexes
+  integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
+  real (kind=dp) :: deltat, rdec, zgamma
 ! Common blocks:
-      common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+  common /cb18/ alat,declin                ! for the SZA calculation
+  real(kind=dp) :: alat,declin
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real(kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-      double precision a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real(kind=dp) :: a0m,b0m
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
-      common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
-     &              ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
-      real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
-           ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
+                ajb,ajq,ajl,ajt,ajd,ajs,ds1,ds2,ajm,reif,tau,trdep
+  real (kind=dp) :: zb, dzb, dzbw, tb, eb, ak, d, &
+       ajb, ajq, ajl, ajt, ajd, ajs, ds1, ds2, ajm, reif, tau, trdep
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb51/ dlgew,dlgenw,dlne
-      real (kind=dp) :: dlgew, dlgenw, dlne
+  common /cb51/ dlgew,dlgenw,dlne
+  real (kind=dp) :: dlgew, dlgenw, dlne
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
-      common /cb63/ fcs(nka),xmol3(nka)
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb63/ fcs(nka),xmol3(nka)
+  common /kinv_i/ kinv
+  integer :: kinv
 
-!     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
-!    &          fnorm(n)
- !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),fnorm(n) ! jjb removed ! jjb fnorm unused
-      dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)     ! jjb removed
+      dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)
+!     dimension aer(nf,nka)
+!     dimension fnorm(n)
       character *1 fogtype
       character *10 fname
       data xmol2 /18./
@@ -914,29 +882,84 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      &               wn(ka,3)*dexp(-ws(ka,3)*dlog10(rr/wr(ka,3))**2)
       dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
      &                wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)
-
-! no restart only for the following block
-  if (.not.rst) then
-
 ! after Jaenicke/Sander/Kim:
 !      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2) &
 !     & **2/(2*0.1106**2))+ &
 !     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
-     lcl=1
-     lct=1
-! declination of the sun
-     declin=18.65
-!      declin=0.
-! geographical latitude
-!      alat=-6.44
-     alat=-5.8544
-! starting time of calculations
-     lday=0
-     lst=0
-     lmin=0
 
+! == End of declarations =======================================================
+
+! initialisation of solar time: nyear, nmonth, nday, nhour are read from namelist
+! -----------------------------
+  if (.not.rst) then
+! day of year = julian day
+     idayjul = 0
+     do jm=1,nmonth-1
+        idayjul = idayjul + jpdaypermonth(jm)
+     end do
+     ! leap year?
+     if (mod(nyear,4).eq.0 .and. nmonth.ge.3) then
+        idayjul = idayjul + 1
+        itotyear = 366
+     else
+        itotyear = 365
+     end if
+     idayjul = idayjul + nday
+
+! starting time of calculations
+     lday = 0
+     lmin = 0
+     lst = nhour
+
+! equation of time:
+     ! gamma is the day angle, also called fractional year, in radians
+     zgamma  = 2._dp * pi * real(idayjul - 1,dp) / real(itotyear,dp)
+     ! equation of time (in hour)
+     deltat = 24._dp / (2._dp * pi) * (0.0000075_dp &
+          + 0.001868_dp * cos(zgamma) - 0.032077_dp * sin(zgamma) &
+          - 0.014615_dp * cos(2._dp * zgamma) - 0.040849_dp * sin(2._dp * zgamma))
+! time correction
+     tkorr  = (4._dp * alon / 60._dp) + deltat
+     ! Local time, for output only
+     istort = lst + floor(tkorr)
+     immort = nint((tkorr + real(lst - istort,dp)) * 60._dp)
+
+! declination of the sun
+     rdec   = 0.006918_dp - 0.399912_dp * cos(zgamma) + 0.070257_dp * sin(zgamma) &
+          - 0.006758_dp * cos(2._dp * zgamma) + 0.000907_dp * sin(2._dp * zgamma)
+     ! in cb16, declination is in degree, convert here
+     declin = rdec / rad
+
+! Fill alat in cb16 with alat=zalat from config
+     alat = zalat
+
+! output
+     write (jpfunout,6000)
+     write (jpfunout,6300)
+     write (jpfunout,6301) nday, nmonth, nyear
+     write (jpfunout,6302) int(idayjul)
+     write (jpfunout,6303) tkorr
+     write (jpfunout,6304) istort,immort
+     write (jpfunout,6305) declin
+
+6000 format ('---------------------------------------------------------------&
+             &-----------------')
+6300 format ('Initialization of local time:')
+6302 format ('Julian day: ', i3)
+6301 format ('Date: ',i2.2,'.',i2.2,'.',i4.4)
+6303 format ('Time correction: ',f5.2,' hours')
+6304 format ('Start at local time (incl. time correction): ',i3.2,':',i2.2)
+6305 format ('Declination of the sun: ',f6.2,' deg')
+
+  end if
+
+
+! initialisation of temperature and humidity profile
+!---------------------------------------------------
+
+  if (.not.rst) then
 ! initial inversion height zinv, find the corresponding layer
      kinv = 1
      do k=2,nf
@@ -951,6 +974,89 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
         write (jpfunerr,*) 'whose height is: ',eta(nf)
         call abortM ('Error in SR initm')
      end if
+
+! initial temperature profile
+! dry adiabatic profile below inversion height
+     t(1)=tw
+      do k=2,kinv
+         t(k)=t(1)-gamma*eta(k)
+      enddo
+! stable profile above inversion height
+      x0=t(kinv)+dtinv
+      do k=kinv+1,n
+         t(k)=x0-0.006_dp*(eta(k)-eta(kinv))
+      enddo
+
+! large scale hydrostatic pressure
+      poben = rp0
+      cc = g / (2._dp * r0)
+      p(1) = rp0
+      do k=2,n
+         punten = poben
+         dd     = detw(k) * cc / t(k)
+         poben  = punten * (1._dp - dd) / (1. + dd)
+         p(k)   = 0.5_dp * (poben + punten)
+      enddo
+
+! initial profiles of humidity and wind field
+! xm1: = specific humidity in kg/kg
+! xm2: = liquid water content in kg/m**3
+      do k=1,n
+         talt(k) = t(k)
+         thet(k) = (p(1)/p(k))**0.286_dp
+         theti(k) = 1._dp / thet(k)
+         theta(k) = t(k)*thet(k)
+! r0/r1=287.05/461.51=0.62198; 1-r0/r1=0.37802;
+         xm21s = 0.62198_dp * p21(t(k)) / (p(k) - 0.37802_dp * p21(t(k)))
+         if (k <= kinv) then
+            xm1(k) = min(xm1w, rhMaxBL*xm21s)
+         else
+            xm1(k) = min(xm1i, rhMaxFT*xm21s)
+         end if
+         feu(k) = xm1(k)*p(k)/((0.62198_dp + 0.37802_dp * xm1(k))*p21(t(k)))
+! r1/r0-1=0.61
+         rho(k) = p(k)/(r0*(t(k)*(1._dp + 0.61_dp * xm1(k))))
+         thetl(k) = theta(k)*(1._dp + 0.61_dp * xm1(k))
+         xm1a(k) = xm1(k)
+         dfddt(k) = 0._dp
+         xm1a(k) = xm1(k)
+         xm2(k) = 0._dp
+         xm2a(k) = 0._dp
+         buoy(k) = -1e-4_dp
+         u(k) = ug
+         v(k) = vg
+         select case (nwProfOpt)
+         case (1)
+            w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
+         case (2)
+            w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
+         case default
+            call abortM ('Wrong option for nwProfOpt, choose 1 or 2')
+         end select
+
+         if (k <= kinv) then
+            tke(k) = 0.05_dp
+         else
+            tke(k) = 1.e-5_dp
+         end if
+      enddo
+      u(1) = 0._dp
+      v(1) = 0._dp
+      u(2) = 0.25_dp * ug
+      v(2) = 0.25_dp * vg
+      u(3) = 0.75_dp * ug
+      v(3) = 0.75_dp * vg
+      do k=n,1,-1
+         w(k) = w(k) - w(1)
+      enddo
+
+     lcl=1
+     lct=1
+
+  end if
+
+! no restart only for the following block
+  if (.not.rst) then
 
 ! maritime size distribution after hoppel et al. 1994, jgr. 14,443
 !      wr(3,1)=0.02
@@ -988,7 +1094,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
           fsum(k)=fsum(k)+ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
-!        fnorm(k)=fsum(k) ! jjb variable unreferenced
+!        fnorm(k)=fsum(k)
       enddo
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
@@ -1071,75 +1177,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
   if (.not.rst) then
 
-! initial temperature
 ! in radiation code: background aerosol = rural aerosol
-      t(1)=tw
-      do k=2,kinv
-         t(k)=t(1)-gamma*eta(k)
+      do k=2,n
          if (nar(k).eq.4) nar(k)=2
       enddo
-      x0=t(kinv)+dtinv
-      do k=kinv+1,n
-         t(k)=x0-0.006*(eta(k)-eta(kinv))
-         if (nar(k).eq.4) nar(k)=2
-      enddo
+
 
 !      call adjust_f !only if Kim aerosol is used!!
 
-! large scale hydrostatic pressure
-      poben=101400.
-      cc=g/(2.*r0)
-      do k=1,n
-         punten=poben
-         dd=detw(k)*cc/t(k)
-         poben=punten*(1.-dd)/(1.+dd)
-         p(k)=0.5*(poben+punten)
-      enddo
-! initial profiles of humidity and wind field
-! xm1: = specific humidity in kg/kg
-! xm2: = liquid water content in kg/m**3
-      do k=1,n
-         talt(k)=t(k)
-         thet(k)=(p(1)/p(k))**0.286
-         theti(k)=1./thet(k)
-         theta(k)=t(k)*thet(k)
-! r0/r1=287.05/461.51=0.62198; 1-r0/r1=0.37802;
-         xm21s=0.62198*p21(t(k))/(p(k)-0.37802*p21(t(k)))
-!         xm1(k)=dmin1(8.5d-03,xm21s)
-!#         xm1(k)=dmin1(8.5d-03,0.95*xm21s)
-!         xm1(k)=dmin1(8.5d-03,0.7*xm21s)
-         xm1(k)=dmin1(8.5d-03,0.8*xm21s)
-!         xm1(k)=dmin1(8.5d-03,0.4*xm21s) no cloud
-!         if (eta(k).gt.zinv)  xm1(k)=7.6d-03-4.d-03/1000.*(eta(k)-zinv)
-!#         if (eta(k).gt.zinv)  xm1(k)=4.d-03
-         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.4*xm21s)
-!;         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.35*xm21s)
-!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s)
-!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s) no cloud
-         feu(k)=xm1(k)*p(k)/((0.62198+0.37802*xm1(k))*p21(t(k)))
-! r1/r0-1=0.61
-         rho(k)=p(k)/(r0*(t(k)*(1.+0.61*xm1(k))))
-         thetl(k)=theta(k)*(1.+0.61*xm1(k))
-         xm1a(k)=xm1(k)
-         dfddt(k)=0.
-         xm1a(k)=xm1(k)
-         xm2(k)=0.
-         xm2a(k)=0.
-         u(k)=ug
-         v(k)=vg
-         w(k)=eta(k)/1000.*0.5*(wmin+wmax)
-         tke(k)=1.d-05
-         if (eta(k).lt.zinv) tke(k)=0.05
-      enddo
-      u(1)=0.
-      v(1)=0.
-      u(2)=0.25*ug
-      v(2)=0.25*vg
-      u(3)=0.75*ug
-      v(3)=0.75*vg
-      do k=n,1,-1
-         w(k)=w(k)-w(1)
-      enddo
 
 ! initial calculation of Clarke-functions and frictional velocity ustern
       vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
@@ -1171,8 +1216,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       fname='pi .out'
       fname(3:3)=fogtype
       open (97, file=fname,status='unknown')
-      write (97,6000) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
- 6000 format (5e16.8)
+      write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
+ 6001 format (5e16.8)
       close (97)
       write (jpfunpb) zb
       close (jpfunpb)
@@ -1503,8 +1548,8 @@ subroutine startm (fogtype)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb47/ zb(nb),dzb(nb),dzbw(nb),tb(nb),eb(nb),ak(nb),d(nb), &
@@ -2428,14 +2473,17 @@ subroutine wfield
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+! Imported Parameters:
+       wmin, wmax                  ! large scale subsidence
+
   USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-       n,                   &
-       nka
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -2455,9 +2503,6 @@ subroutine wfield
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)               ! eta: level height
   real (kind=dp) :: detw, deta, eta, etw
-
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax        ! wmin, wmax: input for vertical wind
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w                                 ! w: subsidence
@@ -2504,6 +2549,10 @@ subroutine difm (dt)
 ! Declarations :
 ! ------------
 ! Modules used:
+  USE config, ONLY : &
+! Imported Parameters:
+       ug, vg                      ! geostrophic wind
+
   USE constants, ONLY : &
 ! Imported Parameters:
        r0               ! Specific gas constant of dry air, in J/(kg.K)
@@ -2514,8 +2563,7 @@ subroutine difm (dt)
   USE global_params, ONLY : &
 ! Imported Parameters:
        n,                   &
-       nm,                  &
-       nka
+       nm
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -2544,9 +2592,6 @@ subroutine difm (dt)
 
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
-
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
 
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
@@ -2591,7 +2636,7 @@ subroutine difm (dt)
   fdt=fcor*dt
   xf(1)=0._dp
   do k=2,nm
-     oldu(k)=u(k)
+     oldu(k)=u(k) ! save u for v calculation below
      xf(k)=(u(k)+fdt*(v(k)-vg)+xc(k)*xf(k-1))/xd(k)
   enddo
   do k=nm,2,-1
@@ -3001,6 +3046,10 @@ subroutine atk0
 
 ! == End of header =============================================================
 
+  USE config, ONLY : &
+! Imported Parameters:
+       ug, vg                      ! geostrophic wind
+
   USE constants, ONLY : &
 ! Imported Parameters:
        g
@@ -3011,8 +3060,7 @@ subroutine atk0
 
   USE global_params, ONLY : &
 ! Imported Parameters:
-       n, &
-       nka
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
@@ -3032,8 +3080,6 @@ subroutine atk0
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
   common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
   real (kind=dp) :: gm, gh, sm, sh, xl
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
   common /cb45/ u(n),v(n),w(n)
   real (kind=dp) :: u, v, w
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -4336,8 +4382,8 @@ subroutine equil (ncase,kk)
   real (kind=dp) :: rg(nka),eg(nka)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax         ! a0m, b0m: Koehler curve
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)         ! a0m, b0m: Koehler curve
+  real (kind=dp) :: a0m,b0m
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! e, ew, rn: aerosol / water grid
                 e(nkt),dew(nkt),rq(nkt,nka)
@@ -4544,8 +4590,8 @@ subroutine subkon (dt)
   real (kind=dp) :: psi(nkt),u(nkt)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
 
   common /cb49/ qabs(18,nkt,nka,jptaerrad), & ! only qabs is used here
                 qext(18,nkt,nka,jptaerrad), &
@@ -5644,8 +5690,8 @@ subroutine adjust_f
   real (kind=dp) :: f_inter(nka)
 
 ! Common blocks:
-  common /cb44/ a0m,b0m(nka),ug,vg,wmin,wmax
-  real (kind=dp) :: a0m,b0m,ug,vg,wmin,wmax
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
                 e(nkt),dew(nkt),rq(nkt,nka)
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
@@ -6225,7 +6271,6 @@ end subroutine ion_mass
       rdec=declin*1.745329e-02
       zeit=lst*3600.+dfloat(lmin-1)*60.
 ! greater intervals and variable dtg is known only in the old chemical module
-!      horang=7.272205e-05*zeit-3.1415927
       horang=7.272205e-05*zeit-pi
       u00=dcos(rdec)*dcos(rlat)*dcos(horang)+dsin(rdec)*dsin(rlat)
       ru0=6371.*u00
