@@ -16,10 +16,10 @@
 # and limitations under the Licence.
 
 # Intel Fotran Compiler
-#FC=ifort
+FC=ifort
 #CFLAGS= -O2  -fpe0
 #CFLAGS= -O2 -r8 -fpe0
-#CFLAGS= -O2 -r8 -fpe0 -traceback
+CFLAGS= -O2 -r8 -fpe0 -traceback
 #CFLAGS= -check all -traceback -warn all
 #CFLAGS= -O2 -r8 -fpe0 -fltconsistency
 # CFLAGS= -O2 #-check all -warn declarations -warn uncalled -warn unused#-g #-warn all
@@ -27,9 +27,9 @@
 #CFLAGS= -fast # = -O3 -ipo -static (-xP)
 
 # GNU Fortran
-FC=gfortran
+#FC=gfortran
 #  debug flags
-CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -Wall -ffpe-trap=invalid,zero,overflow -fbounds-check -O0 -g
+#CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -Wall -ffpe-trap=invalid,zero,overflow -fbounds-check -O0 -g
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -ffpe-trap=invalid,zero,overflow
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -fbounds-check -O0 -g
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -O3

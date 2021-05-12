@@ -104,6 +104,8 @@ real (kind=dp) :: &
      alon,        & ! longitude (in degree, -180 ; 180)
      alat           ! latitude (in degree)
 
+integer :: &
+     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=
 real (kind=dp) :: &
      rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
      rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
@@ -270,6 +272,7 @@ zinv = 700._dp
 dtinv = 6._dp
 ug = 6._dp
 vg = 6._dp
+nwProfOpt = 2
 wmin = 0._dp
 wmax = -0.006_dp
 

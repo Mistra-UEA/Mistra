@@ -249,7 +249,7 @@ program mistra
   if (chem) call profc (dt,mic)
 
 ! initialization of radiation code, and first calculation
- call radiation (llinit)
+  call radiation (llinit)
 
 ! initial photolysis rates
 !  if (chem) call photol
@@ -739,6 +739,10 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Modifications :
 ! -------------
   ! 12-May-2021  Josue Bock  Bugfix for p(1) = rp0. Start do loop at k=2 instead of k=1
+  !                          Initialisation of buoy, allows smoother model spinup (see SR atk1:
+  !                            filtering 80% old + 20% new values, but old has to be initialised though)
+  !                          Introduce nwProfOpt for different subsidence profiles.
+  !                            1- original BTZ96 paper. 2- current parameterisation
 
 ! == End of header =============================================================
 
@@ -750,7 +754,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
-       ug, vg, wmin, wmax
+       ug, vg, wmin, wmax, nwProfOpt
 
 
   USE constants, ONLY : &
@@ -1018,9 +1022,18 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          xm1a(k) = xm1(k)
          xm2(k) = 0._dp
          xm2a(k) = 0._dp
+         buoy(k) = -1e-4_dp
          u(k) = ug
          v(k) = vg
-         w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
+         select case (nwProfOpt)
+         case (1)
+            w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
+         case (2)
+            w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
+         case default
+            call abortM ('Wrong option for nwProfOpt, choose 1 or 2')
+         end select
+
          if (k <= kinv) then
             tke(k) = 0.05_dp
          else
