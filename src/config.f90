@@ -105,7 +105,13 @@ real (kind=dp) :: &
      alat           ! latitude (in degree)
 
 real (kind=dp) :: &
-     rp0            ! Surface pressure [Pa]
+     rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
+     rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
+     rp0,         & ! Surface pressure [Pa]
+     xm1w,        & ! specific humidity below inversion layer (kg/kg)
+     xm1i,        & ! specific humidity above inversion layer (kg/kg)
+     zinv,        & ! initial inversion height [m]
+     dtinv          ! inversion strength = temperature drop at inversion [K]
 
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
@@ -113,10 +119,6 @@ real (KIND=dp) :: &
   rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
-
-real (kind=dp) :: &
-     zinv,        & ! initial inversion height [m]
-     dtinv          ! inversion strength = temperature drop at inversion [K]
 
 character (len=100) :: cnmlfile
 
@@ -135,7 +137,7 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -256,6 +258,10 @@ etaw1 = 2000._dp
 
 ! meteorological data
 rp0 = 101325._dp
+xm1w = 8.5e-3_dp
+xm1i = 4.0e-3_dp
+rhMaxBL = 1._dp
+rhMaxFT = 1._dp
 zinv = 700._dp
 dtinv = 6._dp
 

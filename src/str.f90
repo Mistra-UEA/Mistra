@@ -789,7 +789,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Scalar Variables with intent (in):
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
-       rp0, zinv, dtinv
+       rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1032,14 +1032,56 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          p(k)   = 0.5_dp * (poben + punten)
       enddo
 
+! initial profiles of humidity and wind field
+! xm1: = specific humidity in kg/kg
+! xm2: = liquid water content in kg/m**3
+      do k=1,n
+         talt(k) = t(k)
+         thet(k) = (p(1)/p(k))**0.286_dp
+         theti(k) = 1._dp / thet(k)
+         theta(k) = t(k)*thet(k)
+! r0/r1=287.05/461.51=0.62198; 1-r0/r1=0.37802;
+         xm21s = 0.62198_dp * p21(t(k)) / (p(k) - 0.37802_dp * p21(t(k)))
+         if (k <= kinv) then
+            xm1(k) = min(xm1w, rhMaxBL*xm21s)
+         else
+            xm1(k) = min(xm1i, rhMaxFT*xm21s)
+         end if
+         feu(k) = xm1(k)*p(k)/((0.62198_dp + 0.37802_dp * xm1(k))*p21(t(k)))
+! r1/r0-1=0.61
+         rho(k) = p(k)/(r0*(t(k)*(1._dp + 0.61_dp * xm1(k))))
+         thetl(k) = theta(k)*(1._dp + 0.61_dp * xm1(k))
+         xm1a(k) = xm1(k)
+         dfddt(k) = 0._dp
+         xm1a(k) = xm1(k)
+         xm2(k) = 0._dp
+         xm2a(k) = 0._dp
+         u(k) = ug
+         v(k) = vg
+         w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
+         if (k <= kinv) then
+            tke(k) = 0.05_dp
+         else
+            tke(k) = 1.e-5_dp
+         end if
+      enddo
+      u(1) = 0._dp
+      v(1) = 0._dp
+      u(2) = 0.25_dp * ug
+      v(2) = 0.25_dp * vg
+      u(3) = 0.75_dp * ug
+      v(3) = 0.75_dp * vg
+      do k=n,1,-1
+         w(k) = w(k) - w(1)
+      enddo
+
+     lcl=1
+     lct=1
 
   end if
 
 ! no restart only for the following block
   if (.not.rst) then
-
-     lcl=1
-     lct=1
 
 ! maritime size distribution after hoppel et al. 1994, jgr. 14,443
 !      wr(3,1)=0.02
@@ -1168,51 +1210,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 !      call adjust_f !only if Kim aerosol is used!!
 
-! initial profiles of humidity and wind field
-! xm1: = specific humidity in kg/kg
-! xm2: = liquid water content in kg/m**3
-      do k=1,n
-         talt(k)=t(k)
-         thet(k)=(p(1)/p(k))**0.286
-         theti(k)=1./thet(k)
-         theta(k)=t(k)*thet(k)
-! r0/r1=287.05/461.51=0.62198; 1-r0/r1=0.37802;
-         xm21s=0.62198*p21(t(k))/(p(k)-0.37802*p21(t(k)))
-!         xm1(k)=dmin1(8.5d-03,xm21s)
-!#         xm1(k)=dmin1(8.5d-03,0.95*xm21s)
-!         xm1(k)=dmin1(8.5d-03,0.7*xm21s)
-         xm1(k)=dmin1(8.5d-03,0.8*xm21s)
-!         xm1(k)=dmin1(8.5d-03,0.4*xm21s) no cloud
-!         if (eta(k).gt.zinv)  xm1(k)=7.6d-03-4.d-03/1000.*(eta(k)-zinv)
-!#         if (eta(k).gt.zinv)  xm1(k)=4.d-03
-         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.4*xm21s)
-!;         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.35*xm21s)
-!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s)
-!         if (eta(k).gt.zinv)  xm1(k)=dmin1(4.d-03,0.3*xm21s) no cloud
-         feu(k)=xm1(k)*p(k)/((0.62198+0.37802*xm1(k))*p21(t(k)))
-! r1/r0-1=0.61
-         rho(k)=p(k)/(r0*(t(k)*(1.+0.61*xm1(k))))
-         thetl(k)=theta(k)*(1.+0.61*xm1(k))
-         xm1a(k)=xm1(k)
-         dfddt(k)=0.
-         xm1a(k)=xm1(k)
-         xm2(k)=0.
-         xm2a(k)=0.
-         u(k)=ug
-         v(k)=vg
-         w(k)=eta(k)/1000.*0.5*(wmin+wmax)
-         tke(k)=1.d-05
-         if (eta(k).lt.zinv) tke(k)=0.05
-      enddo
-      u(1)=0.
-      v(1)=0.
-      u(2)=0.25*ug
-      v(2)=0.25*vg
-      u(3)=0.75*ug
-      v(3)=0.75*vg
-      do k=n,1,-1
-         w(k)=w(k)-w(1)
-      enddo
 
 ! initial calculation of Clarke-functions and frictional velocity ustern
       vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
