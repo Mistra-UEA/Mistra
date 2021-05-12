@@ -28,6 +28,7 @@
  z0 = 0.001       !<-- roughness length (m) (default = 0.01)
 
  ! Meteorological settings
+ rp0 = 101325    !<-- Sea level atmospheric pressure [Pa]
  rhsurf = 0.8    !<-- relative humidity at the surface, forced at each time step (default = 1)
 
  ! Microphysics

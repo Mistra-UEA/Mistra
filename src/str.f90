@@ -778,7 +778,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! Modifications :
 ! -------------
-  !
+  ! 12-May-2021  Josue Bock  Bugfix for p(1) = rp0. Start do loop at k=2 instead of k=1
 
 ! == End of header =============================================================
 
@@ -789,7 +789,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Scalar Variables with intent (in):
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
-       zinv, dtinv
+       rp0, zinv, dtinv
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -879,10 +879,9 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   common /kinv_i/ kinv
   integer :: kinv
 
-!     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),aer(nf,nka),  & ! jjb AER not used, removed
-!    &          fnorm(n)
- !     dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt),fnorm(n) ! jjb removed ! jjb fnorm unused
-      dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)     ! jjb removed
+      dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)
+!     dimension aer(nf,nka)
+!     dimension fnorm(n)
       character *1 fogtype
       character *10 fname
       data xmol2 /18./
@@ -990,12 +989,11 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
   end if
 
-! no restart only for the following block
+
+! initialisation of temperature and humidity profile
+!---------------------------------------------------
+
   if (.not.rst) then
-
-     lcl=1
-     lct=1
-
 ! initial inversion height zinv, find the corresponding layer
      kinv = 1
      do k=2,nf
@@ -1010,6 +1008,38 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
         write (jpfunerr,*) 'whose height is: ',eta(nf)
         call abortM ('Error in SR initm')
      end if
+
+! initial temperature profile
+! dry adiabatic profile below inversion height
+     t(1)=tw
+      do k=2,kinv
+         t(k)=t(1)-gamma*eta(k)
+      enddo
+! stable profile above inversion height
+      x0=t(kinv)+dtinv
+      do k=kinv+1,n
+         t(k)=x0-0.006_dp*(eta(k)-eta(kinv))
+      enddo
+
+! large scale hydrostatic pressure
+      poben = rp0
+      cc = g / (2._dp * r0)
+      p(1) = rp0
+      do k=2,n
+         punten = poben
+         dd     = detw(k) * cc / t(k)
+         poben  = punten * (1._dp - dd) / (1. + dd)
+         p(k)   = 0.5_dp * (poben + punten)
+      enddo
+
+
+  end if
+
+! no restart only for the following block
+  if (.not.rst) then
+
+     lcl=1
+     lct=1
 
 ! maritime size distribution after hoppel et al. 1994, jgr. 14,443
 !      wr(3,1)=0.02
@@ -1047,7 +1077,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
           fsum(k)=fsum(k)+ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
-!        fnorm(k)=fsum(k) ! jjb variable unreferenced
+!        fnorm(k)=fsum(k)
       enddo
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
@@ -1130,30 +1160,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
   if (.not.rst) then
 
-! initial temperature
 ! in radiation code: background aerosol = rural aerosol
-      t(1)=tw
-      do k=2,kinv
-         t(k)=t(1)-gamma*eta(k)
+      do k=2,n
          if (nar(k).eq.4) nar(k)=2
       enddo
-      x0=t(kinv)+dtinv
-      do k=kinv+1,n
-         t(k)=x0-0.006*(eta(k)-eta(kinv))
-         if (nar(k).eq.4) nar(k)=2
-      enddo
+
 
 !      call adjust_f !only if Kim aerosol is used!!
 
-! large scale hydrostatic pressure
-      poben=101400.
-      cc=g/(2.*r0)
-      do k=1,n
-         punten=poben
-         dd=detw(k)*cc/t(k)
-         poben=punten*(1.-dd)/(1.+dd)
-         p(k)=0.5*(poben+punten)
-      enddo
 ! initial profiles of humidity and wind field
 ! xm1: = specific humidity in kg/kg
 ! xm2: = liquid water content in kg/m**3

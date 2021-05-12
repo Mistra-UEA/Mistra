@@ -104,6 +104,9 @@ real (kind=dp) :: &
      alon,        & ! longitude (in degree, -180 ; 180)
      alat           ! latitude (in degree)
 
+real (kind=dp) :: &
+     rp0            ! Surface pressure [Pa]
+
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
   etaw1,          & ! atmospheric grid: top of the grid [m]
@@ -132,7 +135,7 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     zinv, dtinv, &
+     rp0, zinv, dtinv, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -252,6 +255,7 @@ detamin = 10._dp
 etaw1 = 2000._dp
 
 ! meteorological data
+rp0 = 101325._dp
 zinv = 700._dp
 dtinv = 6._dp
 
