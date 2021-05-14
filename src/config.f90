@@ -143,7 +143,7 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
      isurf,           &
      tw,              &
      ltwcst,          &

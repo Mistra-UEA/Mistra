@@ -1050,6 +1050,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          w(k) = w(k) - w(1)
       enddo
 
+! initial cloud layers
      lcl=1
      lct=1
 
@@ -1073,25 +1074,17 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 !         wn(3,k)=wn(3,k)/(x0*ws(3,k))
 !         ws(3,k)=1./(2.*ws(3,k)**2)
 !      enddo
-      do k=1,n
-         do ia=1,nka
-         do jt=2,nkt
-            ff(jt,ia,k)=0.
-         enddo
-         enddo
-      enddo
-      do ia=1,nka
-         ff(1,ia,1)=0.
-      enddo
-      do k=1,n
-        fsum(k)=0.
-        nar(k)=iaertyp
-        x0=1.0
-        if (iaertyp.lt.3.and.k.gt.nf) x0=0.2
+
+     ff(:,:,:) = 0._dp
+     fsum(:)   = 0._dp
+     do k=1,n
+        nar(k) = iaertyp
+        x0 = 1.0_dp
+        if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
         do ia=1,nka
           ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
           if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
-          fsum(k)=fsum(k)+ff(1,ia,k)
+          fsum(k) = fsum(k) + ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
 !        fnorm(k)=fsum(k)
@@ -1127,7 +1120,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! 152200= 2 sigma*10**6 with sigma is surface tension = 76.1*10**-3
 ! see pruppacher and klett p. 104
   if (.not.rst) then
-     a0m=152200./(r1*rhow)
+     a0m = 152200._dp / (r1*rhow)
   !else restart case: a0m is read in startm
   end if
 ! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
@@ -1138,20 +1131,26 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
 ! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
 ! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
- 2000 continue
-      fcs(ia)=.4-rn(ia)*(.4-.1)
-      if (rn(ia).gt.1.) fcs(ia)=.1
-      xmol3(ia)=(132.+80.*2.)/3.
-      xnue=(3.+2.*2.)/3.
+2000  continue
+      if (rn(ia).le.1._dp) then
+         fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
+      else
+         fcs(ia) = 0.1_dp
+      end if
+      xnue = (3._dp + 2._dp * 2._dp) / 3._dp
+      xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
       go to 1030
 ! soluble part of rural aerosol: pure (NH4)2SO4
-! 2010 fcs(ia)=.5-rn(ia)*(.5-.1)
- 2010 continue
-      fcs(ia)=.9-rn(ia)*(.9-.5)
-      if (rn(ia).gt.1.) fcs(ia)=.5
-!      fcs(ia)=0.1
-      xnue=3.
-      xmol3(ia)=132.
+2010  continue
+      if (rn(ia).le.1._dp) then
+         !fcs(ia) = 0.5_dp - rn(ia) * (0.5_dp - 0.1_dp)
+         fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+      else
+         !fcs(ia) = 0.1_dp
+         fcs(ia) = 0.5_dp
+      end if
+      xnue = 3._dp
+      xmol3(ia) = 132._dp
       go to 1030
 !c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
 ! soluble part of ocean aerosol: pure (NH4)2SO4;
@@ -1196,12 +1195,12 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       gclu   = cu
       gclt   = ctq
 
-      ajs=0.
-      ds1=0.
-      ds2=0.
-      trdep=0.
-      tau=0.
-      reif=0.
+      ajs   = 0._dp
+      ds1   = 0._dp
+      ds2   = 0._dp
+      trdep = 0._dp
+      tau   = 0._dp
+      reif  = 0._dp
 ! temperature and volumetric moisture within soil
       x0=0.5*ebs
 !      if (iaertyp.eq.1) x0=x0*.9
@@ -4235,12 +4234,12 @@ subroutine kon (dt,chem)
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
            ! JJB temporary check
            if (lfeu) then
-              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
                  print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
                  print*,part_n_a(ia,k),part_o_a(ia,k)
                  lcheck=.true.
               end if
-              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
                  print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
                  print*,part_n_d(ia,k),part_o_d(ia,k)
                  lcheck=.true.
@@ -4257,12 +4256,12 @@ subroutine kon (dt,chem)
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
            ! JJB temporary check
            if (lfeu) then
-              if (part_n_a(ia,k).ne.part_o_a(ia,k)) then
+              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
                  print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
                  print*,part_n_a(ia,k),part_o_a(ia,k)
                  lcheck=.true.
               end if
-              if (part_n_d(ia,k).ne.part_o_d(ia,k)) then
+              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
                  print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
                  print*,part_n_d(ia,k),part_o_d(ia,k)
                  lcheck=.true.
