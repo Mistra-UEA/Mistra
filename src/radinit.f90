@@ -1104,6 +1104,7 @@ subroutine load1
   implicit none
 
 ! Local scalars:
+  logical :: llswitch
   integer :: ib0                                  ! first spectral band index (day => 1, night => 7)
   integer :: jb                                   ! loop index for spectral band number
   integer :: jka,jkt                              ! loop indexes, 2D microphysical grid
@@ -1218,7 +1219,7 @@ subroutine load1
            do jkt=1,nkt
               x0=pi*1.e-6_dp*rq(jkt,jka)**2*ff(jkt,jka,jzm)
               do jb = ib0,mb
-                 baax(jb,jz)  =baax(jb,jz) + qabs(jb,jkt,jka,ka)*x0
+                 baax(jb,jz) = baax(jb,jz) + qabs(jb,jkt,jka,ka)*x0
                  beax(jb,jz) = beax(jb,jz) + qext(jb,jkt,jka,ka)*x0
                  gax (jb,jz) = gax (jb,jz) + asym(jb,jkt,jka,ka)*x0*(qext(jb,jkt,jka,ka)-qabs(jb,jkt,jka,ka))
               end do
@@ -1246,6 +1247,9 @@ subroutine load1
 ! This is because a given jkt class has the same amount of water (expressed as an equivalent radius,
 ! surface, or volume in variables re1, re2 and re3) for all jka classes.
 
+     llswitch = .false. ! the next section has to be switched off for mistra
+
+     if (llswitch) then
      do jz=1,nf-1
         jzm = jz + 1
 
@@ -1280,6 +1284,12 @@ subroutine load1
         end if
 
      end do
+
+     else ! llswitch
+        rho2wx(1:nf-1) = 0._dp
+        fracx(1:nf-1) = 0._dp
+        rewx(1:nf-1)  = 0._dp
+     end if ! llswitch
 
   end if ! mic = .true.
 

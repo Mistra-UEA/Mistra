@@ -530,6 +530,9 @@ subroutine frr
   !                       to have equalities in if tests.
   !
   ! Oct-2017  Josue Bock  Converted to f90, further cleaning/improvements in the code
+  !
+  ! May-2021  Josue Bock  Double checked, commented, the <= and >= tests have been changed
+  !                       so that equality cases lead to the simplest calculation
 
 ! == End of header =============================================================
 
@@ -567,16 +570,17 @@ subroutine frr
      ! GH equation 16c: b(3,j) = min(C(j),C(j-1)) / C(j-1)
      !   where C = frac
      !   all indetermination cases = 1
-     if (jz==1)then
+     if (jz==1)then ! uppermost model layer
         bb(1,1) = 1._dp
         bb(3,1) = 1._dp
      else
+        ! dependance of cloud coverage in the layer above
         if (frac(jzm) > 0._dp) then
            if (frac(jzm) < 1._dp) then
-              if (frac(jzm) <= frac(jz)) then
+              if (frac(jzm) < frac(jz)) then
                  bb(1,jz) = (1._dp-frac(jz)) / (1._dp-frac(jzm))
                  bb(3,jz) = 1._dp
-              else ! 0. < frac(jz) < frac(jzm) < 1.
+              else ! 0. < frac(jz) <= frac(jzm) < 1.
                  bb(1,jz) = 1._dp
                  bb(3,jz) = frac(jz) / frac(jzm)
               end if
@@ -594,16 +598,17 @@ subroutine frr
      ! GH equation 16d: b(4,j) = min(C(j),C(j+1)) / C(j+1)
      !   where C = frac
      !   all indetermination cases = 1
-     if (jz==nrlay) then
+     if (jz==nrlay) then ! surface
         bb(2,nrlay) = 1._dp
         bb(4,nrlay) = 1._dp
      else
+        ! dependance of cloud coverage in the underneath layer
         if (frac(jzp) > 0._dp) then
            if (frac(jzp) < 1._dp) then
-              if (frac(jz) >= frac(jzp)) then
+              if (frac(jz) > frac(jzp)) then
                  bb(2,jz) = (1._dp-frac(jz)) / (1._dp-frac(jzp))
                  bb(4,jz) = 1._dp
-              else ! 0. < frac(jz) < frac(jzp) < 1.
+              else ! 0. < frac(jz) <= frac(jzp) < 1.
                  bb(2,jz) = 1._dp
                  bb(4,jz) = frac(jz) / frac(jzp)
               end if
@@ -637,7 +642,7 @@ subroutine water(ib)
 !   Legendre coefficients {pl2w} of the phase-function for Mie-scattering
 !   of cloud droplets. (eqs. 4.25 - 4.27 diss. Fu (1991))
 !-------------------------------------------------------------------------
-!   rho2w and reff are the partial density of cloud water and the effective
+!   rho2w and reff=rew are the partial density of cloud water and the effective
 !   radius of the cloud droplets. Effective radii lower or higher than the
 !   boundary values of 4.18 um and 31.18 um are set to the corresponding
 !   boundary values. Clouds with rho2w less than 10**-5 kg m**-3 are not
@@ -1021,9 +1026,17 @@ function plkavg ( WNUMLO, WNUMHI, xT )
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+! External subroutine
+       abortM
+
   USE constants, ONLY : &
 ! Imported Parameters:
        pi
+
+  USE file_unit, ONLY :     &
+! Imported Parameters:
+       jpfunerr
 
   USE precision, ONLY :     &
 ! Imported Parameters:
@@ -1073,8 +1086,8 @@ function plkavg ( WNUMLO, WNUMHI, xT )
 
 ! Check input temperature
   if( xt < 0.0_dp ) then
-     write(0,*)'Error in SR PLKAVG -- negative temperature'
-     stop 'Stopped by SR plkavg (radiative code)'
+     write(jpfunerr,*)'Error in SR PLKAVG -- negative temperature'
+     call abortM ('Stopped by SR plkavg (radiative code)')
   end if
 
   if ( xt < 1.e-4_dp ) then
@@ -1314,6 +1327,14 @@ subroutine gase ( ib, ig, hk )
 ! Declarations :
 ! ------------
 ! Modules used:
+
+  USE config, ONLY : &
+! External subroutine
+       abortM
+
+  USE file_unit, ONLY :     &
+! Imported Parameters:
+       jpfunerr
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1567,8 +1588,8 @@ subroutine gase ( ib, ig, hk )
      hk = hk18(ig)
 
   case default
-     write(0,*)'Error in SR gase: wrong spectral band index'
-     stop 'Stopped by SR gase'
+     write(jpfunerr,*)'Error in SR gase: wrong spectral band index'
+     call abortM ('Stopped by SR gase')
 
   end select
 
@@ -2403,6 +2424,14 @@ subroutine kurzw(ib,u0)
 ! ------------
 ! Modules used:
 
+  USE config, ONLY : &
+! External subroutine
+       abortM
+
+  USE file_unit, ONLY :     &
+! Imported Parameters:
+       jpfunerr
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        mbs,                 &
@@ -2565,10 +2594,10 @@ subroutine kurzw(ib,u0)
                  do while(abs(emu) <= reson)
                     u0red = u0red - delu0
                     if(u0red <= 0.) then
-                       write(0,*)'SR kurzw: Error in resonance-case correction:' &
+                       write(jpfunerr,*)'SR kurzw: Error in resonance-case correction:' &
                                //' The sun is moved back below the horizon.' &
                                //' Thus it is nighttime and shortwave fluxes are zero'
-                       stop 'Error in subroutine kurzw.'
+                       call abortM ('Error in subroutine kurzw.')
                     end if
 
                     u02   = u0red**2
