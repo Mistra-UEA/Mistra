@@ -1269,7 +1269,8 @@ subroutine grid
 ! External subroutine
        abortM, &
        isurf, &
-       detamin, etaw1 ! atmospheric grid: constant height, and top of grid [m]
+       detamin, etaw1,       & ! atmospheric grid: constant height, and top of grid [m]
+       rnw0, rnw1, rw0, rw1    ! microphysics grid: min/max dry aerosol, min/max particle radius [um]
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1297,8 +1298,6 @@ subroutine grid
 
 ! Local parameters:
   real (kind=dp), parameter :: etaw1_max = 2500._dp ! max authorised height for prognostic grid
-  real (kind=dp), parameter :: rnw0 = 0.005_dp, rnw1 =  15._dp ! min / max radius of dry aerosol
-  real (kind=dp), parameter :: rw0  = 0.005_dp, rw1  = 150._dp ! min / max equivalent radius of total particle
   real (kind=dp), parameter :: dzbw0 = 0.001_dp, zbw1 = 1._dp ! minimum-maximum values of soil grid
 ! Local scalars:
   integer :: ia, jt, j, k, nf1

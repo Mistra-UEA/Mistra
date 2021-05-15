@@ -20,6 +20,12 @@
  alon = 0.       !<-- longitude [deg] (-180 ; 180)
  alat = 55.      !<-- latitude [deg]
 
+! model grid
+ rnw0 = 0.01
+ rnw1 = 1.8
+ rw0 = 0.01
+ rw1 = 80.
+
  ! Surface setings
 ! isurf = 0       !<-- isurf: 0 = water or snow surface (default), 1 is bare soil
  tw = 288.15      !<-- tw = water temperature [K]

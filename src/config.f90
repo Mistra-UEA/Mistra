@@ -122,6 +122,10 @@ real (kind=dp) :: &
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
   etaw1,          & ! atmospheric grid: top of the grid [m]
+  rnw0,           & ! microphysics grid: min radius of dry aerosol [um]
+  rnw1,           & ! microphysics grid: max radius of dry aerosol [um]
+  rw0,            & ! microphysics grid: min radius of particle [um]
+  rw1,            & ! microphysics grid: max radius of particle [um]
   rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
@@ -139,7 +143,8 @@ namelist /mistra_cfg/ &
      lstmax,          &
      netcdf,          &
      binout,          &
-     detamin, etaw1,  &
+! model grids
+     detamin, etaw1, rnw0, rnw1, rw0, rw1, &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
@@ -258,9 +263,13 @@ binout = .false.
  alon = 0._dp
  alat = 0._dp
 
-! model grid
+! model grids
 detamin = 10._dp
 etaw1 = 2000._dp
+rnw0 = 0.005_dp
+rnw1 =  15._dp
+rw0  = 0.005_dp
+rw1  = 150._dp
 
 ! meteorological data
 rp0 = 101325._dp
