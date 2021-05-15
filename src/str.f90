@@ -3236,6 +3236,7 @@ subroutine atk1
             xmw(k)=xm1(k)+xm2(k)/rho(k)
          enddo
          thetl(n)=thetl(nm)+1.
+         xmw(n)=xm1(n)+xm2(n)/rho(n)
 ! buoyancy term
          do k=2,nm
             dthetl(k)=(thetl(k+1)-thetl(k))/deta(k)
