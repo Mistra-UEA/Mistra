@@ -144,8 +144,8 @@ program mistra
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /band_rat/ photol_j(nphrxn,n)
   common /kpp_eul/ xadv(10),nspec(10)
@@ -839,8 +839,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb53a/ thet(n),theti(n)
   real(kind=dp) :: thet, theti
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
   common /cb63/ fcs(nka),xmol3(nka)
   common /kinv_i/ kinv
   integer :: kinv
@@ -1021,7 +1021,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          dfddt(k) = 0._dp
          xm1a(k) = xm1(k)
          xm2(k) = 0._dp
-         xm2a(k) = 0._dp
          buoy(k) = -1e-4_dp
          u(k) = ug
          v(k) = vg
@@ -1564,8 +1563,8 @@ subroutine startm (fogtype)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb53a/ thet(n),theti(n)
   real(kind=dp) :: thet, theti
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
   common /cb63/ fcs(nka),xmol3(nka)
   real(kind=dp) :: fcs, xmol3
 
@@ -2598,8 +2597,8 @@ subroutine difm (dt)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb53a/ thet(n),theti(n)
   real(kind=dp) :: thet, theti
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 ! == End of declarations =======================================================
 
@@ -3194,8 +3193,8 @@ subroutine atk1
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /cb53a/ thet(n),theti(n)
       real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
       common /kinv_i/ kinv
       integer :: kinv
       dimension es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
@@ -3528,8 +3527,8 @@ subroutine surf0 (dt)
   real (kind=dp) :: u, v, w
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 ! == End of declarations =======================================================
 
@@ -3646,8 +3645,8 @@ subroutine surf1 (dt)
   real (kind=dp) :: sk, sl, dtrad, dtcon
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 ! statement function
   real (kind=dp) :: cm, pp
@@ -4082,8 +4081,8 @@ subroutine kon (dt,chem)
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
                    xm1o,xm1n,kr
@@ -4395,8 +4394,8 @@ subroutine equil (ncase,kk)
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)      ! t: temperature
   real(kind=dp) :: theta, thetl, t, talt, p, rho                ! rho: density
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)   ! feu: humidity
-  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a             ! xm2: liquid water content
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)           ! feu: humidity
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a                   ! xm2: liquid water content
 
 ! == End of declarations =======================================================
 
@@ -6137,8 +6136,8 @@ end subroutine ion_mass
 ! Common blocks:
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
       common /kinv_i/ kinv
@@ -6251,8 +6250,8 @@ end subroutine ion_mass
 
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
       common /blck12/ cw(nkc,n),cm(nkc,n)
 

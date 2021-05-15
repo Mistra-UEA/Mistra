@@ -3233,7 +3233,7 @@ c output of meteorological variables
       common /cb53/ theta(n),thetl(n),t(n),ta(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
+      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
      &              fsn(nrlev),dtdts(nrlay)
       double precision fs1, fs2, totds, ss, fsn, dtdts

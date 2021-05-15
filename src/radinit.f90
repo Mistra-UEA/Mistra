@@ -1151,8 +1151,8 @@ subroutine load1
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real (kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 ! == End of declarations =======================================================
 
