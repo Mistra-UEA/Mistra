@@ -1013,14 +1013,13 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          else
             xm1(k) = min(xm1i, rhMaxFT*xm21s)
          end if
+         xm1a(k) = xm1(k)
+         xm2(k)  = 0._dp
          feu(k) = xm1(k)*p(k)/((0.62198_dp + 0.37802_dp * xm1(k))*p21(t(k)))
 ! r1/r0-1=0.61
          rho(k) = p(k)/(r0*(t(k)*(1._dp + 0.61_dp * xm1(k))))
          thetl(k) = theta(k)*(1._dp + 0.61_dp * xm1(k))
-         xm1a(k) = xm1(k)
          dfddt(k) = 0._dp
-         xm1a(k) = xm1(k)
-         xm2(k) = 0._dp
          buoy(k) = -1e-4_dp
          u(k) = ug
          v(k) = vg
@@ -4052,8 +4051,10 @@ subroutine kon (dt,chem)
   real (kind=dp), parameter :: z4pi3 = 4._dp * pi / 3._dp
 
 ! Local scalars:
-  integer :: ia, ib, jt, k
+  integer :: ia, ib, jt, k, kr
   real (kind=dp), external :: p21
+  real (kind=dp) :: dfdt, feualt, pp, to, tn, xm1o, xm1n ! arguments of SR subkon
+  real (kind=dp) :: ffk(nkt,nka), totr(mb)               ! arguments of SR subkon
   !real (kind=dp) :: potot(nkc,n)
   ! JJB temporary, check if my bugfix is justified or not
   logical :: lfeu, lcheck
@@ -4082,11 +4083,6 @@ subroutine kon (dt,chem)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
-
-  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,pp,to,tn, &
-                   xm1o,xm1n,kr
-  real (kind=dp) :: ffk, totr, dfdt, feualt,pp,to,tn,xm1o,xm1n
-  integer :: kr
 
   common /blck06/ kw(nka),ka
   integer :: kw, ka
@@ -4207,7 +4203,7 @@ subroutine kon (dt,chem)
 ! tn = to + diffusion, radiation etc.
 ! same with xm1o and xm1n
 
-        call subkon (dt)
+        call subkon (dt, ffk, totr, dfdt, feualt, pp, to, tn, xm1o, xm1n, kr)
 
 ! new values
         t(k)     = to
@@ -4487,7 +4483,7 @@ end subroutine equil
 !-------------------------------------------------------------
 !
 
-subroutine subkon (dt)
+subroutine subkon (dt, ffk, totr, dfdt, feualt, pp, to, tn, xm1o, xm1n, kr)
 !
 ! Description:
 ! -----------
@@ -4560,7 +4556,9 @@ subroutine subkon (dt)
   implicit none
 
 ! Subroutine arguments
-  real (kind=dp),intent(in) :: dt
+  integer,       intent(in)    :: kr
+  real (kind=dp),intent(in)    :: dt, totr(mb), dfdt, feualt, pp, tn, xm1n ! tn, xm1n: before current condensation calculation
+  real (kind=dp),intent(inout) :: ffk(nkt,nka), to, xm1o                   ! to, xm1o: after current condensation calculation
 
 ! Local scalars
   integer :: ia, ib0, ib, itk, jt, jtp, kr0
@@ -4603,25 +4601,21 @@ subroutine subkon (dt)
   common /cb51/ dlgew,dlgenw,dlne
   real (kind=dp) :: dlgew, dlgenw, dlne
 
-  common /cb60/ ffk(nkt,nka),totr(mb),dfdt,feualt,p,t,tn,xm1,xm1n,kr
-  real (kind=dp) :: ffk, totr, dfdt, feualt, p, t, tn, xm1, xm1n
-  integer :: kr
-
 ! == End of declarations =======================================================
 
-  zxl21  = xl21(t)
+  zxl21  = xl21(to)
   xldcp  = zxl21/cp
-  xka    = therm_conduct_air(t)
-  xdv    = diff_wat_vap(t,p)
-  xl     = 24.483_dp *t/p        ! P&K eq. (10-140) but T0=273.15, mistake?
+  xka    = therm_conduct_air(to)
+  xdv    = diff_wat_vap(to,pp)
+  xl     = 24.483_dp *to/pp        ! P&K eq. (10-140) but T0=273.15, mistake?
   deltav = 1.3_dp * xl
   deltat = 2.7_dp * xl
-  rho    = p/(r0*t*(1._dp + 0.61_dp * xm1))
-  rho21  = p21(t)/(r1*t)
-  rho21s = (zxl21/(r1*t)-1._dp)*rho21/t
-  a0     = a0m/t
-  xdv0   = xdv*sqrt(2._dp*pi/(r1*t)) / 3.6e-08_dp
-  xka0   = xka*sqrt(2._dp*pi/(r0*t)) / (7.e-07_dp * rho * cp)
+  rho    = pp/(r0*to*(1._dp + 0.61_dp * xm1o))
+  rho21  = p21(to)/(r1*to)
+  rho21s = (zxl21/(r1*to)-1._dp)*rho21/to
+  a0     = a0m/to
+  xdv0   = xdv*sqrt(2._dp*pi/(r1*to)) / 3.6e-08_dp
+  xka0   = xka*sqrt(2._dp*pi/(r0*to)) / (7.e-07_dp * rho * cp)
   kr0    = kr
 
   if (totr(1).lt.1._dp) then
@@ -4649,14 +4643,14 @@ subroutine subkon (dt)
            rad = rad + totr(ib) * (qabs(ib,jt,ia,kr0)  * de0 + &
                                    qabs(ib,jtp,ia,kr0) * dep) / de0p
         enddo
-        cr(jt,ia) = rad * 7.5e5_dp / (rk * x1) - rhow * 4190._dp * (tn-t)/(dt*x1)
+        cr(jt,ia) = rad * 7.5e5_dp / (rk * x1) - rhow * 4190._dp * (tn-to)/(dt*x1)
      enddo
   enddo
   falt(:,:) = ffk(:,:)
 
   feuneu = feualt + dfdt * dt
   if (feualt.lt.0.95_dp) then
-     feuneu=xm1n*p/(p21(tn)*(.62198_dp + .37802_dp * xm1n))
+     feuneu=xm1n*pp/(p21(tn)*(.62198_dp + .37802_dp * xm1n))
   end if
   fquer=0.5_dp * (feuneu+feualt)
   ! Initialisation
@@ -4687,10 +4681,10 @@ subroutine subkon (dt)
      enddo
      dmsum = dwsum/rho
      dtsum = xldcp*dmsum
-     xm1   = xm1n-dmsum
-     t     = tn+dtsum
-     p1    = xm1*p/(0.62198_dp + 0.37802_dp * xm1)
-     feuneu = p1/p21(t)
+     xm1o  = xm1n-dmsum
+     to    = tn+dtsum
+     p1    = xm1o*pp/(0.62198_dp + 0.37802_dp * xm1o)
+     feuneu = p1/p21(to)
      resold = res
      res    = feuneu + feualt - 2._dp * fquer
      if (abs(res).lt.1.e-6_dp) return
