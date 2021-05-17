@@ -3126,6 +3126,14 @@ end subroutine atk0
 !
 
 subroutine atk1
+!
+! Description:
+! -----------
+  ! Calculation of the tke production (tkep) and of the turbulent
+  ! exchange coefficients for heat (atkh), moisture (atkm), and
+  ! kinetic energy (atke) after 2.5 level model of Mellor and Yamada
+  ! (Reviews of Geophysics and Space Physics (4), 1982, pp 851-875).
+
 
 
 ! Author:
@@ -3147,6 +3155,10 @@ subroutine atk1
        ustern, &                   ! frictional velocity
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
@@ -3163,182 +3175,243 @@ subroutine atk1
 !     - why lct.le.lcl+2, not +1, or not lct.ne.lcl ?
 !     - why hardcoded values in several loops: k=10,n (why 10, why n not nm), then lct-4,lct+4
 
-      implicit double precision (a-h,o-z)
-! turbulent exchange coefficients after 2.5 level model of Mellor
-! and Yamada, JAS 1974.
+  implicit none
+
+! External function:
+  real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
+
+! Local parameters
+  real (kind=dp), parameter :: ppFBO = 0.8_dp         ! Filter for buoyancy, fraction of old value
+  real (kind=dp), parameter :: ppFBN = 1._dp - ppFBO  ! Filter for buoyancy, fraction of new value
+  real (kind=dp), parameter :: ppFShO = 0.8_dp        ! Filter for Sh, fraction of old value
+  real (kind=dp), parameter :: ppFShN = 1._dp - ppFBO ! Filter for Sh, fraction of new value
+  real (kind=dp), parameter :: ppFSmO = 0.8_dp        ! Filter for Sh, fraction of old value
+  real (kind=dp), parameter :: ppFSmN = 1._dp - ppFBO ! Filter for Sh, fraction of new value
+  real (kind=dp), parameter :: ppFxlO = 0.95_dp       ! Filter for xl, fraction of old value
+  real (kind=dp), parameter :: ppFxlN = 1._dp - ppFBO ! Filter for xl, fraction of new value
+  real (kind=dp), parameter :: ppGhMin = -0.6_dp     ! Gh min (see BTZ96 eq 7, modified; MY Fig3)
+  real (kind=dp), parameter :: ppGhMax = +0.03_dp    ! Gh max (see BTZ96 eq 7 and text p639)
+  ! Mellor & Yamada coefficients A1, A2, B1, B2 and C1 (eq. 45 p.858) as used in eq. 34-35
+  real (kind=dp), parameter :: ppMY_A1 = 0.92_dp
+  real (kind=dp), parameter :: ppMY_B1 = 16.6_dp
+  real (kind=dp), parameter :: ppMY_A2 = 0.74_dp
+  real (kind=dp), parameter :: ppMY_B2 = 10.1_dp
+  real (kind=dp), parameter :: ppMY_C1 = 0.08_dp
+  ! BTZ96 coefficients a1-a9 (eq. 9) and epsilon (eq. 6)
+  real (kind=dp), parameter :: ppa1 = ppMY_A2
+  real (kind=dp), parameter :: ppa2 = -9_dp * ppMY_A1 * ppMY_A2**2
+  real (kind=dp), parameter :: ppa3 = 18_dp * ppMY_A1**2 * ppMY_A2 * ppMY_C1
+  real (kind=dp), parameter :: ppa4 = ppMY_A1 * (1_dp - 3_dp * ppMY_C1)
+  real (kind=dp), parameter :: ppa5 = 3_dp * ppMY_A1 * ppMY_A2 * &
+       (3_dp * ppMY_A2 + ppMY_B2 * (3_dp * ppMY_C1 - 1_dp) + 12_dp * ppMY_A1 * ppMY_C1)
+  real (kind=dp), parameter :: ppa6 = -3_dp * ppMY_A2 * (7_dp * ppMY_A1 + ppMY_B2)
+  real (kind=dp), parameter :: ppa7 = 27_dp * ppMY_A1 * ppMY_A2**2 * (4_dp * ppMY_A1 + ppMY_B2)
+  real (kind=dp), parameter :: ppa8 = 6_dp * ppMY_A1**2
+  real (kind=dp), parameter :: ppa9 = 18_dp * ppMY_A1**2 * ppMY_A2 * (3_dp * ppMY_A2 - ppMY_B2)
+  real (kind=dp), parameter :: ppeps = 1_dp / ppMY_B1
+
+! Local scalars
+  integer :: k
+  real (kind=dp) :: betal, betat, betaw
+  real (kind=dp) :: esat, ql, qsat, qslt
+  real (kind=dp) :: ghn, gmn, shn, smn
+  real (kind=dp) :: x0, x1, x2, x4, xa, xb, zinv
+! Local arrays
+  real (kind=dp) :: es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
 
 ! Common blocks:
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  double precision detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
-      real (kind=dp) :: tkeps, tkepb, tkepd
+  common /cb42a/ tkeps(n),tkepb(n),tkepd(n)
+  real (kind=dp) :: tkeps, tkepb, tkepd
 
-      common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
-      real (kind=dp) :: gm, gh, sm, sh, xl
+  common /cb43/ gm(n),gh(n),sm(n),sh(n),xl(n)
+  real (kind=dp) :: gm, gh, sm, sh, xl
 
-      common /cb45/ u(n),v(n),w(n)
-      real (kind=dp) :: u, v, w
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb53a/ thet(n),theti(n)
-      real(kind=dp) :: thet, theti
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
-      common /kinv_i/ kinv
-      integer :: kinv
-      dimension es(n),xlo(n),dmw(n),dthetl(n),xmw(n)
-! statement functions
-      qsatur(esat,ppp)=0.62198*esat/(ppp-0.37802*esat)
-      vapsat(ttt)=610.7*dexp(17.15*(ttt-273.15)/(ttt-38.33))
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53a/ thet(n),theti(n)
+  real(kind=dp) :: thet, theti
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /kinv_i/ kinv
+  integer :: kinv
+
 ! == End of declarations =======================================================
-      if (lct.le.lcl+2) then
-!
+
+! calculation of the buoyancy term Pb (eq. 25b)
+!----------------------------------------------
+
 ! cloud free situation
-!
-! buoyancy term
-         do k=2,nm
-            x0=((1+0.61*xm1(k))*(theta(k+1)-theta(k)) &
-     &         +0.61*theta(k)*(xm1(k+1)-xm1(k)))/deta(k)
-            sm(k)=x0
-            sh(k)=x0
-            buoy(k)=0.8*buoy(k)+0.2*x0                    !filter
-            thetl(k)=(1+0.61*xm1(k))*theta(k)             !for output only
-         enddo
+  if (lct.le.lcl+2) then
+     do k=2,nm
+        x0 = ((1_dp + 0.61_dp * xm1(k)) * (theta(k+1) - theta(k)) &
+             + 0.61_dp * theta(k) * (xm1(k+1) - xm1(k))) / deta(k)
+        sm(k) = x0
+        sh(k) = x0
+        buoy(k) = ppFBO * buoy(k) + ppFBN * x0                  !filter
+        thetl(k) = (1_dp + 0.61_dp*xm1(k)) * theta(k)           !for output only
+     enddo
 ! calculate inversion level
-         do k=10,n
-            kinv=k
-            if (buoy(k).gt.1.d-5) go to 2000
-         enddo
- 2000    continue
-      else
-!
+     do k=10,n
+        kinv=k
+        if (buoy(k).gt.1.d-5) exit
+     enddo
+     write(jpfunout,*)'kinv : ',kinv
+
 ! cloudy situation
-!
+  else
+
 ! liquid water potential temperature
 ! l21/cp=2.4774d06/1005=2465.1
 ! l21/r0=2.4774d06/287.05=8630.6
 ! l21/r1=2.4774d06/461.51=5368.
 ! thet(k)=theta(k)/t(k); theti(k)=t(k)/theta(k)
-         do k=1,nm
-            thetl(k)=theta(k)-2465.1*thet(k)*xm2(k)/rho(k)
-            xmw(k)=xm1(k)+xm2(k)/rho(k)
-         enddo
-         thetl(n)=thetl(nm)+1.
-         xmw(n)=xm1(n)+xm2(n)/rho(n)
-! buoyancy term
-         do k=2,nm
-            dthetl(k)=(thetl(k+1)-thetl(k))/deta(k)
-            dmw(k)=(xmw(k+1)-xmw(k))/deta(k)
-            x0=(1.+0.61*xmw(k))*dthetl(k)+0.61*thetl(k)*dmw(k)
-            sh(k)=0.8*sh(k)+0.2*x0                        !filter
-         enddo
-         do k=2,lct-1
-            ql=xm2(k)/rho(k)
-            esat=vapsat(t(k))
-            qsat=qsatur(esat,p(k))
-            qslt=5368.*qsat/(t(k)*t(k))
-            xa=1./(1.+2465.1*qslt)
-            xb=xa*theti(k)*qslt
-            betat=(1.+0.61*xm1(k)-ql)
-            betaw=0.61*(thetl(k)+2465.1*thet(k)*ql)
-            betal=(1.+0.61*xmw(k)-3.22*ql)*2465.1*thet(k)-1.61*thetl(k)
-            x0=(betat-xb*betal)*dthetl(k)+(betaw+xa*betal)*dmw(k)
-            sm(k)=0.8*sm(k)+0.2*x0                         !filter
-            x1=60.*(dmin1(feu(k),1.d0)-1.)                 !calc. of alpha
-            betal=betal*dexp(x1)
-            x0=(betat-xb*betal)*dthetl(k)+(betaw+xa*betal)*dmw(k)
-            buoy(k)=0.8*buoy(k)+0.2*x0                     !filter
-         enddo
-         do k=lct,nm
-            buoy(k)=sh(k)
-         enddo
+     do k=1,nm
+        thetl(k) = theta(k) - 2465.1_dp * thet(k) * xm2(k) / rho(k)
+        xmw(k)   = xm1(k) + xm2(k) / rho(k)
+     enddo
+     thetl(n) = thetl(nm) + 1._dp
+     xmw(n)   = xm1(n) + xm2(n) / rho(n)
+
+! buoyancy term with eq. 72
+     do k=2,nm
+        dthetl(k) = (thetl(k+1) - thetl(k)) / deta(k)
+        dmw(k) = (xmw(k+1) - xmw(k)) / deta(k)
+        x0 = (1._dp + 0.61_dp * xmw(k)) * dthetl(k) + 0.61_dp * thetl(k) * dmw(k)
+        sh(k) = ppFShO * sh(k) + ppFShN * x0                        !filter
+     enddo
+     do k=2,lct-1
+        ql   = xm2(k) / rho(k)
+        esat = p21(t(k))
+        qsat = 0.62198_dp * esat / (p(k) - 0.37802_dp * esat)
+        qslt = 5368._dp * qsat / (t(k) * t(k))
+! terms a and b of eq. 70
+        xa = 1._dp / (1._dp + 2465.1_dp * qslt)
+        xb = xa * theti(k) * qslt
+! terms betat, betal, betaw of eq.72
+        betat = (1._dp + 0.61_dp * xm1(k) - ql)
+        betaw = 0.61_dp * (thetl(k) + 2465.1_dp * thet(k) * ql)
+        betal = (1._dp + 0.61_dp * xmw(k) - 3.22_dp * ql) * 2465.1_dp * thet(k) - 1.61 * thetl(k)
+        x0    = (betat - xb * betal) * dthetl(k) + (betaw + xa * betal) * dmw(k)
+        sm(k) = ppFSmO * sm(k) + ppFSmN * x0                         !filter
+
+        x1      = 60._dp * (min(feu(k),1._dp) - 1._dp)                 !calc. of alpha (Bott 1997 eq. 6 and text)
+        betal   = betal * exp(x1)
+        x0      = (betat - xb * betal) * dthetl(k) + (betaw + xa * betal) * dmw(k)
+        buoy(k) = ppFBO * buoy(k) + ppFBN * x0                     !filter
+     enddo
+     do k=lct,nm
+        buoy(k) = sh(k)
+     enddo
 ! calculate inversion level
-         kinv=lct+5
-         do k=lct-4,lct+4
-            if (buoy(k).gt.1.d-5) then
-            kinv=min(kinv,k)
-            endif
-         enddo
-         kinv=kinv-1
-         print *,'cloud kinv ',kinv
-      endif
-         print *,'kinv : ',kinv
-! mixing length
-      do k=1,n
-         xlo(k)=xl(k)
-         es(k)=sqrt(2.*tke(k))
-      enddo
-      x0=0.
-      x1=0.
-      do k=2,kinv-1
-         x2=es(k)*deta(k)
-         x0=x0+x2*etw(k)
-         x1=x1+x2
-      enddo
-      x2=x0/x1
-      zinv=etw(kinv)
-      x4=0.1-detw(kinv)/x2
-      xl(1)=0.
-      do k=2,kinv-1
-         x0=0.4*etw(k)
-         x1=dmax1(detw(k),x2*(0.1-x4*dexp((etw(k)-zinv)/15.)))
-         xl(k)=x0*x1/(x0+x1)
-      enddo
-      do k=kinv,n
-         x0=0.4*etw(k)
-         x1=detw(k)
-         xl(k)=x0*x1/(x0+x1)
-      enddo
-      do k=2,nm
-         xl(k)=0.95*xlo(k)+0.05*xl(k)                    !filter
-      enddo
-! stability functions gh and gm
-      gh(1)=0.
-      gm(1)=0.
-      do k=2,nm
-         x1=xl(k)*xl(k)/(es(k)*es(k))
-         ghn=-g*x1/theta(k)*buoy(k)
-         ghn=dmin1(ghn,0.03d0)
-         gh(k)=dmax1(ghn,-0.6d0)
-         gmn=x1*((u(k+1)-u(k))**2+(v(k+1)-v(k))**2)/(deta(k)*deta(k))
-         gm(k)=dmin1(gmn,25.d0*(0.03-gh(k)))
-      enddo
+     kinv=lct+5
+     do k=lct-4,lct+4
+        if (buoy(k).gt.1.e-5_dp) then
+           kinv = min(kinv,k)
+        endif
+     enddo
+     kinv = kinv-1
+     write(jpfunout,*)'cloud kinv ',kinv
+  endif
+
+! -----------------------------------------------------------------------------
+
+! calculation of the mixing length xl (eq. 50)
+!---------------------------------------------
+
+  do k=1,n
+     xlo(k) = xl(k)
+     es(k) = sqrt(2._dp * tke(k))
+  enddo
+  x0 = 0._dp
+  x1 = 0._dp
+  do k=2,kinv-1
+     x2 = es(k) * deta(k)
+     x0 = x0 + x2 * etw(k)
+     x1 = x1 + x2
+  enddo
+  x2 = x0 / x1
+  zinv = etw(kinv)
+  x4 = 0.1_dp - detw(kinv) / x2
+  xl(1) = 0._dp
+  do k=2,kinv-1
+     x0 = 0.4_dp * etw(k)
+     x1 = max(detw(k),x2 * (0.1_dp - x4 * exp((etw(k) - zinv) / 15._dp)))
+     xl(k) = x0 * x1 / (x0 + x1)
+  enddo
+  do k=kinv,n
+     x0 = 0.4_dp * etw(k)
+     x1 = detw(k)
+     xl(k) = x0 * x1 / (x0 + x1)
+  enddo
+  do k=2,nm
+     xl(k) = ppFxlO * xlo(k) + ppFxlN * xl(k)                    !filter (xl(1) and xl(n) do not change)
+  enddo
+
+! -----------------------------------------------------------------------------
+
+! calculation of stability functions gh and gm (eq. 33a, b or 74a)
+!-----------------------------------------------------------------
+  gh(1) = 0._dp
+  gm(1) = 0._dp
+  do k=2,nm
+     x1 = xl(k) * xl(k) / (es(k) * es(k))
+     ghn = -g * x1 / theta(k) * buoy(k)
+     gh(k) = max(ppGhMin, min(ghn, ppGhMax))
+     gmn = x1 * ((u(k+1) - u(k))**2 + (v(k+1) - v(k))**2) / (deta(k) * deta(k)) ! BTZ96 eq. (7)
+     gm(k) = min(gmn, 25._dp * (ppGhMax - gh(k)))
+  enddo
+
 ! exchange coefficients
 ! turbulent kinetic energy production/dissipation
-      atkh(1)=0.5*eta(2)*ustern/gclt
-      atkm(1)=0.5*eta(2)*ustern/gclu
-      atke(1)=atkm(1)
-      do k=2,nm
-         ghn=gh(k)
-         gmn=gm(k)
-         x0=1./(1.+ghn*(-36.7188+187.4408*ghn) &
-     &      +gmn*(5.0784-88.83949*ghn))
-         smn=(.6992d0-9.339487d0*ghn)*x0
-         shn=(.74d0-4.534128d0*ghn+.901924d0*gmn)*x0
-         x1=es(k)**3/xl(k)
-         tkeps(k)=x1*smn*gmn
-         tkepb(k)=x1*shn*ghn
-         tkepd(k)=-x1/16.6
-         tkep(k)=tkeps(k)+tkepb(k)+tkepd(k)
-         x2=es(k)*xl(k)
-         atkh(k)=x2*shn
-         atkm(k)=x2*smn
-         atke(k)=dmin1(atkm(k),x2*0.2)
-      enddo
-      do k=1,nm
-         atke(k)=0.5*(atke(k)+atke(k+1))
-      enddo
+! first atmospheric level with frictional velocity ustern
+  atkh(1) = 0.5_dp * eta(2) * ustern / gclt
+  atkm(1) = 0.5_dp * eta(2) * ustern / gclu
+  atke(1) = atkm(1)
 
-      end subroutine atk1
+! stability functions Sm, Sh (solution of eqs. 34, 35)
+  do k=2,nm
+     ghn = gh(k)
+     gmn = gm(k)
+     ! x0 is a10 in BTZ96 eq. 9
+     x0 = 1._dp / (1._dp + (ppa6 + ppa7 * ghn) * ghn + (ppa8 + ppa9 * ghn) * gmn)
+     shn = (ppa1 + ppa2 * ghn + ppa3 * gmn) * x0
+     smn = (ppa4 + ppa5 * ghn) * x0
+
+! TKE production: Ps = shear production
+!                 Pb = buoyant production
+!                 Pd = dissipation (epsilon from eq. 25c)
+     x1 = es(k)**3 / xl(k)
+     tkeps(k) = x1 * smn * gmn
+     tkepb(k) = x1 * shn * ghn
+     tkepd(k) = -x1 * ppeps
+     tkep(k) = tkeps(k) + tkepb(k) + tkepd(k)
+
+! exchange coefficients for heat (atkh)
+!                           moisture (atkm)
+!                           kinetic energy (atke)
+     x2 = es(k) * xl(k)
+     atkh(k) = x2 * shn
+     atkm(k) = x2 * smn
+     atke(k) = min(atkm(k), x2 * 0.2_dp)
+  enddo
+  do k=1,nm
+     atke(k) = 0.5_dp * (atke(k) + atke(k+1))
+  enddo
+
+end subroutine atk1
 
 !
 !-------------------------------------------------------------
