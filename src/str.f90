@@ -3048,7 +3048,7 @@ subroutine atk0
 
   USE constants, ONLY : &
 ! Imported Parameters:
-       g
+       g, kappa
 
   USE data_surface, ONLY : &
        ustern, z0, &               ! frictional velocity, roughness length
@@ -3087,7 +3087,7 @@ subroutine atk0
   xl(1) = 0._dp
   x1 = (ug + vg) * 2.7_dp
   do k=2,n
-     x2    = 0.4 * etw(k)
+     x2    = kappa * etw(k)
      xl(k) = x2 * x1 / (x2 + x1)
      xl(k) = min(xl(k), deta(k))
   enddo
@@ -3149,7 +3149,8 @@ subroutine atk1
 
   USE constants, ONLY : &
 ! Imported Parameters:
-       g                           ! Gravitational acceleration
+       g, &                        ! Gravitational acceleration
+       kappa
 
   USE data_surface, ONLY : &
        ustern, &                   ! frictional velocity
@@ -3347,12 +3348,12 @@ subroutine atk1
   x4 = 0.1_dp - detw(kinv) / x2
   xl(1) = 0._dp
   do k=2,kinv-1
-     x0 = 0.4_dp * etw(k)
+     x0 = kappa * etw(k)
      x1 = max(detw(k),x2 * (0.1_dp - x4 * exp((etw(k) - zinv) / 15._dp)))
      xl(k) = x0 * x1 / (x0 + x1)
   enddo
   do k=kinv,n
-     x0 = 0.4_dp * etw(k)
+     x0 = kappa * etw(k)
      x1 = detw(k)
      xl(k) = x0 * x1 / (x0 + x1)
   enddo
@@ -5821,7 +5822,8 @@ end subroutine adjust_f
   USE constants, ONLY : &
 ! Imported Parameters:
        g, &                        ! Gravitational acceleration (m/s**2)
-       pi
+       pi,&
+       kappa
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
@@ -5877,7 +5879,7 @@ end subroutine adjust_f
 
       xk=1.38066d-23 !Boltzmann number
       z=0.1*eta(kinv) !surface layer height: 10% of BL (Stull), insensitive parameter
-      ra=1./(0.4*ustern)*(dlog(z/z0)+phi)  !ra:aerodynamic resistance; kappa=0.4
+      ra=1./(kappa*ustern)*(dlog(z/z0)+phi)  !ra:aerodynamic resistance; kappa=0.4
 
       k=2 ! only in lowest model layer
       xeta=1.8325e-5*(416.16/(t(k)+120.))*((t(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
@@ -5965,7 +5967,8 @@ end subroutine adjust_f
   USE constants, ONLY : &
 ! Imported Parameters:
        cp,&              ! Specific heat of dry air, in J/(kg.K)
-       g                           ! Gravitational acceleration (m/s**2)
+       g, &                        ! Gravitational acceleration (m/s**2)
+       kappa                       ! von Karman constant
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
@@ -6026,7 +6029,7 @@ end subroutine adjust_f
      &     deta(k-1))/2.
       q3=rho(k)*cp*(-1.)*atkh(k)*dtdz
 
-      xmo=-1.*rho(k)*cp*t(1)*ustern**3/(0.4*g*q3) ! Seinfeld 2, p. 747, (16.70)
+      xmo=-1.*rho(k)*cp*t(1)*ustern**3/(kappa*g*q3) ! Seinfeld 2, p. 747, (16.70)
 
 ! effect on ra
       zeta=z/xmo
