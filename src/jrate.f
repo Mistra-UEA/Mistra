@@ -779,8 +779,10 @@ C     DIFFERENTIAL O2 AND O3 COLUMNS AND SLANT COLUMNS
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
       COMMON/FL/FLUX(MAXWAV)   !extraterrestic flux per interval
 c                               [photons/(cm^2 s)]
+      DOUBLE PRECISION FLUX
 
       COMMON/RAY_J/CS_RAY(MAXWAV)!Rayleigh scattering cross section [cm^2/part.]
+      DOUBLE PRECISION CS_RAY
 
       COMMON/CROSS_SEC/        !cross sections [cm^2/part.]
      $     CS_H2O(MAXWAV),    CS_HNO3(MAXWAV),    CS_HNO4(MAXWAV),
@@ -1562,15 +1564,18 @@ c   blocks. Upper case variables are from Jochen's code and are passed explicitl
 ! 17/08/2016 & 23/08/2016 jjb
 !     further changes:
 !        - major cleaning of all unused, comented parts except potentially useful comments
-
+!
+! 17/05/2021 jjb
+!     add missing initialisation of TOTABS and TOTSCA, but commented since unused
+!     missing declarations then implicit none
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
-      INTEGER MAXLAY,MAXWAV,NMOM,NW
+      INTEGER I,K,L,MAXLAY,MAXWAV,NMOM,NW,NL
       PARAMETER(MAXLAY=nrlay, MAXWAV=176, NMOM =4, NW=7)
 
       INTEGER
@@ -1611,16 +1616,24 @@ C     asume fixed temperature of T=220K. Total error in JO2 and FINT of the
 c     fit is less than 4% for 45.5 .le. DLOG(V2S) .le. 54.0.
 
       COMMON/C_O2_TOP/ CT_TOP(4,13)
+      DOUBLE PRECISION CT_TOP
 
       COMMON/RAY_J/ CS_RAY(MAXWAV)
+      DOUBLE PRECISION CS_RAY
       COMMON/FL/   FLUX(MAXWAV)   !extraterrestic flux per interval
 c                                  [photons/(cm^2 s)]
+      DOUBLE PRECISION FLUX
 
       DOUBLE PRECISION
-     $     Ti_SCA(NW,MAXLAY),  !integrated absorption optical depth
-     $     Ti_ABS(NW,MAXLAY),  !integrated absorption optical depth
-     $     TOTABS(NW),         !total absorption optical depth
-     $     TOTSCA(NW)          !total absorption optical depth
+     $     DLV2S,
+     $     TA_O2,
+     $     TA_O3
+
+!      DOUBLE PRECISION
+!     $     Ti_SCA(NW,MAXLAY),  !integrated absorption optical depth
+!     $     Ti_ABS(NW,MAXLAY),  !integrated absorption optical depth
+!     $     TOTABS(NW),         !total absorption optical depth
+!     $     TOTSCA(NW)          !total absorption optical depth
 
 
 c MISTRA common block
@@ -1629,11 +1642,18 @@ c MISTRA common block
 C-------------------------------------------------------------------
 C     internal functions
 
-      P3(C0,C1,C2,C3,X)= C0 + (C1 + (C2+C3*X)*X)*X
+      DOUBLE PRECISION P3
+      DOUBLE PRECISION C0, C1, C2, C3, X
+      P3(C0,C1,C2,C3,X) = C0 + (C1 + (C2+C3*X)*X)*X
 
 C-------------------------------------------------------------------
 
       IF (1.D0/U0 .ge. 0.D0) THEN
+
+      !! jjb initialisation was missing
+      !TOTABS(:) = 0.D0
+      !TOTSCA(:) = 0.D0
+
       DO NL = 1,NW
          L = NWS(NL)
 
@@ -1641,7 +1661,7 @@ C-------------------------------------------------------------------
 
 c           OPTICAL DEPTHS
 
-            TA_O2 = 0.5D0*(CST_O2(L,K-1) + CST_O2(L,K)) * DV2(K)
+            TA_O2 = 0.5D0 * (CST_O2(L,K-1) + CST_O2(L,K)) * DV2(K)
 
             IF (K.eq.1 .AND. L.le.13) THEN
                DLV2S = DLOG(V2S(1))
@@ -1683,16 +1703,17 @@ C           PHASE FUNCTIONS
 
             PRAY(NL,K,2) = 0.1D0
 
-            TOTABS(NL) = TOTABS(NL) + TAUA_CLR(NL,K)
-            TOTSCA(NL) = TOTSCA(NL) + TAUS_CLR(NL,K)
+            ! jjb commented out, unused
+            !TOTABS(NL) = TOTABS(NL) + TAUA_CLR(NL,K)
+            !TOTSCA(NL) = TOTSCA(NL) + TAUS_CLR(NL,K)
 
-            IF(K.eq.1)THEN
-               Ti_SCA(NL,K)=TAUS_CLR(NL,K)
-               Ti_ABS(NL,K)=TAUA_CLR(NL,K)
-            ELSE
-               Ti_SCA(NL,K)=Ti_SCA(NL,K-1)+TAUS_CLR(NL,K)
-               Ti_ABS(NL,K)=Ti_ABS(NL,K-1)+TAUA_CLR(NL,K)
-            ENDIF
+            !IF(K.eq.1)THEN
+            !   Ti_SCA(NL,K)=TAUS_CLR(NL,K)
+            !   Ti_ABS(NL,K)=TAUA_CLR(NL,K)
+            !ELSE
+            !   Ti_SCA(NL,K)=Ti_SCA(NL,K-1)+TAUS_CLR(NL,K)
+            !   Ti_ABS(NL,K)=Ti_ABS(NL,K-1)+TAUA_CLR(NL,K)
+            !ENDIF
 
          ENDDO
       ENDDO
@@ -1779,7 +1800,6 @@ c     inputs
 C-------------------------------------------------------------------
       PI=2.D0*DASIN(1.0D0)
 
-!      MAXLEV  = MAXLAY + 1 ! jjb unreferenced
       DO 100 L  = 1,NW            !wavel. loop
 
          IF (U0.ge.0.) THEN
@@ -2316,8 +2336,9 @@ c **********************************************************************
 c Double-Gauss quadratures and weights (Sykes, 1951).
 c **********************************************************************
       block data gaus2
-      implicit double precision (a-h,o-z)
+      implicit none
       common /point/ u(4)
+      double precision u
       data u / -0.7886752D0, -0.2113247D0, 0.2113247D0, 0.7886752D0 /
       end
 
@@ -2346,8 +2367,9 @@ c p0d(4), p1d(4), p2d(4), and p3d(4) are Legendre polynomials p0(x),
 c p1(x), p2(x), and p3(x) when x = u(1), u(2), u(3), and u(4).
 c **********************************************************************
       block data legend
-      implicit double precision (a-h,o-z)
+      implicit none
       common /legen/ p0d(4), p1d(4), p2d(4), p3d(4)
+      double precision p0d, p1d, p2d, p3d
       data p0d /  .100000D+01,  .100000D+01,  .100000D+01, .100000D+01 /
       data p1d / -.788675D+00, -.211325D+00,  .211325D+00, .788675D+00 /
       data p2d /  .433013D+00, -.433013D+00, -.433013D+00, .433013D+00 /
@@ -2359,8 +2381,9 @@ c p11d(4,4), p22d(4,4), and p33d(4,4) are defined as 0.5*p1d(i)*p1d(j),
 c 0.5*p2d(i)*p2d(j), and 0.5*p3d(i)*p3d(j), respectively.
 c *********************************************************************
       block data legenf
-      implicit double precision (a-h,o-z)
+      implicit none
       common /legen1/ p11d(4,4), p22d(4,4), p33d(4,4)
+      double precision p11d, p22d, p33d
       data p11d / .311004D+00, .833334D-01,-.833334D-01,-.311004D+00,
      1            .833334D-01, .223291D-01,-.223291D-01,-.833334D-01,
      1           -.833334D-01,-.223291D-01, .223291D-01, .833334D-01,
@@ -2384,17 +2407,25 @@ c **********************************************************************
 !                 removal of unused parameters and common blocks
 !                 cleaning
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       common /point/ u(4)
+      double precision u
       common /legen/ p0d(4), p1d(4), p2d(4), p3d(4)
+      double precision p0d, p1d, p2d, p3d
       common /legen1/ p11d(4,4), p22d(4,4), p33d(4,4)
+      double precision p11d, p22d, p33d
+
+c input
+      double precision, intent(in) :: w, w1, w2, w3, u0
 
 c output
       double precision b(4,3)
 
 c local
+      integer i, j
       double precision c(4,5)
+      double precision fq, q1, q2, q3, fw, w0w, w1w, w2w, w3w, x
 
 c-----------------------------------------------------------------------
       x = 0.5D0 * w
@@ -2443,11 +2474,12 @@ c coefficient calculations for second order differential equations.
 c **********************************************************************
       subroutine coeff2(u0,  b,
      O                   a,   d)
-      implicit double precision (a-h,o-z)
+      implicit none
 c input
-      double precision u0, b(4,3)
+      double precision, intent(in) :: u0, b(4,3)
 c output
-      double precision a(2,2,2), d(4)
+      double precision, intent(out) :: a(2,2,2), d(4)
+      double precision fw1, fw2, fw3, fw4
       fw1 = b(1,1) * b(1,2)
       fw2 = b(2,1) * b(3,2)
       fw3 = b(3,1) * b(2,2)
@@ -2472,11 +2504,12 @@ c coefficient calculations for fourth-order differential equations.
 c **********************************************************************
       subroutine coeff4(u0,   a,    d,
      O                  b1,  c1,    z)
-      implicit double precision (a-h,o-z)
+      implicit none
 c input
-      double precision a(2,2,2), d(4)
+      double precision, intent(in) :: u0, a(2,2,2), d(4)
 c output
-      double precision z(4)
+      double precision, intent(out) :: b1, c1, z(4)
+      double precision x
       x = u0 * u0
       b1 = a(2,2,1) + a(1,1,1)
       c1 = a(2,1,1) * a(1,2,1) - a(1,1,1) * a(2,2,1)
