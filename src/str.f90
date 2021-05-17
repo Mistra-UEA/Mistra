@@ -532,6 +532,7 @@ subroutine openm (fogtype)
        rst, mic, box
 
   USE file_unit, ONLY : &
+       jpfunclarke, &
        jpfunprofm, jpfunprofr, &
        jpfunpm, jpfunpb, &        ! ploutm files: pm*, pb*
        jpfunpr, &                 ! ploutr file: pr*
@@ -539,9 +540,6 @@ subroutine openm (fogtype)
        jpfunf1, jpfunf2, jpfunf3  ! ploutp files: f1*, f2*, f3*
 
   USE data_surface, ONLY : fu, ft, xzpdl, xzpdz0
-
-  USE file_unit, ONLY : &
-       jpfunclarke
 
   implicit none
 
@@ -3182,14 +3180,14 @@ subroutine atk1
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
 ! Local parameters
-  real (kind=dp), parameter :: ppFBO = 0.8_dp         ! Filter for buoyancy, fraction of old value
-  real (kind=dp), parameter :: ppFBN = 1._dp - ppFBO  ! Filter for buoyancy, fraction of new value
-  real (kind=dp), parameter :: ppFShO = 0.8_dp        ! Filter for Sh, fraction of old value
-  real (kind=dp), parameter :: ppFShN = 1._dp - ppFBO ! Filter for Sh, fraction of new value
-  real (kind=dp), parameter :: ppFSmO = 0.8_dp        ! Filter for Sh, fraction of old value
-  real (kind=dp), parameter :: ppFSmN = 1._dp - ppFBO ! Filter for Sh, fraction of new value
-  real (kind=dp), parameter :: ppFxlO = 0.95_dp       ! Filter for xl, fraction of old value
-  real (kind=dp), parameter :: ppFxlN = 1._dp - ppFBO ! Filter for xl, fraction of new value
+  real (kind=dp), parameter :: ppFBO = 0.8_dp          ! Filter for buoyancy, fraction of old value
+  real (kind=dp), parameter :: ppFBN = 1._dp - ppFBO   ! Filter for buoyancy, fraction of new value
+  real (kind=dp), parameter :: ppFShO = 0.8_dp         ! Filter for Sh, fraction of old value
+  real (kind=dp), parameter :: ppFShN = 1._dp - ppFShO ! Filter for Sh, fraction of new value
+  real (kind=dp), parameter :: ppFSmO = 0.8_dp         ! Filter for Sh, fraction of old value
+  real (kind=dp), parameter :: ppFSmN = 1._dp - ppFSmO ! Filter for Sh, fraction of new value
+  real (kind=dp), parameter :: ppFxlO = 0.95_dp        ! Filter for xl, fraction of old value
+  real (kind=dp), parameter :: ppFxlN = 1._dp - ppFxlO ! Filter for xl, fraction of new value
   real (kind=dp), parameter :: ppGhMin = -0.6_dp     ! Gh min (see BTZ96 eq 7, modified; MY Fig3)
   real (kind=dp), parameter :: ppGhMax = +0.03_dp    ! Gh max (see BTZ96 eq 7 and text p639)
   ! Mellor & Yamada coefficients A1, A2, B1, B2 and C1 (eq. 45 p.858) as used in eq. 34-35
@@ -6670,102 +6668,117 @@ end subroutine sedc_box
 !----------------------------------------------------------------------
 !
 
-      subroutine out_mass
+subroutine out_mass
 ! subroutine to print aerosol and ion mass
 
-      USE global_params, ONLY : &
+  USE config, ONLY : &
+       coutdir
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       j2, &
+       j6, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-           dp
+       jpfunom
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      parameter (lsp=9)
+  implicit none
+
+! Local parameters
+  character (len=*), parameter :: clfname = "out_mass.out"
+  integer, parameter :: lsp = 9                               ! number of tracked ions
+  ! Tracked ions are: H+, NH4+, SO42-, HCO3-, NO3-, Cl-, HSO4-, Na+, CH3SO3-
+  integer, parameter :: lj2(lsp) = (/1,2,8,9,13,14,19,20,30/) ! indexes of tracked ions
+  real (kind=dp), parameter :: xmm(lsp) = &                   ! molar mass of mass-determining ions in g/mole
+       (/1._dp, 18._dp, 96._dp, 61._dp, 62._dp, 35.5_dp, 97._dp, 23._dp, 95._dp/)
+
+! Local scalars
+  integer :: ia, jt, k, kc, l, ll
+  real (kind=dp) :: xxsum
+! Local arrays
+  real (kind=dp) :: xsum(n), xionmass(nkc,n), xion(n)
+
 ! Common blocks:
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  double precision detw, deta, eta, etw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /liq_pl/ nkc_l
-      dimension xsum(n),lj2(lsp),xionmass(n,nkc),xion(n),xmm(lsp), &
-     &     zion(n)
-      data lj2/1,2,8,9,13,14,19,20,30/
-! molar mass of mass-determining ions in g/mole
-      data xmm /1.,18.,96.,61.,62.,35.5,97.,23.,95./
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /liq_pl/ nkc_l
+  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
-      write (13,*) ' '
-      write (13,*) 'output:', lday,lst,lmin
+  open (unit=jpfunom, file=trim(coutdir)//clfname, status='unknown', form='formatted', position='append')
+  write (jpfunom,*) ' '
+  write (jpfunom,*) 'output:', lday,lst,lmin
 
-! Initialisation
-      xxsum = 0.d0
+! Initialisations
+  xxsum   = 0._dp
+  xsum(1) = 0._dp
 
 ! output of aerosol mass-------------
-      do k=2,n
-         xsum(k)=0.
-         do ia=1,nka
-            do jt=1,nkt
-               xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
-            enddo
-         enddo
-         xsum(k)=xsum(k)*1.e+09
-         xxsum=xxsum+xsum(k)*detw(k)
-      enddo
+  do k=2,n
+     xsum(k)=0._dp
+     do ia=1,nka
+        do jt=1,nkt
+           xsum(k) = xsum(k) + ff(jt,ia,k) * en(ia)
+        enddo
+     enddo
+     xsum(k) = xsum(k) * 1.e+09_dp
+     xxsum = xxsum + xsum(k) * detw(k)
+  enddo
 
-      write (13,6240)
-      write (13,6250) xsum
-      write (13,6260) xxsum
+  write (jpfunom,6240)
+  write (jpfunom,6250) xsum
+  write (jpfunom,6260) xxsum
 
 ! output of ion mass-------------
-      do k=1,n
-         do kc=1,nkc_l
+  do k=1,n
+     do kc=1,nkc_l
 ! calculate the mass
-            xionmass(k,kc)=0.
-            do l=1,lsp
-               ll=lj2(l)
-               xionmass(k,kc)=xionmass(k,kc)+ sion1(ll,kc,k)*xmm(l)
-            enddo
-          enddo
+        xionmass(k,kc)=0._dp
+        do l=1,lsp
+           ll = lj2(l)
+           xionmass(kc,k) = xionmass(kc,k) + sion1(ll,kc,k) * xmm(l)
+        enddo
+     enddo
 
-         xion(k)=xionmass(k,1)+xionmass(k,2)+xionmass(k,3)+ &
-     &        xionmass(k,4)
-      enddo
+     xion(k) = (xionmass(1,k) + xionmass(2,k) + xionmass(3,k) + xionmass(4,k)) * 1.e6_dp
+  enddo
 
-      do k=1,n
-         zion(k) = xion(k)*1.d6
-      enddo
-
-      write (13,6280)
-      write (13,6250) zion
+  write (jpfunom,6280)
+  write (jpfunom,6250) xion
 
  6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
  6250 format (1x,15f8.3)
- 6260 format(6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
-! 6270 format(4d16.8)
- 6280 format(/,6x,'ion mass in ug m**-3 in layers 2 - nf')
+ 6260 format (6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
+ 6280 format (/,6x,'ion mass in ug m**-3 in layers 2 - nf')
 
-      end subroutine out_mass
+  close (jpfunom)
+
+end subroutine out_mass
 
 !
 !-----------------------------------------------------------------------------
