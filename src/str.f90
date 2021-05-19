@@ -158,7 +158,7 @@ program mistra
 
   ! initialisation switch
   llinit = .true.
-  !call test_jjb
+
   call read_config
 
   fogtype='a'
@@ -261,7 +261,7 @@ program mistra
 ! initial output for plotting
   if (binout) then
      call ploutm (fogtype,n_bln)
-     if (mic.and..not.box) call ploutp (fogtype)
+     if (mic) call ploutp (fogtype)
      call ploutr (fogtype,n_bln)
      call ploutt (fogtype,n_bln)
      if (chem) then
@@ -271,7 +271,7 @@ program mistra
   endif
 
   if (chem) call out_mass
-  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
 
   time=60.*float(it0)
 ! local time: day (lday), hours (lst), minutes (lmin)
@@ -282,6 +282,7 @@ program mistra
   write (99,6000) lday,lst,lmin,atmax
   close (99)
 2005 continue
+
   if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
   if (box) box_switch=1.
 
@@ -431,12 +432,11 @@ program mistra
 !    ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-!       print*,'call oneD_dist'
         call oneD_dist
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
-           if (lmin/30*30.eq.lmin.and.mic.and..not.box) call ploutp (fogtype)
+           if (lmin/30*30.eq.lmin.and.mic) call ploutp (fogtype)
            call ploutr (fogtype,n_bln)
            call ploutt (fogtype,n_bln)
            if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
@@ -444,12 +444,13 @@ program mistra
         endif
 
 ! netCDF output
-        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
 ! output of data from nucleation
         if (chem.and.nuc) call nucout2
 ! output from mass balance
         if (chem) call out_mass
      endif
+
 ! hourly output of profiles in ascii files
      if (lmin/60*60.eq.lmin) then
         call profm (dt)
@@ -462,14 +463,15 @@ program mistra
         call outm
         if (chem) call outc
      endif
+
 ! output of "tima.out"
-     atmax=0.
-     tkemax=0.
-     xm2max=0.
+     atmax  = 0._dp
+     tkemax = 0._dp
+     xm2max = 0._dp
      do k=lcl,nf
-        atmax=dmax1(atmax,atkh(k))
-        tkemax=dmax1(tkemax,tke(k))
-        xm2max=dmax1(xm2max,xm2(k)*1000./rho(k))
+        atmax  = max(atmax, atkh(k))
+        tkemax = max(tkemax, tke(k))
+        xm2max = max(xm2max, xm2(k) * 1000._dp / rho(k))
      enddo
      open (99, file=fname,status='unknown',err=1000)
      write (99,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
@@ -478,6 +480,7 @@ program mistra
 6010 format (1x,i2,':',i2,':',i2,3f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
      close (99)
 1000 continue
+
   end do
 ! =========================end of time integration=====================
 
@@ -488,7 +491,7 @@ program mistra
 ! final output of aerosol size distribution
   do k=1,n
      do ia=1,nka
-        aer(k,ia)=0.
+        aer(k,ia)=0._dp
         do jt=1,nkt
            aer(k,ia)=aer(k,ia)+ff(jt,ia,k)
         enddo
@@ -515,7 +518,7 @@ subroutine openm (fogtype)
 
 ! Author:
 ! ------
-  !    RvG?
+  !    Bott and RvG?
 
 
 ! Modifications :
@@ -529,7 +532,7 @@ subroutine openm (fogtype)
        binout, &
        cinpdir,&
        coutdir, &
-       rst, mic, box
+       rst, mic
 
   USE file_unit, ONLY : &
        jpfunclarke, &
@@ -596,7 +599,7 @@ subroutine openm (fogtype)
         open (jpfunpt, file=trim(clpath), status='new',form='unformatted')
         close (jpfunpt)
 
-        if (mic.and..not.box) then
+        if (mic) then
            fname='f1 .out'
            fname(3:3)=fogtype
            clpath=trim(coutdir)//trim(fname)

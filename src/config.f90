@@ -322,8 +322,16 @@ else
    write(jpfunout,'(a)') 'Warning: no namelist specified, only hardcoded default settings will be used'
 end if
 
+! ======================================================
+! -- 3. -- Perform some checks over the resulting values
+! ======================================================
+if (box.and.mic) then
+   mic = .false.
+   write(jpfunout,'(a)') 'Warning: mic has been set to false since box model is activated'
+end if
+
 ! =====================================================
-! -- 3. -- Export current configuration in file cfg.out
+! -- 4. -- Export current configuration in file cfg.out
 ! =====================================================
 
   if (rst) then
@@ -370,6 +378,12 @@ subroutine abortM (cderrmessage)
   implicit none
   character (len=*), intent(in) :: cderrmessage
   write (jpfunerr,'(a)') cderrmessage
+
+  if (netcdf) then
+     write (jpfunerr,'(a)') 'Trying to close netCDF files'
+     call close_netcdf(mic,chem,nuc)
+  end if
+
   stop '  --> stopped by SR abort'
 
 end subroutine abortM
