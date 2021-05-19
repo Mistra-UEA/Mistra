@@ -21,14 +21,18 @@
 c written by Astrid Kerkweg 16. Juli 2002
 c modified by Roland von Glasow, April-Aug 2004
 c supplemented by Susanne Marquart, Sep 2004
+! jjb general modif (2015-2021):
+!    - cleaning unused variables
+!    - size idvar_jrat(50) corrected (was 49)
+!    - implicit none everywhere
+!    - headers and declaration blocks
 
-
-      subroutine open_netcdf (n_bln,chem,mic,halo,iod,nuc)
+      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
 
       implicit none
 
-      integer :: n_bln
-      logical :: chem, mic,halo,iod,nuc
+      integer, intent(in) :: n_bln
+      logical, intent(in) :: chem, mic, halo, iod, box, nuc
 
       logical :: true
 
@@ -49,7 +53,7 @@ c supplemented by Susanne Marquart, Sep 2004
 c open netCDF-files
       true=.true. ! to be able to compare hal vs. nohal
       call open_met (n_bln)                         ! thermodynamics
-      if (mic)   call open_mic                      ! microphysics
+      if (mic.and..not.box)   call open_mic         ! microphysics
 c      if (chem)  call open_chem_gas(n_bln,halo,iod) ! gas phase
 c      if (chem)  call open_chem_aq(n_bln,halo,iod) ! aqueous phase
 !     if (chem)  call open_chem_gas(n_bln,true,iod,nuc) ! gas phase ! jjb halo(=.true.), iod & nud are no longer used
@@ -72,15 +76,15 @@ c
 
       implicit none
 
-      integer :: n_bln
-      logical :: chem, mic,halo,iod,box,nuc
+      integer, intent(in) :: n_bln
+      logical, intent(in) :: chem, mic, halo, iod, box, nuc
 
       logical :: true
 
 c write netCDF-files
       true=.true.
       call write_met (n_bln)                          ! thermodynamics
-      if (mic.and..not.box) call write_mic             ! microphysics
+      if (mic.and..not.box) call write_mic            ! microphysics
 c      if (chem)  call write_chem_aq (n_bln,halo,iod) ! aqueous phase
 
       if (chem)  call write_chem_gas (n_bln)              ! gas phase
@@ -94,14 +98,14 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine close_netcdf (mic,chem,nuc)
+      subroutine close_netcdf (mic,chem,box,nuc)
 
       implicit none
 
-      logical :: chem,mic,nuc
+      logical, intent(in) :: chem, mic, box, nuc
 c close netCDF-files
       call close_met
-      if (mic)   call close_mic
+      if (mic.and..not.box)   call close_mic
       if (chem)  call close_chem_gas
       if (chem)  call close_chem_aq
       if (chem)  call close_jrate
@@ -123,15 +127,16 @@ c initialize plot file for meteorological output
       include 'netcdf.inc'
 
       integer, intent(in) :: n_bln
+! Local parameters:
       integer, parameter :: x=1,y=1,noz=1
-      character (len=8) fname
+      character (len=*), parameter :: fname = "meteo.nc"
       integer :: k, jddim1(4)
       integer :: id_n, id_noz, id_x, id_y
       common /cdf_var/ id_rec,idvar(39),idfile,icount,jddim(4)
       integer :: id_rec, idvar, idfile, icount, jddim
 
       icount=0
-      fname="meteo.nc"
+
       k=nf_create(fname,nf_clobber,idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,nf_global,'title',11,'meteorology')
@@ -504,14 +509,15 @@ c ferret complains about variable ordering but the way I set it up "i", "j", "k"
 ! Include statements:
       include 'netcdf.inc'
 
+! Local parameters:
+      character (len=*), parameter :: fname = "grid.nc"
       integer, parameter :: x=1,y=1
       integer :: k, jddim1(4)
-      character (len=7) fname
       integer :: id_n, id_nka, id_nkt, id_x, id_y
       common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
       integer :: id_rec, idvar_g, idfile, icount, jddim
       icount=0
-      fname="grid.nc"
+
       k=nf_create(fname,nf_clobber,idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idfile,nf_global,'title',4,'grid')
@@ -654,7 +660,7 @@ c open netCDF file for microphysics
       include 'netcdf.inc'
 
 ! Local parameters:
-      character (len=6), parameter :: fname = 'mic.nc'
+      character (len=*), parameter :: fname = 'mic.nc'
       integer, parameter :: x=1, x2=2, y=1, noz=1
       integer, parameter :: nat=nkt
 ! Local scalars:
@@ -766,7 +772,7 @@ c end define mode
       k=nf_enddef(idmicfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_mic
 
 
 c
@@ -797,10 +803,10 @@ c open netCDF file for gas phase chemistry output
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      integer :: n_bln
+      integer, intent(in) :: n_bln
 
 ! Local parameters:
-      character (len=6), parameter :: fname = 'gas.nc'
+      character (len=*), parameter :: fname = 'gas.nc'
       integer, parameter :: x=1, y=1, noz=1
       integer, parameter :: j0 = 3              ! number of time variables
 ! Local scalars:
@@ -926,8 +932,10 @@ c open netCDF file for aqueous phase chemistry output
 
       logical, intent(in) :: iod,halo,nuc
       integer, intent(in) :: n_bln
+! Local parameters:
+      character (len=*), parameter :: fname = "aq.nc"
       integer, parameter :: x=1,y=1,noz=1
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
+! Local scalars:
       integer :: i0, i1, i2, id_n, id_nkc_l, id_noz,id_x, id_y, k
       integer :: jddim1(4)
       common /cdf_var_aq/ idaq_rec,idvar_aq(j2+j6+7),idaqfile,
@@ -935,7 +943,7 @@ c open netCDF file for aqueous phase chemistry output
       integer :: idaq_rec,idvar_aq,idaqfile,iliqcount,jddim_aq
 
       iliqcount=0
-      fname="aq.nc"
+
       k=nf_create(fname,nf_clobber,idaqfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idaqfile,nf_global,'title',26,
@@ -2587,7 +2595,7 @@ c end define mode
       k=nf_enddef(idaqfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_chem_aq
 
 c
 c----------------------------------------------------------------
@@ -2701,7 +2709,7 @@ c end define mode
        k=nf_enddef(idjratfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_jrate
 
 c
 c----------------------------------------------------------------
@@ -2715,21 +2723,27 @@ c open netcdf file for reaction rates
      &     nlev,
      &     nrxn
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
+
+! Local parameters:
+      character (len=*), parameter :: fname = "rxnrate.nc"
+      integer, parameter :: x=1, y=1, noz=1
+! Local scalars:
+      integer :: id_nrxn, id_n, id_noz, id_x, id_y
+      integer :: k
+! Local arrays:
+      integer :: jddim1(4)
+! Common blocks:
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
      &   irxncount,jddim_rxn(4)
-      integer x,y,noz
+      integer :: idrxn_rec,idvar_rxn,idrxnfile,irxncount,jddim_rxn
 
-      parameter (x=1,y=1,noz=1)
-      dimension jddim1(4)
-!     character*10 fname ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
 
       irxncount=0
-      fname="rxnrate.nc"
+
       k=nf_create(fname,nf_clobber,idrxnfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idrxnfile,nf_global,'title',16,
@@ -2791,12 +2805,13 @@ c end define mode
        k=nf_enddef(idrxnfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_rxn
 
 c
 c----------------------------------------------------------------
 
       subroutine open_nuc
+! initialize plot file for nucleation output
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -2804,21 +2819,25 @@ c----------------------------------------------------------------
      &     n,
      &     nkt
 
-c initialize plot file for nucleation output
-      implicit double precision(a-h,o-z)
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
+! Local parameters:
+      character (len=*), parameter :: fname = "nuc.nc"
+      integer, parameter :: x=1, y=1, noz=1
+! Local scalars:
+      integer :: id_n, id_nf, id_nkt, id_noz, id_x, id_y, k
+! Local arrays:
+      integer :: jddim1(4)
+! Common blocks:
       common /cdf_var_nuc/ idnuc_rec,idvar_nuc(23),idnucfile,
      &   inuccount,jddim_nuc(4)
+      integer :: idnuc_rec,idvar_nuc,idnucfile,inuccount,jddim_nuc
 
-      integer x,y,noz
-      parameter (x=1,y=1,noz=1)
-      character (len=6) fname
-      dimension jddim1(4)
       inuccount=0
-      fname="nuc.nc"
+
       k=nf_create(fname,nf_clobber,idnucfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idnucfile,nf_global,'title',19,
@@ -3058,7 +3077,7 @@ c end define mode
       k=nf_enddef(idnucfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_nuc
 
 
 c
@@ -3082,12 +3101,16 @@ c
 ! Include statements:
       include 'netcdf.inc'
 
-      character (len=7), parameter :: fname = "grid.nc"
+! Local parameters:
+      character (len=*), parameter :: fname = "grid.nc"
+! Local scalars:
       integer :: ia, jt, k
+! Local arrays:
       integer :: idimcount(4), idimstart(4)
       real (kind=dp) :: field(1,1,n),field2(nka,1,1),field3(1,nkt,1),
      &     field4(nka,nkt,1)
 
+! Common blocks:
       common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
       integer :: id_rec, idvar_g, idfile, icount, jddim
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -3213,10 +3236,12 @@ c output of meteorological variables
       include 'netcdf.inc'
 
       integer, intent(in) :: n_bln
-! Local variables
-      character (len=30) fname
+! Local parameters:
+      character (len=*), parameter :: fname = "meteo.nc"
+! Local scalars:
       integer :: k, kk
       real (kind=dp) :: ddz
+! Local arrays:
       integer :: ifield(1,1,1), idimcount(4), idimstart(4)
       real (kind=dp) :: field(1,1,n_bln),blowitup(n)
       real (kind=dp) :: fd_u(n),fd_v(n),fd_q(n),fd_t(n),fd_tke(n)
@@ -3261,7 +3286,6 @@ c output of meteorological variables
 
 ! == End of declarations =======================================================
 
-      fname="meteo.nc"
       icount=icount+1
 
       idimcount(1)=1
@@ -3498,9 +3522,11 @@ c
 ! Include statements:
       include 'netcdf.inc'
 
-! Local variables
-      character (len=30) fname
-      integer ia, ik, ind, jt, k
+! Local parameters:
+      character (len=*), parameter :: fname = "mic.nc"
+! Local scalars:
+      integer :: ia, ik, ind, jt, k
+! Local arrays:
       integer ifield(1,1,1), idimcount(4), idimstart(4), indlist(nf/10)
       real (kind=dp) :: field(nka,nkt,nf/10), field2(2,nkt,nf),
      &   field3(1,nkt,nf)
@@ -3523,7 +3549,6 @@ c
 
 ! == End of declarations =======================================================
 
-      fname="mic.nc"
       imiccount=imiccount+1
 
       idimcount(1)=1
@@ -3656,7 +3681,7 @@ c
       integer, intent(in) :: n_bln
 
 ! Local parameters:
-      character (len=6), parameter :: fname = 'gas.nc'
+      character (len=*), parameter :: fname = 'gas.nc'
       integer, parameter :: j0 = 3              ! number of time variables
 
 ! Local scalars:
@@ -3757,33 +3782,47 @@ c
      &     n,
      &     nkc
 
-      implicit double precision (a-h,o-z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      logical iod,halo,nuc
-!      integer x,y,noz,n_bln ! jjb x,y,noz unused
-      integer n_bln
-!      parameter (x=1,y=1,noz=1) ! jjb x,y,noz unused
-      integer nliq,nhalo,niod,nion,nionh,nioni
-      parameter (nliq=27,nhalo=10,niod=7,nion=23,nionh=9,nioni=5)
-      common /cdf_var_aq/ idaq_rec,idvar_aq(j2+j6+7),idaqfile,
-     &  iliqcount,jddim_aq(4)
+      integer, intent(in) :: n_bln
+      logical, intent(in) :: halo, iod, nuc
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+! Local parameters:
+      character (len=*), parameter :: fname = "aq.nc"
+      integer, parameter :: nliq=27, nhalo=10, niod=7
+      integer, parameter :: nion=23, nionh=9,  nioni=5
 
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-!      dimension field(nkc_l,1,n),jddim1(4),idimcount(4),idimstart(4), ! jjb jddim1 not used
-      dimension field(nkc_l,1,n_bln),idimcount(4),idimstart(4),
+! Local scalars:
+      integer :: i0, i2, ispec, jspec
+      integer :: ij, k, kc
+
+      integer :: idimcount(4),idimstart(4),
      &        ifield(1,1,1),mliq(nliq),mhalo(nhalo),miod(niod),
      &        mion(nion),mionh(nionh),mioni(nioni)
+      real (kind=dp) :: field(nkc_l,1,n_bln)
+
+! Common blocks
+      common /cdf_var_aq/ idaq_rec,idvar_aq(j2+j6+7),idaqfile,
+     &  iliqcount,jddim_aq(4)
+      integer :: idaq_rec, idvar_aq, idaqfile, iliqcount, jddim_aq
+
+      common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
+
+      common /blck11/ rc(nkc,n)
+      real (kind=dp) :: rc
+      common /blck12/ cw(nkc,n),cm(nkc,n)
+      real (kind=dp) :: cw, cm
+      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+      real (kind=dp) :: sl1, sion1
 
 c add mercury/Hg
 
@@ -3826,7 +3865,6 @@ c I ions
 
 
       iliqcount=iliqcount+1
-      fname="aq.nc"
 
       idimcount(1)=1
       idimcount(2)=1
@@ -4001,27 +4039,36 @@ c
 ! Imported Parameters:
      &     n
 
-      implicit double precision (a-h,o-z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-!     character*8 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      integer n_bln
-!     common /cdf_var_jrat/ idjrat_rec,idvar_jrat(49),idjratfile, ! jjb has to be increased
-      common /cdf_var_jrat/ idjrat_rec,idvar_jrat(50),idjratfile, ! jjb increased
-     &  ijratcount,jddim_jrat(4)
+      integer, intent(in) :: n_bln
+! Local parameters:
+      character (len=*), parameter :: fname = "jrate.nc"
+! Local scalars:
+      integer :: ispec, k
+! Local arrays:
+      integer :: idimcount(4),idimstart(4),ifield(1,1,1)
+      real (kind=dp) :: field(1,1,n_bln)
+
+! Common blocks:
+      common /cdf_var_jrat/ idjrat_rec,idvar_jrat(50),idjratfile,
+     &     ijratcount,jddim_jrat(4)
+      integer :: idjrat_rec,idvar_jrat,idjratfile,ijratcount,jddim_jrat
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /band_rat/ photol_j(47,n)
-!      dimension field(1,1,n),jddim1(4),idimcount(4),idimstart(4), ! jjb jddim not used
-!     &        ifield(1,1,1)
-      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1)
+      real (kind=dp) :: photol_j
+
       ijratcount=ijratcount+1
-      fname="jrate.nc"
 
       idimcount(1)=1
       idimcount(2)=1
@@ -4083,24 +4130,34 @@ c
      &     nlev,
      &     nrxn
 
-      implicit double precision (a-h,o-z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-!     character*10 fname ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
+! Local parameters:
+      character (len=*), parameter :: fname = "rxnrate.nc"
+! Local scalars:
+      integer :: ilev, irxn, k
+! Local arrays:
+      integer :: ifield(1,1,1),idimcount(4),idimstart(4)
+      real (kind=dp) :: field(1,nrxn,nlev)
+! Common blocks:
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
      &   irxncount,jddim_rxn(4)
+      integer :: idrxn_rec,idvar_rxn,idrxnfile,irxncount,jddim_rxn
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /budg/ bg(2,nrxn,nlev),il(nlev)
-      dimension ifield(1,1,1),idimcount(4),idimstart(4),
-     &     field(1,nrxn,nlev)
+      real (kind=dp) :: bg
+      integer :: il
 
-      fname="rxnrate.nc"
       irxncount=irxncount+1
 
       idimcount(1)=1
@@ -4159,35 +4216,48 @@ c output of nucleation parameters
      &     n,
      &     nkt
 
-      implicit double precision (a-h,o-z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
 
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
+
+! Local parameters:
+      character (len=*), parameter :: fname = "nuc.nc"
+! Local scalars:
+      integer :: k
+! Local arrays:
+      integer :: ifield(1,1,1), idimcount(4), idimstart(4)
+      real (kind=dp) :: field(1,1,n), field2(1,nkt,n)
+
+! Common blocks:
       common /cdf_var_nuc/ idnuc_rec,idvar_nuc(23),idnucfile,
      &   inuccount,jddim_nuc(4)
+      integer :: idnuc_rec,idvar_nuc,idnucfile,inuccount,jddim_nuc
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /nucl/ xn_new(n), xn_acc(n), xv_acc(n), dh2so4(n), dnh3(n)
-      double precision xn_new, xn_acc, xv_acc, dh2so4, dnh3
+      real (kind=dp) :: xn_new, xn_acc, xv_acc, dh2so4, dnh3
 
       common /nuclapp/ xn_app(n), xn_apacc(n), xv_apacc(n),bn_ges(n),
      &                 bd_mean(n), dnucv(n), grorate(n), concnuc(n)
-      double precision xn_app, xn_apacc, xv_apacc, bn_ges,
+      real (kind=dp) :: xn_app, xn_apacc, xv_apacc, bn_ges,
      &                 bd_mean, dnucv, grorate, concnuc
 
       common /nuclio/ xn_newio(n), xn_accio(n), xv_accio(n), doio(n)
-      double precision xn_newio, xn_accio, xv_accio, doio
+      real (kind=dp) :: xn_newio, xn_accio, xv_accio, doio
 
       common /backpart/ partd(nkt,n), partNu(nkt,n), partsa(n)
-      dimension ifield(1,1,1), idimcount(4), idimstart(4)
-      dimension field(1,1,n), field2(1,nkt,n)
-      fname="nuc.nc"
+      real (kind=dp) :: partd, partNu, partsa
+
+! == End of declarations =======================================================
+
       inuccount=inuccount+1
 
       idimcount(1)=1
@@ -4343,12 +4413,18 @@ c----------------------------------------------------------------
 c
       subroutine close_met
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
+
+! Local parameters:
+      character (len=*), parameter :: fname = "met.nc"
+! Local scalars:
+      integer :: k
       common /cdf_var/ id_rec,idvar(39),idfile,icount,jddim(4)
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="met.nc"
+      integer :: id_rec,idvar,idfile,icount,jddim
+
       k=nf_close(idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4359,15 +4435,19 @@ c
 
       subroutine close_mic
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
+
+! Local parameters:
+      character (len=*), parameter :: fname = "mic.nc"
+! Local scalars:
+      integer :: k
       common /cdf_var_mic/ id_mic_rec,idvar_mic(6),idmicfile,
      & imiccount,jddim_mic(4)
       integer :: id_mic_rec, idvar_mic, idmicfile, imiccount, jddim_mic
 
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="mic.nc"
       k=nf_close(idmicfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4390,7 +4470,7 @@ c
       include 'netcdf.inc'
 
 ! Local parameters:
-      character (len=6), parameter :: fname = 'gas.nc'
+      character (len=*), parameter :: fname = 'gas.nc'
 ! Local scalars:
       integer :: k
 
@@ -4413,14 +4493,19 @@ c
      &     j2,
      &     j6
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
 
+! Local parameters:
+      character (len=*), parameter :: fname = "aq.nc"
+! Local scalars:
+      integer :: k
       common /cdf_var_aq/ idaq_rec,idvar_aq(j2+j6+7),idaqfile,
      &  iliqcount,jddim_aq(4)
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="aq.nc"
+      integer :: idaq_rec,idvar_aq,idaqfile,iliqcount,jddim_aq
+
       k=nf_close(idaqfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4431,14 +4516,19 @@ c
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
       subroutine close_jrate
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
-!     common /cdf_var_jrat/ idjrat_rec,idvar_jrat(49),idjratfile, ! jjb has to be increased
-      common /cdf_var_jrat/ idjrat_rec,idvar_jrat(50),idjratfile, ! jjb increased
+
+! Local parameters:
+      character (len=*), parameter :: fname  = "jrate.nc"
+! Local scalars:
+      integer :: k
+      common /cdf_var_jrat/ idjrat_rec,idvar_jrat(50),idjratfile,
      & ijratcount,jddim_jrat(4)
-!     character*8 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="jrate.nc"
+      integer :: idjrat_rec,idvar_jrat,idjratfile,ijratcount,jddim_jrat
+
       k=nf_close(idjratfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4449,14 +4539,19 @@ c
 
       subroutine close_rxn
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
 
+! Local parameters:
+      character (len=*), parameter :: fname = "rxnrate.nc"
+! Local scalars:
+      integer :: k
       common /cdf_var_rxn/ idrxn_rec,idvar_rxn(4),idrxnfile,
      &   irxncount,jddim_rxn(4)
-!     character*10 fname ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="rxnrate.nc"
+      integer :: idrxn_rec,idvar_rxn,idrxnfile,irxncount,jddim_rxn
+
       k=nf_close(idrxnfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4467,13 +4562,19 @@ c----------------------------------------------------------------
 c
       subroutine close_nuc
 
+      implicit none
+
 ! Include statements:
       include 'netcdf.inc'
+
+! Local parameters:
+      character (len=*), parameter :: fname = "nuc.nc"
+! Local scalars:
+      integer :: k
       common /cdf_var_nuc/ idnuc_rec,idvar_nuc(23),idnucfile,
-     &  inuccount,jddim_nuc(4)
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      fname="nuc.nc"
+     &     inuccount,jddim_nuc(4)
+      integer :: idnuc_rec,idvar_nuc,idnucfile,inuccount,jddim_nuc
+
       k=nf_close(idnucfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -4495,18 +4596,22 @@ c
 !     codes is available in the appropriate include file for each
 !     language binding.
 
+! jjb: calling abortM here instead of stop would lead to a potential recursive call
+
+      USE file_unit, ONLY :
+     &     jpfunerr ! standard error files
 
       implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-      integer :: nb_err
-      character (len=*) :: file
+      integer, intent(in) :: nb_err
+      character (len=*), intent(in) :: file
 
-      write(*,*) 'netCDF I/O error with file: ',file
-      write(*,*) 'error number: ',nb_err
-      write(*,*) nf_strerror(nb_err)
+      write(jpfunerr,*) 'netCDF I/O error with file: ',file
+      write(jpfunerr,*) 'error number: ',nb_err
+      write(jpfunerr,*) nf_strerror(nb_err)
       stop 'Stopped by SR ehandle'
 
       end subroutine ehandle

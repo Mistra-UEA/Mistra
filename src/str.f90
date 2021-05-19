@@ -158,7 +158,7 @@ program mistra
 
   ! initialisation switch
   llinit = .true.
-  !call test_jjb
+
   call read_config
 
   fogtype='a'
@@ -193,7 +193,7 @@ program mistra
   call openm (fogtype)
   if (chem) call openc (fogtype)
 ! netCDF output
-  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
 ! numerical gridpoints
   call grid
   nz_box = 0
@@ -282,6 +282,7 @@ program mistra
   write (99,6000) lday,lst,lmin,atmax
   close (99)
 2005 continue
+
   if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
   if (box) box_switch=1.
 
@@ -431,7 +432,6 @@ program mistra
 !    ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-!       print*,'call oneD_dist'
         call oneD_dist
 ! binary output
         if (binout) then
@@ -450,6 +450,7 @@ program mistra
 ! output from mass balance
         if (chem) call out_mass
      endif
+
 ! hourly output of profiles in ascii files
      if (lmin/60*60.eq.lmin) then
         call profm (dt)
@@ -462,14 +463,15 @@ program mistra
         call outm
         if (chem) call outc
      endif
+
 ! output of "tima.out"
-     atmax=0.
-     tkemax=0.
-     xm2max=0.
+     atmax  = 0._dp
+     tkemax = 0._dp
+     xm2max = 0._dp
      do k=lcl,nf
-        atmax=dmax1(atmax,atkh(k))
-        tkemax=dmax1(tkemax,tke(k))
-        xm2max=dmax1(xm2max,xm2(k)*1000./rho(k))
+        atmax  = max(atmax, atkh(k))
+        tkemax = max(tkemax, tke(k))
+        xm2max = max(xm2max, xm2(k) * 1000._dp / rho(k))
      enddo
      open (99, file=fname,status='unknown',err=1000)
      write (99,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
@@ -478,6 +480,7 @@ program mistra
 6010 format (1x,i2,':',i2,':',i2,3f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
      close (99)
 1000 continue
+
   end do
 ! =========================end of time integration=====================
 
@@ -488,7 +491,7 @@ program mistra
 ! final output of aerosol size distribution
   do k=1,n
      do ia=1,nka
-        aer(k,ia)=0.
+        aer(k,ia)=0._dp
         do jt=1,nkt
            aer(k,ia)=aer(k,ia)+ff(jt,ia,k)
         enddo
@@ -500,7 +503,7 @@ program mistra
   write (66) aer
   close (66)
 
-  if (netCDF) call close_netcdf(mic,chem,nuc)
+  if (netCDF) call close_netcdf(mic,chem,box,nuc)
 
   stop 'main program'
 end program mistra
@@ -515,7 +518,7 @@ subroutine openm (fogtype)
 
 ! Author:
 ! ------
-  !    RvG?
+  !    Bott and RvG?
 
 
 ! Modifications :
@@ -529,7 +532,7 @@ subroutine openm (fogtype)
        binout, &
        cinpdir,&
        coutdir, &
-       rst, mic, box
+       rst, mic
 
   USE file_unit, ONLY : &
        jpfunclarke, &
@@ -596,7 +599,7 @@ subroutine openm (fogtype)
         open (jpfunpt, file=trim(clpath), status='new',form='unformatted')
         close (jpfunpt)
 
-        if (mic.and..not.box) then
+        if (mic) then
            fname='f1 .out'
            fname(3:3)=fogtype
            clpath=trim(coutdir)//trim(fname)
@@ -4239,18 +4242,18 @@ subroutine kon (dt,chem)
         if (chem) then
            ! equil update directly ff array; for chemistry calculations below, update ffk
            ffk(:,:) = ff(:,:,k)
-           ! JJB temproray
-           lfeu = .true.
-           ! end JJB temproray
+           !! JJB temproray
+           !lfeu = .true.
+           !! end JJB temproray
         end if
 
 
 ! moist case, calculate condensational droplet growth
 ! ---------------------------------------------------
      else
-        ! JJB temproray
-        lfeu = .false.
-        ! end JJB temproray
+        !! JJB temproray
+        !lfeu = .false.
+        !! end JJB temproray
 
 ! set input values for condensation calculation
         dfdt   = dfddt(k)
@@ -4299,20 +4302,22 @@ subroutine kon (dt,chem)
         do ia=1,ka
            part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
-           ! JJB temporary check
-           if (lfeu) then
-              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
-                 print*,part_n_a(ia,k),part_o_a(ia,k)
-                 lcheck=.true.
-              end if
-              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
-                 print*,part_n_d(ia,k),part_o_d(ia,k)
-                 lcheck=.true.
-              end if
-           end if
-           ! end JJB
+           !! JJB temporary check
+           !if (lfeu) then
+           !   if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
+           !      print*,part_n_a(ia,k),part_o_a(ia,k)
+           !      print*,k,feu(k)
+           !      lcheck=.true.
+           !   end if
+           !   if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
+           !      print*,part_n_d(ia,k),part_o_d(ia,k)
+           !      print*,k,feu(k)
+           !      lcheck=.true.
+           !   end if
+           !end if
+           !! end JJB
         end do
         pntot(1,k)=sum(part_n_a(1:ka,k))
         pntot(3,k)=sum(part_n_d(1:ka,k))
@@ -4321,20 +4326,20 @@ subroutine kon (dt,chem)
         do ia=ka+1,nka
            part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
-           ! JJB temporary check
-           if (lfeu) then
-              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
-                 print*,part_n_a(ia,k),part_o_a(ia,k)
-                 lcheck=.true.
-              end if
-              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
-                 print*,part_n_d(ia,k),part_o_d(ia,k)
-                 lcheck=.true.
-              end if
-           end if
-           ! end JJB
+           !! JJB temporary check
+           !if (lfeu) then
+           !   if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
+           !      print*,part_n_a(ia,k),part_o_a(ia,k)
+           !      lcheck=.true.
+           !   end if
+           !   if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
+           !      print*,part_n_d(ia,k),part_o_d(ia,k)
+           !      lcheck=.true.
+           !   end if
+           !end if
+           !! end JJB
         enddo
         pntot(2,k)=sum(part_n_a(ka+1:nka,k))
         pntot(4,k)=sum(part_n_d(ka+1:nka,k))
@@ -4352,11 +4357,11 @@ subroutine kon (dt,chem)
      if (xm2(k).gt.1.e-5_dp) exit
   enddo
 
-  ! JJB temproray
-  if (chem) then
-     if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
-  end if
-  ! end JJB temproray
+  !! JJB temproray
+  !if (chem.and.lcheck) then
+  !   if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  !end if
+  !! end JJB temproray
 
 ! update chemical species
   if (chem) call konc
