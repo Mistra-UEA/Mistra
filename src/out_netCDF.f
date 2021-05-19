@@ -117,17 +117,19 @@ c
       subroutine open_met (n_bln)
 c initialize plot file for meteorological output
 
-      implicit double precision(a-h,o-z)
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-      common /cdf_var/ id_rec,idvar(39),idfile,icount,jddim(4)
-      integer x,y,noz,n_bln
-      parameter (x=1,y=1,noz=1)
+      integer, intent(in) :: n_bln
+      integer, parameter :: x=1,y=1,noz=1
       character (len=8) fname
+      integer :: k, jddim1(4)
+      integer :: id_n, id_noz, id_x, id_y
+      common /cdf_var/ id_rec,idvar(39),idfile,icount,jddim(4)
+      integer :: id_rec, idvar, idfile, icount, jddim
 
-      dimension jddim1(4)
       icount=0
       fname="meteo.nc"
       k=nf_create(fname,nf_clobber,idfile)
@@ -480,7 +482,7 @@ c end define mode
       k=nf_enddef(idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_met
 
 c
 c----------------------------------------------------------------
@@ -497,18 +499,17 @@ c ferret complains about variable ordering but the way I set it up "i", "j", "k"
      &     nka,
      &     nkt
 
-      implicit double precision(a-h,o-z)
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-      common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
-!      integer x,y,noz,n_bln ! jjb 2 declared variables not used
-      integer x,y
-!      parameter (x=1,y=1,noz=1)
-      parameter (x=1,y=1)
+      integer, parameter :: x=1,y=1
+      integer :: k, jddim1(4)
       character (len=7) fname
-      dimension jddim1(4)
+      integer :: id_n, id_nka, id_nkt, id_x, id_y
+      common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
+      integer :: id_rec, idvar_g, idfile, icount, jddim
       icount=0
       fname="grid.nc"
       k=nf_create(fname,nf_clobber,idfile)
@@ -526,8 +527,6 @@ c dimension
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_def_dim(idfile,'y',y,id_y)
       if (k.ne.nf_noerr) call ehandle(k,fname)
-c      k=nf_def_dim(idfile,'noz',noz,id_noz)
-c      if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_def_dim(idfile,'rec',nf_unlimited,id_rec)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
@@ -632,7 +631,7 @@ c end define mode
       k=nf_enddef(idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine open_grid
 
 
 c
@@ -920,19 +919,21 @@ c open netCDF file for aqueous phase chemistry output
      &     j3,
      &     j6
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
 
-!     character*6 fname  ! jjb
+      logical, intent(in) :: iod,halo,nuc
+      integer, intent(in) :: n_bln
+      integer, parameter :: x=1,y=1,noz=1
       character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
-      logical iod,halo,nuc
-      integer x,y,noz,n_bln
-      parameter (x=1,y=1,noz=1)
+      integer :: i0, i1, i2, id_n, id_nkc_l, id_noz,id_x, id_y, k
+      integer :: jddim1(4)
       common /cdf_var_aq/ idaq_rec,idvar_aq(j2+j6+7),idaqfile,
-     &  iliqcount,jddim_aq(4)
-      dimension jddim1(4)
+     &     iliqcount,jddim_aq(4)
+      integer :: idaq_rec,idvar_aq,idaqfile,iliqcount,jddim_aq
+
       iliqcount=0
       fname="aq.nc"
       k=nf_create(fname,nf_clobber,idaqfile)
@@ -3076,24 +3077,27 @@ c
 ! Imported Parameters:
      &     dp
 
-      implicit double precision (a-h,o-z)
-
-
-      character (len=7), parameter :: fname = "grid.nc"
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
+
+      character (len=7), parameter :: fname = "grid.nc"
+      integer :: ia, jt, k
+      integer :: idimcount(4), idimstart(4)
+      real (kind=dp) :: field(1,1,n),field2(nka,1,1),field3(1,nkt,1),
+     &     field4(nka,nkt,1)
+
       common /cdf_var_grid/ id_rec,idvar_g(9),idfile,icount,jddim(4)
+      integer :: id_rec, idvar_g, idfile, icount, jddim
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
+      real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
 
-!      dimension ifield(1,1,1), idimcount(4), idimstart(4) ! jjb ifield unused
-      dimension idimcount(4), idimstart(4)
-      dimension field(1,1,n),field2(nka,1,1),field3(1,nkt,1),
-     &     field4(nka,nkt,1)
+! == End of declarations =======================================================
 
       icount=icount+1
 
@@ -3171,7 +3175,7 @@ c close file
       k=nf_close(idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine write_grid
 
 
 
@@ -3188,6 +3192,9 @@ c output of meteorological variables
 
 ! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
 
+! 19-May-2021   Josue Bock   Bugfix: correct lcl/lct netCDF function, nf_put_var1_int replaced by nf_put_vara_int
+!                            Missing declarations and implicit none
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     n,
@@ -3200,17 +3207,26 @@ c output of meteorological variables
 ! Imported Parameters:
      &     dp
 
-      implicit double precision (a-h,o-z)
-
-!     character*8 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
+
+      integer, intent(in) :: n_bln
+! Local variables
+      character (len=30) fname
+      integer :: k, kk
+      real (kind=dp) :: ddz
+      integer :: ifield(1,1,1), idimcount(4), idimstart(4)
+      real (kind=dp) :: field(1,1,n_bln),blowitup(n)
+      real (kind=dp) :: fd_u(n),fd_v(n),fd_q(n),fd_t(n),fd_tke(n)
+
+! Common blocks
       common /cdf_var/ id_rec,idvar(39),idfile,icount,jddim(4)
+      integer :: id_rec, idvar, idfile, icount, jddim
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) ::  time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
@@ -3222,29 +3238,29 @@ c output of meteorological variables
       real (kind=dp) :: gm, gh, sm, sh, xl
 
       common /cb45/ u(n),v(n),w(n)
+      real (kind=dp) :: u, v, w
       common /cb48/ sk,sl,dtrad(n),dtcon(n)
-      double precision sk, sl, dtrad, dtcon
+      real (kind=dp) ::  sk, sl, dtrad, dtcon
 
 !     common /cb52/ ff(nkt,nka,n),fsum(n,0:nkc),nar(n) ! jjb wrong
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)       ! jjb corrected, but mess up below, see comments
       real (kind=dp) :: ff, fsum
       integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),ta(n),p(n),rho(n)
+      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
 
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
       common /kurz/ fs1(nrlev),fs2(nrlev),totds(nrlev),ss(nrlev),
      &              fsn(nrlev),dtdts(nrlay)
-      double precision fs1, fs2, totds, ss, fsn, dtdts
+      real (kind=dp) ::  fs1, fs2, totds, ss, fsn, dtdts
 
       common /lang/ fl1(nrlev),fl2(nrlev),fln(nrlev),dtdtl(nrlay)
-      double precision fl1, fl2, fln, dtdtl
+      real (kind=dp) ::  fl1, fl2, fln, dtdtl
 
-      dimension ifield(1,1,1), idimcount(4), idimstart(4)
-!      dimension field(1,1,n),field2(4,1,n),blowitup(n) ! jjb field2 not used
-      dimension field(1,1,n_bln),blowitup(n)
-      dimension fd_u(n),fd_v(n),fd_q(n),fd_t(n),fd_tke(n)
+! == End of declarations =======================================================
+
       fname="meteo.nc"
       icount=icount+1
 
@@ -3436,17 +3452,17 @@ c$$$      if (k.ne.nf_noerr) call ehandle(k,fname)
 c lower and upper limit of cloud
       idimcount(3)=1
       ifield(1,1,1)=lcl
-      k=nf_put_var1_int(idfile,idvar(38),idimstart,idimcount,ifield)
+      k=nf_put_vara_int(idfile,idvar(38),idimstart,idimcount,ifield)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       ifield(1,1,1)=lct
-      k=nf_put_var1_int(idfile,idvar(39),idimstart,idimcount,ifield)
+      k=nf_put_vara_int(idfile,idvar(39),idimstart,idimcount,ifield)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       k=nf_sync(idfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      end
+      end subroutine write_met
 
 c
 c----------------------------------------------------------------
@@ -3626,6 +3642,10 @@ c
      &     igascount,
      &     idvar_gas
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit none
 
 ! Include statements:
@@ -3633,7 +3653,7 @@ c
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      integer :: n_bln
+      integer, intent(in) :: n_bln
 
 ! Local parameters:
       character (len=6), parameter :: fname = 'gas.nc'
@@ -3641,17 +3661,16 @@ c
 
 ! Local scalars:
       integer :: i0                             ! index offset
-      integer jspec, k
+      integer :: jspec, k
 
 ! Local arrays:
-      dimension field(1,1,n_bln),idimcount(4),idimstart(4),ifield(1,1,1)
-      double precision field
-      integer idimcount, idimstart, ifield
+      integer :: idimcount(4), idimstart(4), ifield(1,1,1)
+      real (kind=dp) :: field(1,1,n_bln)
 
 ! Common blocks:
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) ::  time
+      integer :: lday, lst, lmin, it, lcl, lct
 
 !- End of header ---------------------------------------------------------------
 
