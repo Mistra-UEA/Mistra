@@ -621,8 +621,8 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real (kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /nucfeed/ ifeed
   integer :: ifeed          !ifeed = 0/1/2: feedback with background particles no/yes/partly
@@ -1152,8 +1152,8 @@ subroutine ternucl (dt,kz,Napari)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real (kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n),xm2a(n)
-  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a, xm2a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /nucl/ xn_new(n), xn_acc(n), xv_acc(n), dh2so4(n), dnh3(n)
   real (kind=dp) :: xn_new, xn_acc, xv_acc, dh2so4, dnh3

@@ -32,6 +32,9 @@
   #                          user defined aliases (for instance, rm='rm -i')
   #                          - reorganised the tmp files so that they are all saved until the end
   #                          in order to facilitate debug, if needed.
+  #
+  # 14-May-2021  Josue Bock  add "exit from Rosenbrock" in the string list so that in case of error,
+  #                          the user can know which mechanism was run
 
 # == End of modifications =======================================================================
 
@@ -74,8 +77,9 @@ end
 
 # rename remaining subroutines
 # ----------------------------
-set ch_SR=("Update_RCONST" "INTEGRATE" "RosenbrockIntegrator" "ros_ErrorNorm" "ros_FunTimeDerivative" "ros_PrepareMatrix" "ros_ErrorMsg" "Ros2" "Ros3" "Ros4" "Rodas3" "Rodas4" "DecompTemplate" "SolveTemplate" "FunTemplate" "JacTemplate" "KppDecomp" "WAXPY" "KppSolve" "WLAMCH_ADD" "Jac_SP")
-foreach i ($ch_SR)
+set ch_SR=("Update_RCONST" "INTEGRATE" "RosenbrockIntegrator" "ros_ErrorNorm" "ros_FunTimeDerivative" "ros_PrepareMatrix" "ros_ErrorMsg" "Ros2" "Ros3" "Ros4" "Rodas3" "Rodas4" "DecompTemplate" "SolveTemplate" "FunTemplate" "JacTemplate" "KppDecomp" "WAXPY" "KppSolve" "WLAMCH_ADD" "Jac_SP" "exit from Rosenbrock")
+# :q specify the string format/object for csh. It allows to have spaces in the searched strings
+foreach i ($ch_SR:q)
   @ inn=$inn + 1
   set fnew=tmp_f_$inn
   sed 's/'"$i"'/&_'"$appendix"'/g' $fold > ! $fnew

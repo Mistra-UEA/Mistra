@@ -78,6 +78,9 @@ real(kind=dp), parameter :: g = 9.80665_dp                       ! [m/s2]
 !     ref: Seinfeld & Pandis, 2nd Ed., Table A.7 p. 1178
 real(kind=dp), parameter :: cp = 1005.0_dp                       ! [J/kg/K]
 
+! von Kármán constant
+real(kind=dp), parameter :: kappa = 0.4_dp                       ! [1]
+
 
 
 end module constants

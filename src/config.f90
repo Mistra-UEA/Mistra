@@ -93,7 +93,8 @@ integer :: &
   neula,   & ! neula    : eulerian (0) or lagrangian (1) view
   nlevbox, & ! nlevbox  : box only, level to be used for init cond of box if  BL_box=false
   nkc_l,   & ! nkc_l    : number of output classes for aq. chem.
-  ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
+  ntwopt,  & ! ntwopt   : option for tw varying with time, see SR surf0
+  jpOutPart2dOpt !      : option for netCDF output layers of 2D particle spectrum
 
 integer :: &
      nday,        & ! starting time day
@@ -122,6 +123,10 @@ real (kind=dp) :: &
 real (KIND=dp) :: &
   detamin,        & ! atmospheric grid: height of constant layers [m]
   etaw1,          & ! atmospheric grid: top of the grid [m]
+  rnw0,           & ! microphysics grid: min radius of dry aerosol [um]
+  rnw1,           & ! microphysics grid: max radius of dry aerosol [um]
+  rw0,            & ! microphysics grid: min radius of particle [um]
+  rw1,            & ! microphysics grid: max radius of particle [um]
   rhsurf,         & ! rhsurf   : relative humidity at the surface, forced at each timestep (see SR surf0)
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
@@ -139,11 +144,13 @@ namelist /mistra_cfg/ &
      lstmax,          &
      netcdf,          &
      binout,          &
-     detamin, etaw1,  &
+     jpOutPart2dOpt,  &
+! model grids
+     detamin, etaw1, rnw0, rnw1, rw0, rw1, &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
      isurf,           &
      tw,              &
      ltwcst,          &
@@ -249,6 +256,7 @@ rst = .false.
 lstmax = 1
 netCDF = .false.
 binout = .false.
+jpOutPart2dOpt = 0
 
 ! timing and geography
  nday = 01
@@ -258,9 +266,13 @@ binout = .false.
  alon = 0._dp
  alat = 0._dp
 
-! model grid
+! model grids
 detamin = 10._dp
 etaw1 = 2000._dp
+rnw0 = 0.005_dp
+rnw1 =  15._dp
+rw0  = 0.005_dp
+rw1  = 150._dp
 
 ! meteorological data
 rp0 = 101325._dp
@@ -310,8 +322,16 @@ else
    write(jpfunout,'(a)') 'Warning: no namelist specified, only hardcoded default settings will be used'
 end if
 
+! ======================================================
+! -- 3. -- Perform some checks over the resulting values
+! ======================================================
+if (box.and.mic) then
+   mic = .false.
+   write(jpfunout,'(a)') 'Warning: mic has been set to false since box model is activated'
+end if
+
 ! =====================================================
-! -- 3. -- Export current configuration in file cfg.out
+! -- 4. -- Export current configuration in file cfg.out
 ! =====================================================
 
   if (rst) then
@@ -358,6 +378,12 @@ subroutine abortM (cderrmessage)
   implicit none
   character (len=*), intent(in) :: cderrmessage
   write (jpfunerr,'(a)') cderrmessage
+
+  if (netcdf) then
+     write (jpfunerr,'(a)') 'Trying to close netCDF files'
+     call close_netcdf(mic,chem,nuc)
+  end if
+
   stop '  --> stopped by SR abort'
 
 end subroutine abortM

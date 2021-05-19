@@ -35,6 +35,9 @@ module file_unit
   integer, parameter :: jpfunprofc = 12
   integer, parameter :: jpfunprofr = 13
 
+! out_mass
+  integer, parameter :: jpfunom = 14
+
 ! restart files
   integer, parameter :: jpfunrstm = 15
   integer, parameter :: jpfunrstc = 16

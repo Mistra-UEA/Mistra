@@ -11,6 +11,7 @@
  ! Output choice
  netcdf=T        !<-- netCDF: netCDF output
  binout=F        !<-- binout: binary output
+ jpOutPart2dOpt = 1   !<-- selection of output levels: default (0) is one out of 10 up to nf. Else see SR write_mic
 
  ! timing and geography
  nday = 21       !<-- starting time: day
@@ -19,6 +20,12 @@
  nhour = 0       !<-- starting time: hour (local time with alon=0., or UTC time with actual alon value)
  alon = 0.       !<-- longitude [deg] (-180 ; 180)
  alat = 55.      !<-- latitude [deg]
+
+! model grid
+ rnw0 = 0.01
+ rnw1 = 2.0
+ rw0 = 0.01
+ rw1 = 80.
 
  ! Surface setings
 ! isurf = 0       !<-- isurf: 0 = water or snow surface (default), 1 is bare soil
@@ -31,7 +38,7 @@
  rp0 = 101325    !<-- Sea level atmospheric pressure [Pa]
 ! rhsurf = 0.8   !<-- relative humidity at the surface, forced at each time step (default = 1)
  ug = 8.5        !<-- geostrophic wind, x-direction [m/s]
- vg = 8.5        !<-- geostrophic wind, y-direction [m/s]
+ vg = 0.0        !<-- geostrophic wind, y-direction [m/s]
  xm1w = 0.009    !<-- specific humidity below inversion layer (kg/kg)
  xm1i = 0.004    !<-- specific humidity above inversion layer (kg/kg)
  zinv = 800.     !<-- initial inversion height [m]
