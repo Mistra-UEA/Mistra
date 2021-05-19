@@ -1,5 +1,5 @@
 ;*************************************************
-; plot5_BTZ96.ncl
+; Fig5_BTZ96.ncl
 ;************************************************
 ;
 ; Plot cloud water content in a similar way as BTZ96
@@ -43,31 +43,35 @@ begin
 ;************************************************
 ; create plots
 ;************************************************
-  wks = gsn_open_wks("pdf","plot5_BTZ96")          ; send graphics to PDF file
+  wks = gsn_open_wks("pdf","Fig5_BTZ96")          ; send graphics to PDF file
 
   res                              = True
   res@gsnMaximize                  = True            ; use full page
   res@gsnPaperOrientation          = "portrait"      ; prevent automatic rotation
-  res@gsnRightStringOrthogonalPosF = 0.015           ; adjust the right string height (too low, by default)
 
+  ; adjust plot to get same height and width
   res@vpHeightF           = 0.6
   res@vpWidthF            = 0.6
 
-  ;res@cnInfoLabelOn       = False           ; turn off cn info label
+  ; Contour levels settings
   res@cnFillOn            = True            ; turn on color to fill areas between contour levels
   res@cnFillPalette       = "WhiteBlue"
   res@cnLevelSelectionMode =  "ManualLevels"
   res@cnMinLevelValF       =  0.0
-  res@cnMaxLevelValF       =  0.6
+  res@cnMaxLevelValF       =  0.7
   res@cnLevelSpacingF      =  0.1
 
   res@lbLabelAutoStride = True
 
+  ; Axis settings
   res@trYMinF              = 0.
   res@trYMaxF              = 900.
-
   res@tiXAxisString     = "time (hours)"
+  res@tiXAxisOffsetYF = 0.21
   res@tiYAxisString     = "height (m)"
+  ; Informations displayed on top
+  res@gsnLeftString = "LWC (g m~S~-3~N~)"
+  res@gsnRightString = "max = "+ sprintf("%5.2f",max(LWC))
 
   plot = gsn_csm_contour(wks,LWC,res)
 

@@ -730,7 +730,7 @@ c time variables
       jddim1(3)=id_n10
       jddim1(4)=id_mic_rec
 
-      k=nf_def_var(idmicfile,'f',nf_float,4,jddim1,idvar_mic(4))
+      k=nf_def_var(idmicfile,'ff',nf_float,4,jddim1,idvar_mic(4))
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_put_att_text(idmicfile,idvar_mic(4),'long_name',17,
      & 'particle spectrum')
@@ -3453,6 +3453,18 @@ c----------------------------------------------------------------
 c
 
       subroutine write_mic
+! output of microphysics
+
+! jjb work done
+!     - corrected character length for fname to be consistent with SR ehandle
+!     - missing declarations and implicit none
+!     - introduce 'jpOutPart2dOpt' for easier tuning of data request
+
+      USE config, ONLY :
+! Imported Parameters:
+     &     jpOutPart2dOpt,
+! Imported Routines:
+     &     abortM
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -3465,31 +3477,35 @@ c
 ! Imported Parameters:
      &     dp
 
-      implicit double precision (a-h,o-z)
-
-!     character*6 fname  ! jjb
-      character (len=30) fname ! jjb increased to be consistent with ehandle subroutine
+      implicit none
 
 ! Include statements:
       include 'netcdf.inc'
+
+! Local variables
+      character (len=30) fname
+      integer ia, ik, ind, jt, k
+      integer ifield(1,1,1), idimcount(4), idimstart(4), indlist(nf/10)
+      real (kind=dp) :: field(nka,nkt,nf/10), field2(2,nkt,nf),
+     &   field3(1,nkt,nf)
+
+! Common blocks
       common /cdf_var_mic/ id_mic_rec,idvar_mic(6),idmicfile,
      & imiccount,jddim_mic(4)
       integer :: id_mic_rec, idvar_mic, idmicfile, imiccount, jddim_mic
 
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      double precision time
-      integer lday, lst, lmin, it, lcl, lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       real (kind=dp) :: ff, fsum
       integer :: nar
 
-      common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)
+      common /oneDs/ partN(n,nkt,2),partr(n,nkt),drp(nkt)
+      real (kind=dp) :: partN, partr, drp
 
-      dimension ifield(1,1,1), idimcount(4), idimstart(4),
-!     &   field(nka,nkt,nf/10),field2(2,nkt,nf),
-     &   field(nka,nkt,n/10),field2(2,nkt,nf), ! jjb test, see also below
-     &   field3(1,nkt,nf)
+! == End of declarations =======================================================
 
       fname="mic.nc"
       imiccount=imiccount+1
@@ -3522,15 +3538,32 @@ c time variables
       idimcount(2)=nkt
       idimcount(3)=nf/10
 
-!      do ik=1,nf,10
-      do ik=1,n,10 ! jjb test !
-         ind=ik/10 +1
-         do ia=1,nka
-            do jt=1,nkt
-               field(ia,jt,ind)=ff(jt,ia,ik)
+      select case (jpOutPart2dOpt)
+      case (0)
+         do ik=1,nf,10
+            ind=ik/10 +1
+            do ia=1,nka
+               do jt=1,nkt
+                  field(ia,jt,ind)=ff(jt,ia,ik)
+               enddo
             enddo
          enddo
-      enddo
+
+      case (1)
+         data indlist /54,55,56,61,62,63,78,79,80,81/
+         do ik=1,10
+            ind=indlist(ik)
+            do ia=1,nka
+               do jt=1,nkt
+                  field(ia,jt,ik)=ff(jt,ia,ind)
+               enddo
+            enddo
+         enddo
+
+      case default
+         call abortM ('Error in SR write_mic: wrong choice for'//
+     &        'jpOutPart2dOpt')
+      end select
 
       k=nf_put_vara_double(idmicfile,idvar_mic(4),idimstart,
      & idimcount,field)

@@ -191,7 +191,7 @@ program mistra
   endif
 ! open input/output files
   call openm (fogtype)
-  call openc (fogtype)
+  if (chem) call openc (fogtype)
 ! netCDF output
   if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
 ! numerical gridpoints
@@ -4686,8 +4686,8 @@ subroutine subkon (dt, ffk, totr, dfdt, feualt, pp, to, tn, xm1o, xm1n, kr)
   rho21  = p21(to)/(r1*to)
   rho21s = (zxl21/(r1*to)-1._dp)*rho21/to
   a0     = a0m/to
-  xdv0   = xdv*sqrt(2._dp*pi/(r1*to)) / 3.6e-08_dp
-  xka0   = xka*sqrt(2._dp*pi/(r0*to)) / (7.e-07_dp * rho * cp)
+  xdv0   = xdv*sqrt(2._dp*pi/(r1*to)) / 3.6e-08_dp             ! factor for Dv* calculation, P&K (13-14)
+  xka0   = xka*sqrt(2._dp*pi/(r0*to)) / (7.e-07_dp * rho * cp) ! factor for Ka* calculation, P&K (13-20)
   kr0    = kr
 
   if (totr(1).lt.1._dp) then

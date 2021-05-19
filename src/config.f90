@@ -93,7 +93,8 @@ integer :: &
   neula,   & ! neula    : eulerian (0) or lagrangian (1) view
   nlevbox, & ! nlevbox  : box only, level to be used for init cond of box if  BL_box=false
   nkc_l,   & ! nkc_l    : number of output classes for aq. chem.
-  ntwopt     ! ntwopt   : option for tw varying with time, see SR surf0
+  ntwopt,  & ! ntwopt   : option for tw varying with time, see SR surf0
+  jpOutPart2dOpt !      : option for netCDF output layers of 2D particle spectrum
 
 integer :: &
      nday,        & ! starting time day
@@ -143,6 +144,7 @@ namelist /mistra_cfg/ &
      lstmax,          &
      netcdf,          &
      binout,          &
+     jpOutPart2dOpt,  &
 ! model grids
      detamin, etaw1, rnw0, rnw1, rw0, rw1, &
 ! timing and geography
@@ -254,6 +256,7 @@ rst = .false.
 lstmax = 1
 netCDF = .false.
 binout = .false.
+jpOutPart2dOpt = 0
 
 ! timing and geography
  nday = 01
