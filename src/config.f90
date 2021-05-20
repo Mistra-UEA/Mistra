@@ -131,6 +131,9 @@ real (KIND=dp) :: &
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
 
+! Surface settings
+integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
+
 character (len=100) :: cnmlfile
 
 character (len=100) :: cinpdir      ! input directory: general data files for Mistra
@@ -151,12 +154,8 @@ namelist /mistra_cfg/ &
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
      rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
-     isurf,           &
-     tw,              &
-     ltwcst,          &
-     ntwopt,          &
-     rhsurf,          &
-     z0,              &
+ ! Surface setings
+     isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
      iaertyp,         &
      chem,            &
@@ -294,6 +293,7 @@ ltwcst = .true.
 ntwopt = 1
 rhsurf = 1._dp
 z0 = 0.01_dp
+jpAlbedoOpt = 0
 mic = .false.
 iaertyp = 3
 chem = .false.
