@@ -499,7 +499,9 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 ! Modules used:
 
   USE config, ONLY : &
-       coutdir
+       coutdir,      &
+       ifeed              ! ifeed = 0/1/2: feedback with background particles no/yes/partly
+
 
   USE constants, ONLY : &
        conv1,           & ! multiply by conv1 to get cm^3(air)/mlc --> m^3(air)/mol
@@ -522,6 +524,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
   USE global_params, ONLY : &
 ! Imported Parameters:
        j2,                  &
+       j3,                  &
        j6,                  &
        nkc,                 &
        nka,                 &
@@ -623,9 +626,6 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
   real (kind=dp) :: xm1, xm2, feu, dfddt, xm1a
-
-  common /nucfeed/ ifeed
-  integer :: ifeed          !ifeed = 0/1/2: feedback with background particles no/yes/partly
 
   common /nuclapp/ xn_app(n), xn_apacc(n), xv_apacc(n),bn_ges(n), &
                    bd_mean(n), dnucv(n), grorate(n), concnuc(n)
@@ -954,7 +954,7 @@ subroutine appnucl (dt,Napari,Lovejoy,both)
 ! note: other condensing vapors than OIO and H2SO4 are NOT conserved!
 !    OIO goes to unreactive OIO in the liquid phase
            if (trim(nuc_name(jv)).eq.'OIO') &
-                sl1(j1+12,1,jz) = sl1(j1+12,1,jz) + s3old(ivap(jv),jz) - s3(ivap(jv),jz)
+                sl1(j2-j3+12,1,jz) = sl1(j2-j3+12,1,jz) + s3old(ivap(jv),jz) - s3(ivap(jv),jz)
 !    H2SO4 goes to H2SO4 in the liquid phase (which will further equilibrate with HSO4- and SO4=)
            if (trim(nuc_name(jv)).eq.'H2SO4') &
                 sl1(6,1,jz) = sl1(6,1,jz) + s1old(ivap(jv),jz) - s1(ivap(jv),jz)
@@ -1178,11 +1178,11 @@ subroutine ternucl (dt,kz,Napari)
               - 1.56727e-3_dp*b - 3.076e-5_dp  *log(a)*b + 1.08375e-5_dp*b**2
 
 ! convert units
-  rh      = feu(kz)                           ! relative humidity [0..1]
+  rh      = feu(kz)                            ! relative humidity [0..1]
   c_nh3   = s1(ind_NH3,kz) / am3(kz) *1.e12_dp ! NH3 in [pmol/mol]
-  c_nh3   = min(100._dp,c_nh3)               ! NH3 <= 100 ppt
-  c_h2so4 = s1(ind_H2SO4,kz) * conv1          ! H2SO4 in [molec/cm3]
-  !c_h2so4 = c_h2so4 * 1000._dp               ! artificial amplification for test
+  c_nh3   = min(100._dp,c_nh3)                 ! NH3 <= 100 ppt
+  c_h2so4 = s1(ind_H2SO4,kz) * conv1           ! H2SO4 in [molec/cm3]
+  !c_h2so4 = c_h2so4 * 1000._dp                ! artificial amplification for test
   write (jpfunnuc0,120)
   write (jpfunnuc0,110) kz,rh,c_nh3,c_h2so4
   Temp    = t(kz)                             ! temperature [K]
@@ -1309,7 +1309,7 @@ subroutine oionucl (dt,kz,Lovejoy)
   real (kind=dp) :: Temp           ! temperature [K]
 
 ! Internal function:
-  real (kind=dp) :: J_nuc2
+  real (kind=dp) :: J_nuc2    ! (statement function)
   real (kind=dp) :: a, b      ! internal function arguments
 
 ! Common blocks:
@@ -1326,10 +1326,10 @@ subroutine oionucl (dt,kz,Lovejoy)
   real (kind=dp) :: Jnio         ! nucleation rate [1/(cm3 s)]
   real (kind=dp) :: dcio         ! diameter of cluster [nm]
 
-! == End of declarations =======================================================
-
 ! Internal function for diagnostics of nucleation rate; a = oio[ppt], b=temp[K]
   J_nuc2(a,b) = a**(0.030657_dp * b - 4.4471_dp) * exp(-0.30947_dp * b + 81.097_dp)
+
+! == End of declarations =======================================================
 
 ! convert units
   c_oio   = s3(ind_OIO,kz) / am3(kz) *1.e12_dp
@@ -1449,13 +1449,13 @@ function J_nuc (rH,nh3,h2so4,Temp)
   real (kind=dp) :: lnc, lnS, lnrH
 
 ! Internal function:
-  real (kind=dp) :: fpol
+  real (kind=dp) :: fpol    ! (statement function)
   real (kind=dp) :: T
   integer :: n
+  fpol(n,T) = fpd(1,n) + fpd(2,n)*T + fpd(3,n)*T**2 + fpd(4,n)*T**3
 
 ! == End of declarations =======================================================
 
-  fpol(n,T) = fpd(1,n) + fpd(2,n)*T + fpd(3,n)*T**2 + fpd(4,n)*T**3
   lnc  = log(h2so4)
   lnS  = log(nh3)
   lnrH = log(rH)
