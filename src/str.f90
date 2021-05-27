@@ -149,7 +149,6 @@ program mistra
 
   common /band_rat/ photol_j(nphrxn,n)
   common /kpp_eul/ xadv(10),nspec(10)
-  common /nucfeed/ ifeed
 
 
   dimension aer(n,nka)
@@ -162,7 +161,7 @@ program mistra
   call read_config
 
   fogtype='a'
-  ifeed = 1
+
   if (neula.eq.0) then
      open (12,file='euler_in.dat',status='old')
      do i=1,10
@@ -5334,11 +5333,12 @@ end subroutine advseda
 
 ! Modifications :
 ! -------------
-  ! jjb bugfix: added nuc in argument list, needed in two if tests
+  ! jjb bugfix: added nuc in argument list, needed in two if tests. Also added ifeed (from /nucfeed/, then from config)
 
 ! == End of header =============================================================
 
       USE config, ONLY : &
+     &     ifeed,        &
      &     nkc_l
 
       USE constants, ONLY : &
@@ -5397,7 +5397,6 @@ end subroutine advseda
       dimension smp(nkc,n) ! smp total aerosol mass [mg cm**-3]
       dimension vc(nkc,nkc,n)
       data lj2/1,2,8,9,13,14,19,20,30/
-      common /nucfeed/ ifeed ! jjb added so that ifeed is known in this SR (used in 2 IF tests)
 
 ! == End of declarations =======================================================
 

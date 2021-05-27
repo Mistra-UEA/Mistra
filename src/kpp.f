@@ -1930,6 +1930,9 @@ c mean radius and LWC for "chemical" particles size bins
 !     implicit none, and all missing declarations
 !     ial definition only once, out of the main do loop
 
+      USE config, ONLY :
+     &     ifeed
+
       USE constants, ONLY :
 ! Imported Parameters:
      & pi
@@ -1998,9 +2001,6 @@ c mean radius and LWC for "chemical" particles size bins
 
       common /kinv_i/ kinv
       integer :: kinv
-
-      common /nucfeed/ ifeed
-      integer :: ifeed
 
 c rc(nkc,n): mean radius of droplets in m
 c cw(nkc,n): LWC in given radius range in m^3(aq)g/m^3(air)
@@ -2173,6 +2173,9 @@ c
 c transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
 c but no mean values used (like in SR k_mt_a/t) but integrated values
 
+      USE config, ONLY :
+     &     ifeed
+
       USE constants, ONLY :
 ! Imported Parameters:
      & pi
@@ -2230,7 +2233,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
-      common /nucfeed/ ifeed
+
 !     dimension cw(nf,nkc),freep(nf),dndlogr(nkt),rqm(nkt,nka),lex(nx) ! jjb dndlogr not used
 !     dimension cw(nf,nkc),freep(nf),rqm(nkt,nka),lex(nx)              ! jjb thus removed
       dimension freep(nf),rqm(nkt,nka),lex(nx)              ! jjb cw removed from argument list
@@ -2422,6 +2425,9 @@ c
 c transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
 c but no mean values used (like in SR k_mt_a/t) but integrated values
 
+      USE config, ONLY :
+     &     ifeed
+
       USE constants, ONLY :
 ! Imported Parameters:
      & pi
@@ -2482,7 +2488,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
-      common /nucfeed/ ifeed
+
 !     dimension cw(nf,nkc),freep(nf),dndlogr(nkt),rqm(nkt,nka),lex(nx) ! jjb dndlogr not used
 !     dimension cw(nf,nkc),freep(nf),rqm(nkt,nka),lex(nx)              ! jjb thus removed
       dimension freep(nf),rqm(nkt,nka),lex(nx)              ! jjb cw removed from argument list
@@ -3258,6 +3264,9 @@ c The ions are transported vertically by turbulence and sedimentation
 c independent of activation.
 c      double precision ap1o,ap2o,ap2n,apo,apn
 
+      USE config, ONLY :
+     &     ifeed
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     j2,
@@ -3282,8 +3291,6 @@ c      double precision ap1o,ap2o,ap2n,apo,apn
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
       real (kind=dp) :: ff, fsum
       integer :: nar
-
-      common /nucfeed/ ifeed
 
       dimension ap(n,nka)
 
@@ -3944,6 +3951,9 @@ c
       subroutine dry_cw_rc (nmax)
 c calculates LWC and mean radius for "dry" aerosol
 
+      USE config, ONLY :
+     &     ifeed
+
       USE constants, ONLY :
 ! Imported Parameters:
      & pi
@@ -3993,9 +4003,6 @@ c calculates LWC and mean radius for "dry" aerosol
       common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
       real (kind=dp) :: ff, fsum
       integer :: nar
-
-      common /nucfeed/ ifeed
-      integer :: ifeed
 
 !- End of header ---------------------------------------------------------------
 
