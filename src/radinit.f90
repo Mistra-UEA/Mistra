@@ -743,7 +743,9 @@ subroutine initr
 
   USE config, ONLY : &
 ! Imported Routines:
-       abortM
+       abortM,       &
+! Imported Parameters:
+       jpAlbedoOpt
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -817,17 +819,22 @@ subroutine initr
 ! == End of declarations =======================================================
 
 ! albedo of the ground for the six solar wavelength regions of the radiation code
-  albedo(:)=0.05_dp
-!  albedo(:)=0.8_dp       ! snow
+  select case (jpAlbedoOpt)
+  case (0)
+     albedo(:)=0.05_dp
+  case (1)
+     albedo(:)=0.8_dp       ! snow
+  case default
+     write (jpfunerr,*) "Wrong choice in namelist for jpAlbedoOpt, must be 0 or 1"
+     call abortM ("Error in SR initr")
+  end select
+
   as = albedo
 ! emissivity of the ground
   ee(:)=1.0_dp
 
 ! total solar energy = sum of solar energies for each spectral bands
-  s0tot = s0b(1)
-  do jb = 2, mbs
-     s0tot = s0tot + s0b(jb)
-  end do
+  s0tot = sum(s0b(:))
 
 
 ! radiation model level
@@ -1170,18 +1177,18 @@ subroutine load1
      rhox(jz) = px(jz)/(r0*tx(jz)*(1._dp+.608_dp*xm1x(jz)))
   enddo
 
-  if (mic) then
-
 ! calculate u0 from geogr. latitude, declination and hourangle
 ! make correction because of spherical surface of the earth
-     zeit=lst*3600._dp+lmin*60._dp
-     horang=7.272205e-05_dp*zeit-pi
+  zeit=lst*3600._dp+lmin*60._dp
+  horang=7.272205e-05_dp*zeit-pi
 ! pi/180=1.745329e-02
-     rlat=alat*1.745329e-02_dp
-     rdec=declin*1.745329e-02_dp
-     u00=cos(rdec)*cos(rlat)*cos(horang)+sin(rdec)*sin(rlat)
-     ru0=6371._dp*u00
-     u0=8._dp/(dsqrt(ru0**2+102000._dp)-ru0)
+  rlat=alat*1.745329e-02_dp
+  rdec=declin*1.745329e-02_dp
+  u00=cos(rdec)*cos(rlat)*cos(horang)+sin(rdec)*sin(rlat)
+  ru0=6371._dp*u00
+  u0=8._dp/(dsqrt(ru0**2+102000._dp)-ru0)
+
+  if (mic) then
 
      ! Wavelenght bands: 1-6 = shortwave (sun), 7-18 = longwave (earth)
      ! 24h per day: earth longwave radiation taken into account

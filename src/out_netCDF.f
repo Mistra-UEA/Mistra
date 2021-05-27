@@ -27,12 +27,12 @@ c supplemented by Susanne Marquart, Sep 2004
 !    - implicit none everywhere
 !    - headers and declaration blocks
 
-      subroutine open_netcdf (n_bln,chem,mic,halo,iod,nuc)
+      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, nuc
 
       logical :: true
 
@@ -53,7 +53,7 @@ c supplemented by Susanne Marquart, Sep 2004
 c open netCDF-files
       true=.true. ! to be able to compare hal vs. nohal
       call open_met (n_bln)                         ! thermodynamics
-      if (mic)   call open_mic                      ! microphysics
+      if (mic.and..not.box)   call open_mic         ! microphysics
 c      if (chem)  call open_chem_gas(n_bln,halo,iod) ! gas phase
 c      if (chem)  call open_chem_aq(n_bln,halo,iod) ! aqueous phase
 !     if (chem)  call open_chem_gas(n_bln,true,iod,nuc) ! gas phase ! jjb halo(=.true.), iod & nud are no longer used
@@ -72,19 +72,20 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine write_netcdf (n_bln,chem,mic,halo,iod,nuc)
+      subroutine write_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, nuc
 
       logical :: true
 
 c write netCDF-files
       true=.true.
       call write_met (n_bln)                          ! thermodynamics
-      if (mic) call write_mic                         ! microphysics
+
+      if (mic.and..not.box) call write_mic            ! microphysics
 c      if (chem)  call write_chem_aq (n_bln,halo,iod) ! aqueous phase
 
       if (chem)  call write_chem_gas (n_bln)              ! gas phase
@@ -98,14 +99,15 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine close_netcdf (mic,chem,nuc)
+      subroutine close_netcdf (mic,chem,box,nuc)
 
       implicit none
 
-      logical, intent(in) :: chem, mic, nuc
+      logical, intent(in) :: chem, mic, box, nuc
+
 c close netCDF-files
       call close_met
-      if (mic)   call close_mic
+      if (mic.and..not.box)   call close_mic
       if (chem)  call close_chem_gas
       if (chem)  call close_chem_aq
       if (chem)  call close_jrate

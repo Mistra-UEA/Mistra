@@ -193,7 +193,7 @@ program mistra
   call openm (fogtype)
   if (chem) call openc (fogtype)
 ! netCDF output
-  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,nuc)
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
 ! numerical gridpoints
   call grid
   nz_box = 0
@@ -503,7 +503,7 @@ program mistra
   write (66) aer
   close (66)
 
-  if (netCDF) call close_netcdf(mic,chem,nuc)
+  if (netCDF) call close_netcdf(mic,chem,box,nuc)
 
   stop 'main program'
 end program mistra
@@ -2251,52 +2251,6 @@ subroutine sedl (dt)
         dt0  = dt
         x0   = 0._dp
         xxxt =-.999_dp / cc(2)
-
-! time step control
-! multiple calls of advection scheme for large courant numbers
-        do while (dt0 .gt. 0.1_dp)
-           dtmax=min(dt0,xxxt)
-           dt0=dt0-dtmax
-           do k=2,nf
-              c(k)=cc(k)*dtmax
-           enddo
-           c(1)   = c(2)
-           x1     = psi(2)
-           psi(1) = x1
-           call advsed1(c,psi)
-           x0 = x0 + psi(1) - x1
-        end do
-
-! new values of sl1
-        do k=2,nf-1
-           sl1(l,kc,k) = psi(k)
-        enddo
-! wet deposition to the ground in mole/m**2
-        sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
-     enddo
-  enddo
-
-! dito for ions
-  c(nf)=0._dp
-  do kc=1,nkc_l
-     do k=2,nf
-        xxx=0.01_dp
-        x4=max(xxx,xfac*rc(kc,k))
-! subsidence see SR difl
-!        cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
-        cc(k)=(-1._dp*vterm(x4*1.e-6_dp,t(k),p(k)))/deta(k)
-! mass weighted terminal velocity
-        cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
-     enddo
-! particle dry deposition velocity in lowest model layer:
-     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
-     do l=1,j6
-        do k=2,nf
-           psi(k)=sion1(l,kc,k)
-        enddo
-        dt0  = dt
-        x0   = 0._dp
-        xxxt = -.999_dp / cc(2)
 
 ! time step control
 ! multiple calls of advection scheme for large courant numbers
@@ -4242,18 +4196,18 @@ subroutine kon (dt,chem)
         if (chem) then
            ! equil update directly ff array; for chemistry calculations below, update ffk
            ffk(:,:) = ff(:,:,k)
-           ! JJB temproray
-           lfeu = .true.
-           ! end JJB temproray
+           !! JJB temproray
+           !lfeu = .true.
+           !! end JJB temproray
         end if
 
 
 ! moist case, calculate condensational droplet growth
 ! ---------------------------------------------------
      else
-        ! JJB temproray
-        lfeu = .false.
-        ! end JJB temproray
+        !! JJB temproray
+        !lfeu = .false.
+        !! end JJB temproray
 
 ! set input values for condensation calculation
         dfdt   = dfddt(k)
@@ -4302,20 +4256,22 @@ subroutine kon (dt,chem)
         do ia=1,ka
            part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
-           ! JJB temporary check
-           if (lfeu) then
-              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
-                 print*,part_n_a(ia,k),part_o_a(ia,k)
-                 lcheck=.true.
-              end if
-              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
-                 print*,part_n_d(ia,k),part_o_d(ia,k)
-                 lcheck=.true.
-              end if
-           end if
-           ! end JJB
+           !! JJB temporary check
+           !if (lfeu) then
+           !   if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(a1) in equil case (rH<=70%)',ia
+           !      print*,part_n_a(ia,k),part_o_a(ia,k)
+           !      print*,k,feu(k)
+           !      lcheck=.true.
+           !   end if
+           !   if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(d3) in equil case (rH<=70%)',ia
+           !      print*,part_n_d(ia,k),part_o_d(ia,k)
+           !      print*,k,feu(k)
+           !      lcheck=.true.
+           !   end if
+           !end if
+           !! end JJB
         end do
         pntot(1,k)=sum(part_n_a(1:ka,k))
         pntot(3,k)=sum(part_n_d(1:ka,k))
@@ -4324,20 +4280,20 @@ subroutine kon (dt,chem)
         do ia=ka+1,nka
            part_n_a(ia,k)=sum(ffk(1:kw(ia),ia))
            part_n_d(ia,k)=sum(ffk(kw(ia)+1:nkt,ia))
-           ! JJB temporary check
-           if (lfeu) then
-              if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
-                 print*,part_n_a(ia,k),part_o_a(ia,k)
-                 lcheck=.true.
-              end if
-              if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
-                 print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
-                 print*,part_n_d(ia,k),part_o_d(ia,k)
-                 lcheck=.true.
-              end if
-           end if
-           ! end JJB
+           !! JJB temporary check
+           !if (lfeu) then
+           !   if (abs(part_n_a(ia,k)-part_o_a(ia,k)) > 1d-12*part_o_a(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(a2) in equil case (rH<=70%)',ia
+           !      print*,part_n_a(ia,k),part_o_a(ia,k)
+           !      lcheck=.true.
+           !   end if
+           !   if (abs(part_n_d(ia,k)-part_o_d(ia,k)) > 1d-12*part_o_d(ia,k)) then
+           !      print*,'JJB SR kon: bugfix justified, change of particle(d4) in equil case (rH<=70%)',ia
+           !      print*,part_n_d(ia,k),part_o_d(ia,k)
+           !      lcheck=.true.
+           !   end if
+           !end if
+           !! end JJB
         enddo
         pntot(2,k)=sum(part_n_a(ka+1:nka,k))
         pntot(4,k)=sum(part_n_d(ka+1:nka,k))
@@ -4355,11 +4311,11 @@ subroutine kon (dt,chem)
      if (xm2(k).gt.1.e-5_dp) exit
   enddo
 
-  ! JJB temproray
-  if (chem) then
-     if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
-  end if
-  ! end JJB temproray
+  !! JJB temproray
+  !if (chem.and.lcheck) then
+  !   if (lcheck) stop 'special case SR kon: bugfix was justified, please remove stop in SR kon and proceed'
+  !end if
+  !! end JJB temproray
 
 ! update chemical species
   if (chem) call konc
@@ -6082,6 +6038,10 @@ subroutine ion_mass (srname)
 
 ! == End of header =============================================================
 
+  USE config, ONLY : &
+! Imported Parameters:
+       nkc_l
+
   USE file_unit, ONLY : &
 ! Imported Parameters:
        jpfunout
@@ -6120,8 +6080,6 @@ subroutine ion_mass (srname)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
-  common /liq_pl/ nkc_l
-  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
@@ -6675,7 +6633,8 @@ subroutine out_mass
 ! subroutine to print aerosol and ion mass
 
   USE config, ONLY : &
-       coutdir
+       coutdir,      &
+       nkc_l
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -6728,8 +6687,6 @@ subroutine out_mass
 
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /liq_pl/ nkc_l
-  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
@@ -6738,8 +6695,9 @@ subroutine out_mass
   write (jpfunom,*) 'output:', lday,lst,lmin
 
 ! Initialisations
-  xxsum   = 0._dp
-  xsum(1) = 0._dp
+  xxsum         = 0._dp
+  xsum(1)       = 0._dp
+  xionmass(:,:) = 0._dp ! must initialise all nkc, if nkc_l < nkc (but used until nkc anyways)
 
 ! output of aerosol mass-------------
   do k=2,n
@@ -6761,13 +6719,12 @@ subroutine out_mass
   do k=1,n
      do kc=1,nkc_l
 ! calculate the mass
-        xionmass(k,kc)=0._dp
+        xionmass(kc,k)=0._dp
         do l=1,lsp
            ll = lj2(l)
            xionmass(kc,k) = xionmass(kc,k) + sion1(ll,kc,k) * xmm(l)
         enddo
      enddo
-
      xion(k) = (xionmass(1,k) + xionmass(2,k) + xionmass(3,k) + xionmass(4,k)) * 1.e6_dp
   enddo
 

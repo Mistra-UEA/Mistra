@@ -428,6 +428,9 @@ c   blocks. Upper case variables are from Jochen's code and are passed explicitl
 !      removed ntypa and ntypd from /cb02/, defined but unused
 
 
+      USE config, ONLY :
+     &     scaleo3_m
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay,
@@ -463,9 +466,6 @@ c commom blocks from MISTRA:
 
       common /height/ z_mi(nrlev)
       double precision z_mi
-
-      common /band_o3/ scaleo3_m
-      double precision scaleo3_m
 
 ! indexes for do loops
       INTEGER K,L

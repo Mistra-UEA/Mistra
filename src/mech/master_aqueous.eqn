@@ -361,7 +361,7 @@
 {eq44}  ICl2mlz          = ICllz + Clmlz:                    xliqz*xhal*xiod*ykeb(z,ind_ICl) ; 
 {eq45}  IBrlz + Brmlz    = IBr2mlz:                          xliqz*xhal*xiod*ykef(z,ind_IBr) ; 
 {eq46}  IBr2mlz          = IBrlz + Brmlz:                    xliqz*xhal*xiod*ykeb(z,ind_IBr) ; 
-{eq47}  ICllz + Brmlz    = IClBrmlz:                         xliqz*xhal*ykef(z,ind_IClBrml1) ;
-{eq48}  IClBrmlz         = ICllz + Brmlz:                    xliqz*xhal*ykeb(z,ind_IClBrml1) ;
-{eq49}  IBrlz + Clmlz    = IClBrmlz:                         xliqz*xhal*ykef(z,ind_I2) ;
-{eq50}  IClBrmlz         = IBrlz + Clmlz:                    xliqz*xhal*ykeb(z,ind_I2) ;
+{eq47}  ICllz + Brmlz    = IClBrmlz:                         xliqz*xhal*xiod*ykef(z,ind_IClBrml1) ;
+{eq48}  IClBrmlz         = ICllz + Brmlz:                    xliqz*xhal*xiod*ykeb(z,ind_IClBrml1) ;
+{eq49}  IBrlz + Clmlz    = IClBrmlz:                         xliqz*xhal*xiod*ykef(z,ind_I2) ;
+{eq50}  IClBrmlz         = IBrlz + Clmlz:                    xliqz*xhal*xiod*ykeb(z,ind_I2) ;

@@ -131,6 +131,9 @@ real (KIND=dp) :: &
   scaleo3_m,      & ! scaleo3_m: total O3 in DU (for photolysis only)
   z_box             ! z_box    : height of MBL (if box run)
 
+! Surface settings
+integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
+
 character (len=100) :: cnmlfile
 
 character (len=100) :: cinpdir      ! input directory: general data files for Mistra
@@ -151,12 +154,8 @@ namelist /mistra_cfg/ &
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
      rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
-     isurf,           &
-     tw,              &
-     ltwcst,          &
-     ntwopt,          &
-     rhsurf,          &
-     z0,              &
+ ! Surface setings
+     isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
      iaertyp,         &
      chem,            &
@@ -294,6 +293,7 @@ ltwcst = .true.
 ntwopt = 1
 rhsurf = 1._dp
 z0 = 0.01_dp
+jpAlbedoOpt = 0
 mic = .false.
 iaertyp = 3
 chem = .false.
@@ -325,9 +325,9 @@ end if
 ! ======================================================
 ! -- 3. -- Perform some checks over the resulting values
 ! ======================================================
-if (box.and.mic) then
-   mic = .false.
-   write(jpfunout,'(a)') 'Warning: mic has been set to false since box model is activated'
+if (nuc.and..not.chem) then
+   nuc = .false.
+   write(jpfunout,'(a)') 'Warning: nuc has been set to false since chemistry is off'
 end if
 
 ! =====================================================
@@ -381,7 +381,7 @@ subroutine abortM (cderrmessage)
 
   if (netcdf) then
      write (jpfunerr,'(a)') 'Trying to close netCDF files'
-     call close_netcdf(mic,chem,nuc)
+     call close_netcdf(mic,chem,box,nuc)
   end if
 
   stop '  --> stopped by SR abort'

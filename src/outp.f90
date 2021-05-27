@@ -1512,10 +1512,9 @@ subroutine constm
 
   USE config, ONLY : &
 ! Imported Parameters:
-       chem, &
-       mic, &
-       rst, &
-       ug, vg, wmin, wmax
+       chem, mic, rst, &
+       ug, vg, wmin, wmax, &
+       scaleo3_m
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1554,8 +1553,6 @@ subroutine constm
   real (kind=dp) :: xsum(n)
 
 ! Common blocks:
-  common /band_o3/ scaleo3_m
-  real (kind=dp) :: scaleo3_m
   common /blck06/ kw(nka),ka
   integer :: kw, ka
   common /cb18/ alat,declin                ! for the SZA calculation
