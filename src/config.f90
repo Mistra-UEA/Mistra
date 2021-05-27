@@ -381,7 +381,7 @@ subroutine abortM (cderrmessage)
 
   if (netcdf) then
      write (jpfunerr,'(a)') 'Trying to close netCDF files'
-     call close_netcdf(mic,chem,nuc)
+     call close_netcdf(mic,chem,box,nuc)
   end if
 
   stop '  --> stopped by SR abort'
