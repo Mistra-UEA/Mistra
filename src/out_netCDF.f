@@ -84,6 +84,7 @@ c
 c write netCDF-files
       true=.true.
       call write_met (n_bln)                          ! thermodynamics
+
       if (mic.and..not.box) call write_mic            ! microphysics
 c      if (chem)  call write_chem_aq (n_bln,halo,iod) ! aqueous phase
 
@@ -103,6 +104,7 @@ c
       implicit none
 
       logical, intent(in) :: chem, mic, box, nuc
+
 c close netCDF-files
       call close_met
       if (mic.and..not.box)   call close_mic

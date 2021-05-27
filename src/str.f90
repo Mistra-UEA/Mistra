@@ -261,7 +261,7 @@ program mistra
 ! initial output for plotting
   if (binout) then
      call ploutm (fogtype,n_bln)
-     if (mic.and..not.box) call ploutp (fogtype)
+     if (mic) call ploutp (fogtype)
      call ploutr (fogtype,n_bln)
      call ploutt (fogtype,n_bln)
      if (chem) then
@@ -271,7 +271,7 @@ program mistra
   endif
 
   if (chem) call out_mass
-  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
 
   time=60.*float(it0)
 ! local time: day (lday), hours (lst), minutes (lmin)
@@ -436,7 +436,7 @@ program mistra
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
-           if (lmin/30*30.eq.lmin.and.mic.and..not.box) call ploutp (fogtype)
+           if (lmin/30*30.eq.lmin.and.mic) call ploutp (fogtype)
            call ploutr (fogtype,n_bln)
            call ploutt (fogtype,n_bln)
            if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
@@ -444,7 +444,7 @@ program mistra
         endif
 
 ! netCDF output
-        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
 ! output of data from nucleation
         if (chem.and.nuc) call nucout2
 ! output from mass balance
