@@ -201,12 +201,12 @@ c initialization of chemistry module
 
 c conversion of gaseous species and air density
 c air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*Avogadro/m_air
+      cm3(1)=rho(1)*Avogadro/m_air*1e-6
       am3(1)=rho(1)/m_air
 
 ! Initialize arrays(k)
       do k=2,n
-         cm3(k)=rho(k)*Avogadro/m_air        ! [air] in mlc/cm^3
+         cm3(k)=rho(k)*Avogadro/m_air*1e-6   ! [air] in mlc/cm^3
          am3(k)=rho(k)/m_air                 ! [air] in mol/m^3
 c conversion of gaseous species in ppb to mol/m**3(air)
          xm(k)=am3(k)*1.d-9                     ! ppb --> mol/m^3
@@ -488,9 +488,9 @@ c free path length (lambda=freep):
 
 c conversion of gaseous species and air density
 c air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*Avogadro/m_air
+      cm3(1)=rho(1)*Avogadro/m_air*1e-6
       am3(1)=rho(1)/m_air
-      cm3(nmin2:nmax)=rho(nmin2:nmax)*Avogadro/m_air      ! [air] in mlc/cm^3
+      cm3(nmin2:nmax)=rho(nmin2:nmax)*Avogadro/m_air*1e-6 ! [air] in mlc/cm^3
       am3(nmin2:nmax)=rho(nmin2:nmax)/m_air               ! [air] in mol/m^3
 
 
