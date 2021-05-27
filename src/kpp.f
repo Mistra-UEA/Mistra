@@ -4139,12 +4139,12 @@ c law equilibrium
 c define equilibrium constant
 c obviously without Pitzer coefficients
       do k=2,nmax
-         xeq(k,ind_HNO3) = funa(1.54d+10,8700.d0,k)
+         xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
       enddo
 
 c define inverse Henry's constant
       do k=2,nmax
-         henry(k,ind_HNO3)=func3(2.5d6/1.5d1,8694.d0,k) !RS_MOCCA_exakt
+         henry(k,ind_HNO3)=func3(2.5d6/xeq(k,ind_HNO3),8694.d0,k) ! jjb note this is different in SR equil_co_*
          FCT=0.0820577*tt(k)
          do l=1,ndr
             if (henry(k,idr(l)).ne.0.d0) henry(k,idr(l))=1./ ! jjb .d0
@@ -4286,7 +4286,7 @@ c define equilibrium constant
 c obviously without Pitzer coefficients
 !     do k=2,nmax  ! jjb nmax is not defined (copy-paste mistake from SR dry_rates_g)
       do k=2,nmaxf ! jjb nmaxf is the correct index here
-         xeq(k,ind_HNO3) = funa(1.54d+10,8700.d0,k)
+         xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
       enddo
 
 c calculate kmt ----
@@ -4473,7 +4473,7 @@ c define equilibrium constant
 c obviously without Pitzer coefficients
 !     do k=2,nmax  ! jjb nmax is not defined (copy-paste mistake from SR dry_rates_g)
       do k=2,nmaxf ! jjb nmaxf is the correct index here
-         xeq(k,ind_HNO3) = funa(1.54d+10,8700.d0,k)
+         xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
       enddo
 
 c calculate kmt ----
@@ -6827,6 +6827,7 @@ c----------------------------------------------------------------
 
 !- End of header ------------------------------------------------------------
 
+!      if (b.gt.0.d0) then
       if (b.gt.min_Hp) then
          flsc6= a/b
       else
@@ -6854,7 +6855,7 @@ c a=k-; b=k+; alpha=b/dclim; c=H+; d=cvvz;
       dclim = 1.d10
       if (d.gt.0.d0) then
          if (c<0.) print*,"Warning uplim encountered [H+]<0" ! Track unexpected case
-        !uplim = ( a/(1.+b/dclim*c*d) )
+!        uplim = ( a/(1.+b/dclim*c*d) )
         uplim = ( a/(1.+b/dclim*max(c,0.d0)*d) ) ! <jjb> avoid unexpected values if [H+]<0
       else
         uplim = 0.
@@ -6908,7 +6909,7 @@ c a=k+; b=[H+]; c=cvvz; alpha=a/dclim
       dclim = 1.d10
       if (c.gt.0.d0) then
          if (b<0.) print*,"Warning uplip encountered [H+]<0" ! Track unexpected case
-        !uplip = ( a/(1.+a/dclim*b*c)*c**2 )
+!         uplip = ( a/(1.+a/dclim*b*c)*c**2 )
          uplip = ( a/(1.+a/dclim*max(b,0.d0)*c)*c**2 ) ! <jjb> avoid unexpected values if [H+]<0
       else
         uplip = 0.
