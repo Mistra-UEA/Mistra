@@ -6038,6 +6038,10 @@ subroutine ion_mass (srname)
 
 ! == End of header =============================================================
 
+  USE config, ONLY : &
+! Imported Parameters:
+       nkc_l
+
   USE file_unit, ONLY : &
 ! Imported Parameters:
        jpfunout
@@ -6076,8 +6080,6 @@ subroutine ion_mass (srname)
   common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
   real (kind=dp) :: ff, fsum
   integer :: nar
-  common /liq_pl/ nkc_l
-  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
@@ -6631,7 +6633,8 @@ subroutine out_mass
 ! subroutine to print aerosol and ion mass
 
   USE config, ONLY : &
-       coutdir
+       coutdir,      &
+       nkc_l
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -6684,8 +6687,6 @@ subroutine out_mass
 
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /liq_pl/ nkc_l
-  integer :: nkc_l
 
 ! == End of declarations =======================================================
 
@@ -6694,8 +6695,9 @@ subroutine out_mass
   write (jpfunom,*) 'output:', lday,lst,lmin
 
 ! Initialisations
-  xxsum   = 0._dp
-  xsum(1) = 0._dp
+  xxsum         = 0._dp
+  xsum(1)       = 0._dp
+  xionmass(:,:) = 0._dp ! must initialise all nkc, if nkc_l < nkc (but used until nkc anyways)
 
 ! output of aerosol mass-------------
   do k=2,n
@@ -6717,13 +6719,12 @@ subroutine out_mass
   do k=1,n
      do kc=1,nkc_l
 ! calculate the mass
-        xionmass(k,kc)=0._dp
+        xionmass(kc,k)=0._dp
         do l=1,lsp
            ll = lj2(l)
            xionmass(kc,k) = xionmass(kc,k) + sion1(ll,kc,k) * xmm(l)
         enddo
      enddo
-
      xion(k) = (xionmass(1,k) + xionmass(2,k) + xionmass(3,k) + xionmass(4,k)) * 1.e6_dp
   enddo
 
