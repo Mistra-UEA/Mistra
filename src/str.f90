@@ -2311,52 +2311,6 @@ subroutine sedl (dt)
            psi(1) = x1
            call advsed1(c,psi)
            x0 = x0 + psi(1) - x1
-        end do
-
-! new values of sl1
-        do k=2,nf-1
-           sl1(l,kc,k) = psi(k)
-        enddo
-! wet deposition to the ground in mole/m**2
-        sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
-     enddo
-  enddo
-
-! dito for ions
-  c(nf)=0._dp
-  do kc=1,nkc_l
-     do k=2,nf
-        xxx=0.01_dp
-        x4=max(xxx,xfac*rc(kc,k))
-! subsidence see SR difl
-!        cc(k)=(-1.25e-4*x4*x4*(1.+8.6e-02/x4))/deta(k)
-        cc(k)=(-1._dp*vterm(x4*1.e-6_dp,t(k),p(k)))/deta(k)
-! mass weighted terminal velocity
-        cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
-     enddo
-! particle dry deposition velocity in lowest model layer:
-     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
-     do l=1,j6
-        do k=2,nf
-           psi(k)=sion1(l,kc,k)
-        enddo
-        dt0  = dt
-        x0   = 0._dp
-        xxxt = -.999_dp / cc(2)
-
-! time step control
-! multiple calls of advection scheme for large courant numbers
-        do while (dt0 .gt. 0.1_dp)
-           dtmax=min(dt0,xxxt)
-           dt0=dt0-dtmax
-           do k=2,nf
-              c(k)=cc(k)*dtmax
-           enddo
-           c(1)   = c(2)
-           x1     = psi(2)
-           psi(1) = x1
-           call advsed1(c,psi)
-           x0 = x0 + psi(1) - x1
         enddo
 
 ! new values of sion1
