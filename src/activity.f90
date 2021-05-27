@@ -85,6 +85,8 @@ subroutine pitzer (k,kc,wact)
 
 ! Recent changes:
 ! ---------------
+!      /  /2016  <jjb>  in case N==1, removed unused statement rh=rh*exp(...) where rh uninitialised
+
 !    03/02/2017  <jjb>  xs array size is only 11 instead of 100, corrected in calpar as well
 
 !    03/02/2017  <jjb>  bugfix: c1(3,:) was not defined along with b0, b1, and c0 (see after call calpar).

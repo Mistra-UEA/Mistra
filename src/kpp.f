@@ -171,10 +171,10 @@ c initialization of chemistry module
 
 ! jjb
 ! Initialisation to 0 of some arrays, which are not necessarily updated for layers nf+1 to n
-         cw(:,:) = 0.d0
-         rc(:,:) = 0.d0
-         cm(:,:) = 0.d0
-         conv2(:,:) = 0.d0
+      cw(:,:) = 0.d0
+      rc(:,:) = 0.d0
+      cm(:,:) = 0.d0
+      conv2(:,:) = 0.d0
 
 ! jjb: partly from Peter Brauer version
 ! initiate all ions with marginal concentration to avoid computational problems
@@ -284,6 +284,7 @@ c has to be taken for reactivation of aerosol chemistry
       xdeliss  = 0.75
       print *,'deliquescence rH  ',xdelisulf,xdeliss
       print *,'crystallization rH',xcryssulf,xcrysss
+
 c array cloudt: was there a cloud in this layer in previous timestep?
 c initialize with "true" to assure that aerosol chemistry is on in FT for
 c layers in which rH > xcrystallization
@@ -292,6 +293,7 @@ c layers in which rH > xcrystallization
             cloudt(kc,k)=.true.
          enddo
       enddo
+
 c initial loading of aerosols with nh3,so4,fe(3),mn(2) (x0=mole/particle)
 c watch out: sa1 is defined as sa1(..,j2,..) but addressed in j6 (=ion, sion1) terms
 c            except for DOM which is in sl1 (therefore it is in j2)!!
@@ -455,6 +457,7 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
 
       common /blck01/ am3(n),cm3(n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
       common /cb40/ time,lday,lst,lmin,it,lcl,lct
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
@@ -1908,8 +1911,6 @@ c i.e. mol(aq)/m3(aq) / mol(g)/m3(air) -->  mol(g)/m3(air) / mol(aq)/m3(aq)
          end do
       end do
 
-!      write (1717,*)henry(:,10)
-
       end subroutine henry_a
 
 
@@ -2198,7 +2199,6 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 !     &     rad_k2m_t,
 !     &     vm=>vmean
 !
-!
 !      USE kpp_tot_Global, ONLY :
 !     &     SPC_NAMES
 
@@ -2214,6 +2214,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       logical box
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
 
 !      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
 !      real (kind=dp) :: time
@@ -2457,8 +2458,6 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 ! Imported Parameters:
      &     dp
 
-
-
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
@@ -2467,6 +2466,7 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       logical box
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
 
 !      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
 !      real (kind=dp) :: time
@@ -2488,7 +2488,6 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
-
 !     dimension cw(nf,nkc),freep(nf),dndlogr(nkt),rqm(nkt,nka),lex(nx) ! jjb dndlogr not used
 !     dimension cw(nf,nkc),freep(nf),rqm(nkt,nka),lex(nx)              ! jjb thus removed
       dimension freep(nf),rqm(nkt,nka),lex(nx)              ! jjb cw removed from argument list
@@ -2702,6 +2701,10 @@ c absolute values are chosen arbitrarily to ensure fast equilibration;
      &     n,
      &     nkc
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
       implicit double precision (a-h,o-z)
 
       include 'tot_Parameters.h' !additional common blocks and other definitions
@@ -2773,7 +2776,7 @@ c            xkeb(k,kc,ind_CO2) = 1.0D10* cv2
 
             xkef(k,kc,ind_H2SO4) = xsw*1.0d12 !Seinfeld, Pandis (1998), p.391
             xkeb(k,kc,ind_H2SO4)=
-     &           1.0d9* cv2*xgamma(k,1,kc)*xgamma(k,19,kc)
+     &           1.0d9*cv2*xgamma(k,1,kc)*xgamma(k,19,kc)
 
             xkef(k,kc,ind_HSO4ml1) = xsw*funa(1.02d+6,2720.d0,k)
      &           *xgamma(k,19,kc)
@@ -2784,8 +2787,8 @@ c            xkeb(k,kc,ind_CO2) = 1.0D10* cv2
             xkeb(k,kc,ind_SO2) =
      &           1.0D10*cv2*xgamma(k,1,kc)*xgamma(k,5,kc)
 
-!            xkef(k,kc,ind_HCHO) = 1.d10*cv2  !Chameides '84   !mechanism changed
-!            xkeb(k,kc,ind_HCHO) = xsw*1.d5                    !mechanism changed
+            xkef(k,kc,ind_HCHO) = 1.d10*cv2  !Chameides '84   !mechanism changed
+            xkeb(k,kc,ind_HCHO) = xsw*1.d5                    !mechanism changed
 
             xkef(k,kc,ind_HCl) = xsw*funa(1.7d10,6896.d0,k)
             xkeb(k,kc,ind_HCl) =
@@ -2902,19 +2905,33 @@ c absolute values are chosen arbitrarily to ensure fast equilibration;
      &     n,
      &     nkc
 
-      implicit double precision (a-h,o-z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
 
+! Subroutine arguments
+      integer, intent(in) :: nmaxf
+      real(kind=dp), intent(in) :: tt(n)
+! Local variables
+      integer :: k, kc, j
+      real(kind=dp) :: cv2, xsw
+! Common blocks
       common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
+      real(kind=dp) :: conv2
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
+      real(kind=dp) :: henry, xkmt, xkef, xkeb
       common /kpp_mol/ xgamma(nf,j6,nkc)
-!     dimension cw(nf,nkc),tt(n) ! jjb cw removed from argument list
-      dimension tt(n)
+      real(kind=dp) :: xgamma
 
+! Statement function
+      real(kind=dp) :: funa, a0, b0
       funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
+
       do k=2,nmaxf
          do kc=1,2 !nkc
 c            if (cw(k,kc).gt.1.d-9) then
@@ -2926,8 +2943,8 @@ c            if (cw(k,kc).gt.0.) then !cm is switch now
 !            endif
             cv2 = conv2(kc,k)
             xsw=1.
-!           if (cv2.eq.0.) xsw=0. ! jjb no need to compute all the xkef & xkeb which will be 0. !
-            if (cv2.gt.0.) then ! but still better than initialising all NSPEC list !
+           if (cv2.eq.0.) xsw=0. ! jjb no need to compute all the xkef & xkeb which will be 0. !
+!            if (cv2.gt.0.) then ! but still better than initialising all NSPEC list !
 
 c absolute values of back- and forward reactions are choosen arbitrarily to
 c ensure a quick (but numerically stable) equilibrium
@@ -2985,8 +3002,8 @@ c            xkeb(k,kc,ind_CO2) = 1.0D10* cv2
             xkeb(k,kc,ind_SO2) =
      &           1.0D10*cv2*xgamma(k,1,kc)*xgamma(k,5,kc)
 
-!           xkef(k,kc,ind_HCHO) = 1.d10*cv2  !Chameides '84   !mechanism changed
-!           xkeb(k,kc,ind_HCHO) = xsw*1.d5                    !mechanism changed
+           xkef(k,kc,ind_HCHO) = 1.d10*cv2  !Chameides '84   !mechanism changed
+           xkeb(k,kc,ind_HCHO) = xsw*1.d5                    !mechanism changed
 
             xkef(k,kc,ind_HCl) = xsw*funa(1.7d10,6896.d0,k)
             xkeb(k,kc,ind_HCl) =
@@ -3070,10 +3087,10 @@ c            xkeb(k,kc,ind_HgBr3ml1)   = xsw * 1.d8
 c            xkef(k,kc,ind_HgBr42ml1)  = 2.3d10 * cv2             ! #4174, K_eq = 2.3d1
 c            xkeb(k,kc,ind_HgBr42ml1)  = xsw * 1.d9
 
-            else ! conv2(kc,k) = 0
-               xkef(k,kc,:) = 0. ! jjb xsw was set to 0. in this case, leading to xkef = 0.
-               xkeb(k,kc,:) = 0. ! jjb cv2 was tested equal to 0 in this case, leading to xkeb = 0.
-            end if
+!            else ! conv2(kc,k) = 0
+!               xkef(k,kc,:) = 0. ! jjb xsw was set to 0. in this case, leading to xkef = 0.
+!               xkeb(k,kc,:) = 0. ! jjb cv2 was tested equal to 0 in this case, leading to xkeb = 0.
+!            end if
 
          enddo
       enddo
@@ -3103,6 +3120,10 @@ c the nkc size bins
      &     n,
      &     nka,
      &     nkc
+
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
 
       implicit double precision (a-h,o-z)
 
@@ -3374,16 +3395,26 @@ c calculation of sea salt aerosol source
 ! Imported Parameters:
      &     dp
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
 ! Local parameters:
   ! optimisation: define parameters that will be computed only once
       real (kind=dp), parameter :: zrho_frac = rho3 / rhow
       real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
-      logical box
+      logical, intent(in) ::  box
+      integer, intent(in) :: n_bl
+      real (kind=dp), intent(in) :: dd, z_mbl
 
+      integer :: ia, jt, jt_low, jtt, k_in
       logical mona,smith
+      real (kind=dp) :: a1, a2, f1, f2, r01, r02
+      real (kind=dp) :: bb, df, df1, df2
+      real (kind=dp) :: a0, b0, rg, eg, rr
+      real (kind=dp) :: d_z, u10
+
+      real (kind=dp), external :: rgl
+! Common blocks
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
@@ -3404,12 +3435,15 @@ c calculation of sea salt aerosol source
       common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
       real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
       common /blck06/ kw(nka),ka
+      integer :: kw, ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-     &       /blck78/ sa1(nka,j2),sac1(nka,j2)
+      real(kind=dp) :: sl1, sion1
+      common /blck78/ sa1(nka,j2),sac1(nka,j2)
+      real(kind=dp) :: sa1, sac1
       common /sss/ brsss,clsss,xnasss
+      real (kind=dp) :: brsss, clsss, xnasss
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-!     dimension   rnw(nka) ! jjb not used
 
 c choose which version to pick
       mona=.true.      ! Monahan et al., 1986
@@ -3641,6 +3675,7 @@ c interface between MISTRA and the KPP gas phase chemistry
       common /blck01/ am3(n),cm3(n)
 
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /cb18/ alat,declin                ! for the SZA calculation
@@ -4642,12 +4677,12 @@ c
 
 
 ! don't apply to all xgamma's only to those that are <> 1:
-            if (cw(kc,k).gt.0.d0) then
+            !if (cw(kc,k).gt.0.d0) then ! jjb: test not needed, already excluded by cm above
                do jg=1,j6
                   if (xgamma(k,jg,kc).ne.1.) xgamma(k,jg,kc) =
      &                 xgamma(k,jg,kc) * cm(kc,k)/cw(kc,k)
                enddo
-            end if
+            !end if
 
 ! define gamma's for species that are not included in pitzer module
 ! L+J: Liang and Jacobson, 1999, JGR, 104, 13749, #554
@@ -4791,14 +4826,21 @@ c Seinfeld and Pandis, 1999
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
 
+! Subroutine arguments
+      real (kind=dp), intent(in) :: xra,tt(n),rho(n),freep(nf)
+! Local variables
+      integer :: i, k
+      real (kind=dp) :: FCT, rb_fact
+      real (kind=dp) :: vm(ind_gas(j1)),hs(ind_gas(j1)),f0(ind_gas(j1))
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-!      common /gas_vdd/ vg(j1)
-!     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
-!    &     f0(j1)
-      real (kind=dp) :: tt(n),freep(nf),rho(n),vm(ind_gas(j1)),
-     &          hs(ind_gas(j1)),f0(ind_gas(j1))
+      real (kind=dp) :: henry, xkmt, xkef, xkeb
+      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+      real (kind=dp) :: alpha, vmean
+
+
 c function used in calculation of Hstar
+      real (kind=dp) :: funa, a0, b0
       funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
 
 c gas phase dry deposition velocity:v_d=1/(ra + rb + rc)
@@ -5073,6 +5115,7 @@ c define some f_0 that deviate from standard (Pandis and Seinfeld, Table 19.3):
       f0(19)=1.  !H2O2
       f0(20)=1.  !ROOH
       f0(30)=0.  !HCl
+c      f0(34)=1.  !N2O5
       f0(35)=0.  !HNO4
       f0(36)=1.  !NO3
       f0(42)=0.  !HBr
@@ -5404,6 +5447,7 @@ c      implicit double precision (a-h,o-z)
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb unused now
@@ -5738,6 +5782,7 @@ c     pick the values from the designated level: nlevbox
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
@@ -5815,6 +5860,7 @@ c     pick the values from the designated level: nlevbox
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
@@ -5895,6 +5941,7 @@ c     test output
       common /blck01/ am3(n),cm3(n)
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
@@ -7019,8 +7066,7 @@ c c0=1..3  gas phase reactant:     N2O5, ClNO3, BrNO3
             h2oa=FIX(indf_H2Ol1)
             hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
             yw=ycw(a0)
-         endif
-         if (a0.eq.2) then
+         else if (a0.eq.2) then
             h2oa=FIX(indf_H2Ol2)
             hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
             yw=ycw(a0)
@@ -7043,8 +7089,7 @@ c c0=1..3  gas phase reactant:     N2O5, ClNO3, BrNO3
             h2oa=55.55*ycwd(1)*1.d+3
             hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
             yw=ycwd(a0)
-         endif
-         if (a0.eq.2) then
+         else if (a0.eq.2) then
             h2oa=55.55*ycwd(2)*1.d+3
             hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
             yw=ycwd(a0)
@@ -7306,7 +7351,7 @@ c k(298K)=2.2d-12 cm3/(mlc s)
 c-----------------------------------------------------------------------------
 
 c      double precision function xkHgBr (x1)
-cc rate coefficient for recmonbination Hg+Br --> HgBr (Donohoue et al., 2006, #4161
+cc rate coefficient for recombination Hg+Br --> HgBr (Donohoue et al., 2006, #4161
 c      double precision aircc,te,h2oppm,pk,x1,x2
 c      common /cb_1/ aircc,te,h2oppm,pk
 c

@@ -229,6 +229,7 @@ subroutine nstrahl
                  !      see paper from Loughlin et al, (1997) QJRMS vol. 123, pp. 1985-2007, table 1
                  !     SHOULD THIS BE UPDATED? see also zfuq1 below: 1340.0
 ! s0 = 1360.3_dp
+! s0 = 1368.0_dp ! latest AB version
 
 ! concentrations of trace gases ! jjb improve by reading in namelist
   umco2 = 330._dp
@@ -262,13 +263,13 @@ subroutine nstrahl
      ibanf = 1
   endif
 
+  zdopr = 2._dp * rho(nrlev)
 
 ! loop for 18 spectral bands
 !---------------------------
   do ib = ibanf,mb
 
 ! rayleigh scattering
-     zdopr = 2._dp * rho(nrlev)
      if (ib <= mbs) then
         do jz=1,nrlay
            dtaur(jz) = berayl(ib) * thk(jz) * (rho(jz)+rho(jz+1))/zdopr
