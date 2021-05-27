@@ -91,7 +91,8 @@ program mistra
        nuc,          &
        rst,          &
        iaertyp,      &
-       lstmax
+       lstmax,       &
+       lpJoyce14bc
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -119,7 +120,7 @@ program mistra
   end interface
 
   logical Napari, Lovejoy, both
-  logical :: llinit
+  logical :: llinit, llcallphotol, llsetjrates0
 
 ! Common blocks:
   common /cb16/ u0,albedo(mbs),thk(nrlay)
@@ -412,15 +413,37 @@ program mistra
      if (.not.box) call radiation (llinit)
 ! new photolysis rates
      if (chem) then
-        if (u0.gt.3.48e-2) then
-! optimize this!!
-           if (u0.gt.3.48e-2.and.u0.le.0.4.and.lmin/2*2.eq.lmin &
-                .or.u0.gt.0.4.and.lmin/2*2.eq.lmin) call photol
-           if (box.and.BL_box) call ave_j (nz_box,n_bl)
+
+        ! Condition to call photolysis code (may depend on configuration)
+        if (lpJoyce14bc) then
+           if (u0.gt.1.0d-2) then
+              llcallphotol = .true.
+              llsetjrates0 = .false.
+           else
+              llcallphotol = .false.
+              llsetjrates0 = .true.
+           end if
         else
+           if (u0.gt.3.48e-2 .and. lmin/2*2.eq.lmin) then
+              llcallphotol = .true.
+              llsetjrates0 = .false.
+           else
+              llcallphotol = .false.
+              if (u0.gt.3.48e-2) then ! in this case, keep using the previously calculated rates
+                 llsetjrates0 = .false.
+              else
+                 llsetjrates0 = .true.
+              end if
+           end if
+        end if
+        ! Call photolysis code
+        if (llcallphotol) then
+           call photol
+           if (box.and.BL_box) call ave_j (nz_box,n_bl)
+        else if (llsetjrates0) then
            do k=1,n
-              do i=1,nphrxn ! jjb
-                 photol_j(i,k)=0.
+              do i=1,nphrxn
+                 photol_j(i,k)=0._dp
               enddo
            enddo
         endif
@@ -431,7 +454,7 @@ program mistra
 !    ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-        call oneD_dist
+        call oneD_dist_new
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
@@ -754,7 +777,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
-       ug, vg, wmin, wmax, nwProfOpt
+       ug, vg, wmin, wmax, nwProfOpt, &
+       lpJoyce14bc
 
 
   USE constants, ONLY : &
@@ -851,6 +875,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
   common /cb63/ fcs(nka),xmol3(nka)
   real(kind=dp) :: fcs, xmol3
+  common /ff_0/ ff_0(nka)
+  real(kind=dp) :: ff_0
   common /kinv_i/ kinv
   integer :: kinv
 
@@ -1088,16 +1114,28 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      fsum(:)   = 0._dp
      do k=1,n
         nar(k) = iaertyp
-        x0 = 1.0_dp
-        if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+
+        ! Define a scaling factor to tune the original distributions
+        ! General case
+        if (.not.lpJoyce14bc) then
+           x0 = 1._dp
+           if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+        ! special case for Joyce et al 2014 study
+        else if (lpJoyce14bc) then
+           x0 = 1.e-4_dp
+        end if
+
         do ia=1,nka
-          ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
-          if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
-          fsum(k) = fsum(k) + ff(1,ia,k)
+           ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
+           ! special case: save the distribution to replenish (save only once, k==1)
+           if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
+           if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           fsum(k) = fsum(k) + ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
 !        fnorm(k)=fsum(k)
       enddo
+
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
 !#      fname(3:3)=fogtype
@@ -1143,13 +1181,31 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 2000  continue
 
 ! Aerosol type 1 = urban
-      if (rn(ia).le.1._dp) then
-         fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
-      else
-         fcs(ia) = 0.1_dp
+      ! general case
+      if (.not.lpJoyce14bc) then
+         if (rn(ia).le.1._dp) then
+            fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
+         else
+            fcs(ia) = 0.1_dp
+         end if
+         xnue = (3._dp + 2._dp * 2._dp) / 3._dp
+         xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+
+      ! special case for Joyce et al 2014 study
+      ! making urban aerosol H2SO4 with remaining mass DOM and gas uptake
+      else if (lpJoyce14bc) then
+         if (rn(ia).le.1._dp) then
+            fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+         else
+            fcs(ia) = 0.1_dp
+         end if
+         ! "average" number of dissoc. ions, H+,SO4=,DOM, Cl- (4)
+         xnue = (3._dp ) / 4._dp
+         ! "average" MW of ion = MW components/#
+         ! sulfacid(98.08)+octene(122.21)+Cl- / 4 diss. com
+         xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
       end if
-      xnue = (3._dp + 2._dp * 2._dp) / 3._dp
-      xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+
       go to 1030
 ! soluble part of rural aerosol: pure (NH4)2SO4
 2010  continue
@@ -2011,6 +2067,10 @@ subroutine sedc (dt)
 
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
 
+  USE config, ONLY : &
+! Imported Parameters:
+       lpJoyce14bc
+
   USE constants, ONLY : &
 ! Imported Parameters:
        Avogadro
@@ -2091,10 +2151,22 @@ subroutine sedc (dt)
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-  if(ind_gas_rev(4) /= 0) &
-       vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
-  if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
-       vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
+  if (.not.lpJoyce14bc) then
+     if(ind_gas_rev(4) /= 0) &
+          vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
+  end if
+
+  ! N2O5
+  ! special case for Joyce et al 2014 study
+  if (lpJoyce14bc) then
+     if(ind_gas_rev(34) /= 0) &
+          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff, 2010)  PJ
+  ! general case
+  else
+     if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
+          vg(ind_gas_rev(34))=vg(ind_gas_rev(30))  ! N2O5=HCl
+  end if
+
   if(ind_gas_rev(37) /= 0) &
        vg(ind_gas_rev(37))=0._dp                  ! DMS           emission is net flux
   if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -2169,6 +2241,30 @@ subroutine sedc (dt)
 ! es1: emission rates in molec./cm**2/s, s1 in mol/m**3
      s1(j,2)=s1(j,2)+es1(j)*x4*dt*1.e+4_dp/(detw(2)*Avogadro)
   enddo
+
+! Scenario emission for special model study
+  if (lpJoyce14bc) then
+!  surface gas emission  "gasPJ"
+!  if(lst.le.2) then
+!  if(lst.ge.2.AND.lst.le.3) then
+     if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3) then
+!     es1(1)=1.0d12       ! NO
+        es1(ind_gas_rev(1))=1.4e12_dp        ! NO (b25)
+!     es1(4)=4.2e10       ! NH3 (base23)
+!     es1(4)=3.4e11       ! NH3
+!     es1(4)=5.2d10       ! NH3 (3.7% of NO, based on inventory)
+        es1(ind_gas_rev(4))=6.7e10_dp        ! NH3 (4.76% of NO, Yokelson 97)
+!     es1(4)=4.2d11       ! NH3
+!     es1(4)=6.3d11       ! NH3 (b25)
+!     es1(4)=1.0d12       ! NH3
+!     es1(5)=1.5d11       ! SO2 (Dick,2003)
+        es1(ind_gas_rev(5))=3.0e11_dp        ! SO2 (DEC, 2008)
+     else
+        es1(ind_gas_rev(1))=0._dp
+        es1(ind_gas_rev(4))=0._dp
+        es1(ind_gas_rev(5))=0._dp
+     endif
+  end if
 
 end subroutine sedc
 

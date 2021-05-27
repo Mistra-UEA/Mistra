@@ -21,7 +21,9 @@ c additional subroutines for KPP version
       subroutine initc (box,n_bl)
 c initialization of chemistry module
 
-!      USE config, ONLY :
+      USE config, ONLY :
+     &     iaertyp,
+     &     lpJoyce14bc
 !     &     iod
 
       USE constants, ONLY :
@@ -62,8 +64,7 @@ c initialization of chemistry module
      &     nkt,
      &     nkc,
      &     nlev,
-     &     nrxn,
-     &     nmax_chem_aer
+     &     nrxn
 
       USE kpp_aer_Parameters, ONLY :
      &     nspec_a=>NSPEC
@@ -297,43 +298,45 @@ c layers in which rH > xcrystallization
 c initial loading of aerosols with nh3,so4,fe(3),mn(2) (x0=mole/particle)
 c watch out: sa1 is defined as sa1(..,j2,..) but addressed in j6 (=ion, sion1) terms
 c            except for DOM which is in sl1 (therefore it is in j2)!!
+      sa1(:,:) = 0._dp
       do ia=1,nka
 cc ocean aerosol: particles with rn(ia)<.5 mum: 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
 c ocean aerosol: particles with rn(ia)<.5 mum: 34% (NH4)2SO4, 65.6% NH4HSO4, 0.4% NH4NO3
-         if (rn(ia).lt.0.5) then
-            x0=en(ia)*1.d-03*fcs(ia)/xmol3(ia)
-c            sa1(ia,13)=x0*0.04 !NO3-
-            sa1(ia,13)=x0*0.004 !NO3-
-            sa1(ia,2)=x0*1.34   !NH4+
-            sa1(ia,8)=x0*0.34   !SO4=
-            sa1(ia,19)=x0*0.656 !HSO4-
+         x0=en(ia)*1.d-03*fcs(ia)/xmol3(ia)
+         if (iaertyp == 3) then
+            if (rn(ia).lt.0.5_dp) then
+c               sa1(ia,13)=x0*0.04 !NO3-
+               sa1(ia,13)=x0*0.004 !NO3-
+               sa1(ia,2)=x0*1.34   !NH4+
+               sa1(ia,8)=x0*0.34   !SO4=
+               sa1(ia,19)=x0*0.656 !HSO4-
 c larger particles: pure nacl
-         else
-            x0=en(ia)*1.d-03*fcs(ia)/xmol3(ia)
+            else
 c sea salt particle
 c x0 = mol / particle
 c all the xiii are scaled to the sum of all negative ions in seawater,
 c Na+ is the sum of all positive ions; to get the correct molar ratios of
 c Cl- or Br- to Na+, the lumped Na+ has to be multiplied by 0.806
-            xso42m=0.0485
-            xhco3m=4.2d-3
-            xno3m =1.0d-7
-            xbrm  =1.45d-3
-            xim   =7.4d-8/.545*xiod
-            xio3m =2.64d-7/.545*xiod
-            xclm  =1-(xso42m+xhco3m+xno3m+xbrm+xim+xio3m)
-            sa1(ia, 8)=xso42m*x0    ! SO4=
-            sa1(ia, 9)=xhco3m*x0    ! HCO3-
-            sa1(ia,13)=xno3m*x0     ! NO3-
-            sa1(ia,14)=xclm*x0      ! Cl-
-            sa1(ia,20)=x0           ! "Na+" -  eletronegativity
-            sa1(ia,24)=xbrm*x0      ! Br-
-            sa1(ia,34)=xim*x0       ! I-
-            sa1(ia,36)=xio3m*x0     ! IO3-
-            sa1(ia,j2-j3+4)=0.27*xbrm*x0 !unspecified DOM
+               xso42m=0.0485
+               xhco3m=4.2d-3
+               xno3m =1.0d-7
+               xbrm  =1.45d-3
+               xim   =7.4d-8/.545*xiod
+               xio3m =2.64d-7/.545*xiod
+               xclm  =1-(xso42m+xhco3m+xno3m+xbrm+xim+xio3m)
+               sa1(ia, 8)=xso42m*x0 ! SO4=
+               sa1(ia, 9)=xhco3m*x0 ! HCO3-
+               sa1(ia,13)=xno3m*x0  ! NO3-
+               sa1(ia,14)=xclm*x0   ! Cl-
+               sa1(ia,20)=x0        ! "Na+" -  eletronegativity
+               sa1(ia,24)=xbrm*x0   ! Br-
+               sa1(ia,34)=xim*x0    ! I-
+               sa1(ia,36)=xio3m*x0  ! IO3-
+               sa1(ia,j2-j3+4)=0.27*xbrm*x0 !unspecified DOM
                                     !according to #2210: 0.27*[Br-]; enriched compared to ocean water ratio
-         endif
+            endif
 
+         else if (iaertyp == 1) then
 cc urban aerosol:
 cc 2/3*xm = mole mass nh4no3; 1/3*xm = mole mass (nh4)2so4;
 cc xm=en(ia)*fcs(ia)*1d-3: total soluble mole mass
@@ -344,7 +347,29 @@ c               sa1(ia,3)=x0*2.
 c               sa1(ia,4)=x0*4.
 c               sa1(ia,6)=x0
 c            else
-          end do
+
+            ! Joyce et al 2014 case
+            if (lpJoyce14bc) then
+c soluble part of urban aerosol: pure H2SO4   PJ
+c x0 = mol / particle
+c molar ratios  "aeroPJ"  SR inic
+               sa1(ia,1) =x0*0.1868*2. !H+       PJ  (2*SO4=)
+               sa1(ia,2) =x0*0.        !NH4+     PJ
+               sa1(ia,8) =x0*0.1868    !SO4=     PJ
+               sa1(ia,13)=x0*0.        !NO3-     PJ
+               if(rn(ia).le.0.5)then   ! Cl-
+c                  sa1(ia,14)=x0*0.0356 !Cl-      PJ (cl_b23c)
+                  sa1(ia,14)=x0*0.0227 !Cl-      PJ (b25)
+               else
+                  sa1(ia,14)=x0*0.     ! No Cl- in supermicron
+               end if
+               sa1(ia,19)=x0*0.        !HSO4-    PJ
+c               sa1(ia,j2-j3+4)=x0*0.5757 !DOM      PJ  (obs DOM)
+c               sa1(ia,j2-j3+4)=x0*0.7763 !DOM      PJ  (obs total PM2.5)
+               sa1(ia,j2-j3+4)=x0*0.6642 !DOM      PJ  (b25)
+            end if              ! Joyce
+         end if                 ! iaertyp
+      end do                    !ia
 
 c print initial concentrations (continued)
       write (jpfunprofc,6030)
@@ -446,8 +471,7 @@ c xra: aerodynamic resistence, needed for calculation of dry deposition velociti
 ! Imported Parameters:
      &     nf,
      &     n,
-     &     nkc,
-     &     nmax_chem_aer
+     &     nkc
 
       USE precision, ONLY :
 ! Imported Parameters:
@@ -563,6 +587,10 @@ c
       subroutine st_coeff_t
 c sticking coefficients, needed for calculation of k_mt
 
+      USE config, ONLY :
+! Imported Parameters:
+     &     lpJoyce14bc
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -590,6 +618,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision :: RT               ! RGAS * T(k)
       double precision :: C_o_RT           ! CAL / (RGAS*T(k))
       double precision :: tcorr
+      double precision, external :: a_n2o5
 
       integer :: j, k
 
@@ -623,10 +652,18 @@ c      alpha(ind_H2O2,k) =  9.1D-02
      &     1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
       alpha(ind_NO,k) =  5.0D-05
       alpha(ind_NO2,k) =  1.5D-03
-c      alpha(ind_NO3,k) =  2.5D-03
-      alpha(ind_NO3,k) =  4.0D-02
-c      alpha(ind_N2O5,k) =  2.7D-02
-      alpha(ind_N2O5,k) =  1.0D-01
+      if (lpJoyce14bc) then
+         alpha(ind_NO3,k) =  2.5D-03
+      else
+c         alpha(ind_NO3,k) =  2.5D-03
+         alpha(ind_NO3,k) =  4.0D-02
+      end if
+      if (lpJoyce14bc) then
+         alpha(ind_N2O5,k) = a_n2o5(k,1)
+      else
+c         alpha(ind_N2O5,k) =  2.7D-02
+         alpha(ind_N2O5,k) =  1.0D-01
+      end if
       alpha(ind_HONO,k) =  4.0D-02
 c      alpha(ind_HNO3,k) =  8.6D-02
       alpha(ind_HNO3,k) =  5.0D-01
@@ -739,6 +776,10 @@ c
       subroutine st_coeff_a
 c sticking coefficients, needed for calculation of k_mt
 
+      USE config, ONLY :
+! Imported Parameters:
+     &     lpJoyce14bc
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nf,
@@ -766,6 +807,7 @@ c sticking coefficients, needed for calculation of k_mt
       double precision :: RT               ! RGAS * T(k)
       double precision :: C_o_RT           ! CAL / (RGAS*T(k))
       double precision :: tcorr
+      double precision, external :: a_n2o5
 
       integer :: j, k
 
@@ -799,10 +841,18 @@ c      alpha(ind_H2O2,k) =  9.1D-02
      &     1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
       alpha(ind_NO,k) =  5.0D-05
       alpha(ind_NO2,k) =  1.5D-03
-c      alpha(ind_NO3,k) =  2.5D-03
-      alpha(ind_NO3,k) =  4.0D-02
-c      alpha(ind_N2O5,k) =  2.7D-02
-      alpha(ind_N2O5,k) =  1.0D-01
+      if (lpJoyce14bc) then
+         alpha(ind_NO3,k) =  2.5D-03 ! jjb: lower limit Thomas et al. (1989), Mihelcic et al. (1993) (cited by Finlayson Pitt & Pitt, Chemistry of the Upper and Lower Atmosphere, 2000
+      else
+c         alpha(ind_NO3,k) =  2.5D-03
+         alpha(ind_NO3,k) =  4.0D-02
+      end if
+      if (lpJoyce14bc) then
+         alpha(ind_N2O5,k) = a_n2o5(k,1)
+      else
+c         alpha(ind_N2O5,k) =  2.7D-02
+         alpha(ind_N2O5,k) =  1.0D-01
+      end if
       alpha(ind_HONO,k) =  4.0D-02
 c      alpha(ind_HNO3,k) =  8.6D-02
       alpha(ind_HNO3,k) =  5.0D-01
@@ -2917,7 +2967,7 @@ c absolute values are chosen arbitrarily to ensure fast equilibration;
       integer, intent(in) :: nmaxf
       real(kind=dp), intent(in) :: tt(n)
 ! Local variables
-      integer :: k, kc, j
+      integer :: k, kc
       real(kind=dp) :: cv2, xsw
 ! Common blocks
       common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
@@ -3286,7 +3336,8 @@ c independent of activation.
 c      double precision ap1o,ap2o,ap2n,apo,apn
 
       USE config, ONLY :
-     &     ifeed
+     &     ifeed,
+     &     lpJoyce14bc
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -3336,22 +3387,36 @@ c            do jt=1,kg
          enddo
 c no3-, nh4+ and so4= due to nucleation scavenging and evaporation
          do ia=1,ka
+            if (lpJoyce14bc)
+     &      sion1( 1,1,k)=sion1( 1,1,k)+ap(k,ia)*sa1(ia, 1)*1.d6 !H+ PJ
             sion1( 2,1,k)=sion1( 2,1,k)+ap(k,ia)*sa1(ia, 2)*1.d6
             sion1( 8,1,k)=sion1( 8,1,k)+ap(k,ia)*sa1(ia, 8)*1.d6
             sion1(13,1,k)=sion1(13,1,k)+ap(k,ia)*sa1(ia,13)*1.d6
+            if (lpJoyce14bc)
+     &      sion1(14,1,k)=sion1(14,1,k)+ap(k,ia)*sa1(ia,14)*1.d6 !Cl- (cl_b23c) PJ
             sion1(17,1,k)=sion1(19,1,k)                         !mixing tracer
             sion1(19,1,k)=sion1(19,1,k)+ap(k,ia)*sa1(ia,19)*1.d6
+            if (lpJoyce14bc)
+     &      sl1(j2-j3+4,1,k)=sl1(j2-j3+4,1,k)+ap(k,ia)*          !DOM    PJ
+     &           sa1(ia,j2-j3+4)*1.d6
 c NO3-, NH4-, SO4=, HSO4- : j6 used in sion1, sa1
 c Br-, HCO3-, I-, IO3-, Cl-: j6 used in sion1, sa1
          enddo
          if (sion1(8,1,k).eq.0.) print *,k,'init(so4=)=0'
 
          do ia=ka+1,nka
+            if (lpJoyce14bc) then
+            sion1( 1,2,k)=sion1( 1,2,k)+ap(k,ia)*sa1(ia, 1)*1.d6 !H+ PJ
+            sion1( 2,2,k)=sion1( 2,2,k)+ap(k,ia)*sa1(ia, 2)*1.d6 !NH4+ PJ
+            end if
             sion1( 8,2,k)=sion1( 8,2,k)+ap(k,ia)*sa1(ia, 8)*1.d6 !SO4=
             sion1( 9,2,k)=sion1( 9,2,k)+ap(k,ia)*sa1(ia, 9)*1.d6 !HCO3-
             sion1(13,2,k)=sion1(13,2,k)+ap(k,ia)*sa1(ia,13)*1.d6 !NO3-
             sion1(14,2,k)=sion1(14,2,k)+ap(k,ia)*sa1(ia,14)*1.d6 !Cl-
             sion1(17,2,k)=sion1(14,2,k)                          !mixing tracer
+            if (lpJoyce14bc) then
+            sion1(19,2,k)=sion1(19,2,k)+ap(k,ia)*sa1(ia,19)*1.d6 !HSO4- PJ
+            end if
             sion1(20,2,k)=sion1(20,2,k)+ap(k,ia)*sa1(ia,20)*1.d6 !Na+; inert
             sion1(24,2,k)=sion1(24,2,k)+ap(k,ia)*sa1(ia,24)*1.d6 !Br-
             sion1(34,2,k)=sion1(34,2,k)+ap(k,ia)*sa1(ia,34)*1.d6 !I-
@@ -3374,6 +3439,10 @@ c calculation of sea salt aerosol source
 
 ! work done:
 ! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
+
+      USE config, ONLY :
+! Imported Parameters:
+     &     lpJoyce14bc
 
       USE constants, ONLY :
 ! Imported Parameters:
@@ -3406,7 +3475,7 @@ c calculation of sea salt aerosol source
       integer, intent(in) :: n_bl
       real (kind=dp), intent(in) :: dd, z_mbl
 
-      integer :: ia, jt, jt_low, jtt, k_in
+      integer :: ia, iamin, iamax, ikc, jt, jt_low, jtt, k_in
       logical mona,smith
       real (kind=dp) :: a1, a2, f1, f2, r01, r02
       real (kind=dp) :: bb, df, df1, df2
@@ -3415,6 +3484,9 @@ c calculation of sea salt aerosol source
 
       real (kind=dp), external :: rgl
 ! Common blocks
+      common /cb40/ time,lday,lst,lmin,it,lcl,lct
+      real (kind=dp) :: time
+      integer :: lday, lst, lmin, it, lcl, lct
       common /cb41/ detw(n),deta(n),eta(n),etw(n)
       real (kind=dp) :: detw, deta, eta, etw
 
@@ -3440,6 +3512,8 @@ c calculation of sea salt aerosol source
       real(kind=dp) :: sl1, sion1
       common /blck78/ sa1(nka,j2),sac1(nka,j2)
       real(kind=dp) :: sa1, sac1
+      common /ff_0/ ff_0(nka)
+      real(kind=dp) :: ff_0
       common /sss/ brsss,clsss,xnasss
       real (kind=dp) :: brsss, clsss, xnasss
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
@@ -3468,7 +3542,18 @@ c this is also defined for box:
          r02=9.2
       endif
 
-      do ia=ka+1,nka
+! Define radius bounds for aerosol source
+      if (lpJoyce14bc) then
+         ! sfc source, "quick and dirty"   PJ
+         iamin = 1
+         iamax = nka
+      else
+         ! general case: only large aerosols are emitted
+         iamin = ka+1
+         iamax = nka
+      end if
+
+      do ia=iamin, iamax
 c compare SR equil in str.f
 c aerosols in equilibrium with ambient rH:
          feu(k_in)=dmin1(feu(k_in),0.99999d0)
@@ -3491,62 +3576,102 @@ c find jt-index that corresponds to rr for this dry aerosol radius
                   if (rq(jtt,ia).le.rr) jt_low = jtt
                enddo
 c               print *,ia,jt_low,rr,rq(jt_low,ia)
-              if (mona) then
+
+! =============              =============
+!               GENERAL CASE
+! =============              =============
+               if (.not.lpJoyce14bc) then
+                  if (mona) then
 c aerosol source after Monahan et al. 86 cited in Gong et al, 97, JGR, 102, p3805-3818
 c  "log" is log10
-c               bb=(0.380-log(rr))/0.65
-               bb=(0.380-log10(rr))/0.65
-c               print *,'bb',bb
-               df1=1.373*u10**3.41*rr**(-3.)*(1. + 0.057 *rr**1.05)
+c                    bb=(0.380-log(rr))/0.65
+                    bb=(0.380-log10(rr))/0.65
+c                    print *,'bb',bb
+                    df1=1.373*u10**3.41*rr**(-3.)*(1. + 0.057 *rr**1.05)
      &              * 10**(1.19*exp(-bb**2))
 !              if (rr.gt.10..and.rr.lt.75.) df22=8.6d-6*exp(2.08*u10)*
 !    &              rr**(-2)
 !              if (rr.gt.75..and.rr.lt.100.) df23=4.83d-2*exp(2.08*u10)*
 !    &              rr**(-4)
 !              if (rr.gt.100.) df24=8.6d6*exp(2.08*u10)*rr**(-8)
-               df=df1!+df22+df23+df24
-              endif
-              if (smith) then
+                    df=df1      !+df22+df23+df24
+                 endif
+                 if (smith) then
 c aerosol source after Smith et al., 93, QJRMS,119,809-824
-               df1=a1*dexp(-f1*(dlog(rr/r01)**2))
-               df2=a2*dexp(-f2*(dlog(rr/r02)**2))
-               df=df1+df2
-              endif
+                    df1=a1*dexp(-f1*(dlog(rr/r01)**2))
+                    df2=a2*dexp(-f2*(dlog(rr/r02)**2))
+                    df=df1+df2
+                 endif
 c               print *,df,rr,rq(jt,ia)-rq(jt,ia-1)
 c df in m^-2 um^-1 s^-1, convert to: cm^-3 s^-1
 c m^-2 --> m^-3: 1/dz, m^-3 --> cm^-3: 10-6, integrate over r
-!              if (jt.eq.1) then
-              if (jt_low.eq.1) then
-c                  df=df*(rq(jt+1,ia)-rq(jt,ia))/d_z*1.d-6
-                 df=df*(rq(jt_low+1,ia)-rq(jt_low,ia))/d_z*1.d-6
-              else
-c                  df=df*(rw(jt,ia)-rw(jt-1,ia))/d_z*1.d-6
-                 df=df*(rw(jt_low,ia)-rw(jt_low-1,ia))/d_z*1.d-6
-              endif
+!                 if (jt.eq.1) then
+                 if (jt_low.eq.1) then
+c                    df=df*(rq(jt+1,ia)-rq(jt,ia))/d_z*1.d-6
+                    df=df*(rq(jt_low+1,ia)-rq(jt_low,ia))/d_z*1.d-6
+                 else
+c                    df=df*(rw(jt,ia)-rw(jt-1,ia))/d_z*1.d-6
+                    df=df*(rw(jt_low,ia)-rw(jt_low-1,ia))/d_z*1.d-6
+                 endif
 c               print *,ia,df,df*86400
+! =============              =============
+!               SPECIAL CASE
+! =============              =============
+              else if (lpJoyce14bc) then
+                 ! "aeroPJ"  SR aer_source, 2 hour source, 2 hr delay
+                 if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3)then
+                    df=ff_0(ia)/86400. ! magnitude: replenished in one day
+                    df=df*15.03 ! modifer to match DEC_FBX constraint (twk3)
+c                    df=df*35.26        ! modifer to match STD_URB constraint
+                    !df=df*.001_dp ! jjb adjustment
+                 else
+                    df=0.
+                 endif
+              end if
+
+! Select the correct kc bin
+              if (.not.lpJoyce14bc) then
+                 ! general case: iamin = ka+1, only large aerosol
+                 ikc = 2
+              else if (lpJoyce14bc) then
+                 if (ia.le.ka) then
+                    ikc = 1
+                 else
+                    ikc = 2
+                 end if
+              end if
+
+
 c new distribution
 c change number conc and aerosol conc (Br-, I-, IO3-, Cl-, Na+, DOM)
-              ff(jt,ia,k_in)=ff(jt,ia,k_in)+df*dd
-              sion1( 8,2,k_in)=sion1( 8,2,k_in)+df*dd*sa1(ia, 8)*1.d6 !SO4=
-              sion1( 9,2,k_in)=sion1( 9,2,k_in)+df*dd*sa1(ia, 9)*1.d6 !HCO3-
-              sion1(13,2,k_in)=sion1(13,2,k_in)+df*dd*sa1(ia,13)*1.d6 !NO3-
-              sion1(14,2,k_in)=sion1(14,2,k_in)+df*dd*sa1(ia,14)*1.d6 !Cl-
-              sion1(20,2,k_in)=sion1(20,2,k_in)+df*dd*sa1(ia,20)*1.d6 !Na+, ion balance
-              sion1(24,2,k_in)=sion1(24,2,k_in)+df*dd*sa1(ia,24)*1.d6 !Br-
-              sion1(34,2,k_in)=sion1(34,2,k_in)+df*dd*sa1(ia,34)*1.d6 !I-
-              sion1(36,2,k_in)=sion1(36,2,k_in)+df*dd*sa1(ia,36)*1.d6 !IO3-
-              sl1(j2-j3+4,2,k_in)=sl1(j2-j3+4,2,k_in)+df*dd*
+             ff(jt,ia,k_in)=ff(jt,ia,k_in)+df*dd
+             if (lpJoyce14bc) then
+             sion1( 1,ikc,k_in)=sion1( 1,ikc,k_in)+df*dd*sa1(ia, 1)*1.d6 !H+
+             end if
+             sion1( 8,ikc,k_in)=sion1( 8,ikc,k_in)+df*dd*sa1(ia, 8)*1.d6 !SO4=
+             if (.not.lpJoyce14bc) then
+             sion1( 9,ikc,k_in)=sion1( 9,ikc,k_in)+df*dd*sa1(ia, 9)*1.d6 !HCO3-
+             sion1(13,ikc,k_in)=sion1(13,ikc,k_in)+df*dd*sa1(ia,13)*1.d6 !NO3-
+             end if
+             sion1(14,ikc,k_in)=sion1(14,ikc,k_in)+df*dd*sa1(ia,14)*1.d6 !Cl-
+             if (.not.lpJoyce14bc) then
+             sion1(20,ikc,k_in)=sion1(20,ikc,k_in)+df*dd*sa1(ia,20)*1.d6 !Na+, ion balance
+             sion1(24,ikc,k_in)=sion1(24,ikc,k_in)+df*dd*sa1(ia,24)*1.d6 !Br-
+             sion1(34,ikc,k_in)=sion1(34,ikc,k_in)+df*dd*sa1(ia,34)*1.d6 !I-
+             sion1(36,ikc,k_in)=sion1(36,ikc,k_in)+df*dd*sa1(ia,36)*1.d6 !IO3-
+             end if
+             sl1(j2-j3+4,ikc,k_in)=sl1(j2-j3+4,ikc,k_in)+df*dd*
      &             sa1(ia,j2-j3+4)*1.d6 !DOM
-              brsss=brsss+df*dd*sa1(ia,24)*1.d6
-              clsss=clsss+df*dd*sa1(ia,14)*1.d6
-              xnasss=xnasss+df*dd*sa1(ia,20)*1.d6
+             brsss=brsss+df*dd*sa1(ia,24)*1.d6
+             clsss=clsss+df*dd*sa1(ia,14)*1.d6
+             xnasss=xnasss+df*dd*sa1(ia,20)*1.d6
 c               print *,jt,f(2,ia,jt),df
-              goto 1000
-            endif
-         enddo
- 1000    continue
+             goto 1000
+          endif                 ! eg.le.ew(jt)
+       enddo                    ! jt
+ 1000  continue
 
-      enddo
+      enddo ! ia
 
       end subroutine aer_source
 
@@ -3726,8 +3851,8 @@ c      n_max=n
 c eliminate negative values
       where (s1 < 0.d0) s1=0.d0 ! jjb new using where construct for array s1
       where (s3 < 0.d0) s3=0.d0 ! jjb new using where construct for array s3
-      !here (sl1  < 0.d0)   sl1=0.d0
-      !here (sion1 < 0.d0) sion1=0.d0 ! at the moment, done in each mechanism
+      !where (sl1  < 0.d0)   sl1=0.d0
+      !where (sion1 < 0.d0) sion1=0.d0 ! at the moment, done in each mechanism
 
       do k=n_min,n_max !c aer#
 !         if (k.eq.2) short=.false. !c aer# ! jjb ros2 only
@@ -3746,7 +3871,9 @@ c formulated as quasi-2nd order
          h2oppm=h2o_cc*1.d6/air_cc        ![h2o] in ppm=umol/mol
          pk=p(k)
          dt_ch=dd_ch
-         tkpp=time
+         !tkpp=time
+         tkpp=1.d0
+         !tkpp=0.d0 ! jjb change here. kpp has not to know the real time, and having large TIN would reduce minimum timestep allowed in KPP
 !         if (k.lt.nf) then ! conv2 is dimension n now, and initialised to 0
             cvv1=conv2(1,k)
             cvv2=conv2(2,k)
@@ -4800,6 +4927,9 @@ c Seinfeld and Pandis, 1999
 !   The output of this routine, vg, is converted into compressed dimension through ind_gas
 !   indexing of arrays vm, hs and f0, which pick up only relevant values.
 
+      USE config, ONLY :
+     &     lpJoyce14bc
+
       USE data_surface, ONLY :
      &     ustern               ! frictional velocity
 
@@ -4822,7 +4952,7 @@ c Seinfeld and Pandis, 1999
 ! Imported Parameters:
      &     dp
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       include 'aer_Parameters.h'     !additional common blocks and other definitions
 
@@ -4831,7 +4961,13 @@ c Seinfeld and Pandis, 1999
 ! Local variables
       integer :: i, k
       real (kind=dp) :: FCT, rb_fact
+      real (kind=dp) :: sac, xeta, xnu, xr_ac, xr_cl, xr_clO, xr_clS,
+     &     xr_dc, xr_gs, xr_gsO, xr_gsS, xrb, xrc
       real (kind=dp) :: vm(ind_gas(j1)),hs(ind_gas(j1)),f0(ind_gas(j1))
+
+! Common blocks
+      common /cb48/ sk,sl,dtrad(n),dtcon(n) ! sk is used in Joyce config
+      real (kind=dp) :: sk, sl, dtrad, dtcon
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC),
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
       real (kind=dp) :: henry, xkmt, xkef, xkeb
@@ -4975,6 +5111,9 @@ c     vm(radical 29)=vmean(ind_OIO,k)
       !   vm(:) = vmean(:j1,k)
       !!end do
 
+! jjb add hs explicit initialisation
+      hs(:) = 0._dp
+
 c get henry constant for j1-order from KPP names and calculate Hstar
       sac=10.**(-8.1d0) ![H+]=10^(- pH), pH=8.1
       hs(1)=henry(ind_NO,k)
@@ -5010,25 +5149,25 @@ c      hs(29)=henry(ind_NH4NO3,k)
 c      hs(31)=henry(ind_R3N2,k)
 c      hs(32)=henry(ind_RAN2,k)
 c      hs(33)=henry(ind_RAN1,k)
-      hs(34)=-1.!henry(ind_N2O5,k)
+      if (.not.lpJoyce14bc) hs(34)=-1.!henry(ind_N2O5,k)
       hs(35)=henry(ind_HNO4,k)
       hs(36)=henry(ind_NO3,k)
       hs(37)=henry(ind_DMS,k)
       hs(38)=henry(ind_HOCl,k)
       hs(39)=henry(ind_ClNO2,k)
-      hs(40)=-1.!henry(ind_ClNO3,k)
+      if (.not.lpJoyce14bc) hs(40)=-1.!henry(ind_ClNO3,k)
       hs(41)=henry(ind_Cl2,k)
       hs(42)=henry(ind_HBr,k)
       hs(43)=henry(ind_HOBr,k)
       hs(44)=henry(ind_BrNO2,k)
-      hs(45)=-1.!henry(ind_BrNO3,k)
+      if (.not.lpJoyce14bc) hs(45)=-1.!henry(ind_BrNO3,k)
       hs(46)=henry(ind_Br2,k)
       hs(47)=henry(ind_BrCl,k)
-      hs(48)=-1.!henry(ind_HI,k)!*(1. + /sac)
+      if (.not.lpJoyce14bc) hs(48)=-1.!henry(ind_HI,k)!*(1. + /sac)
       hs(49)=henry(ind_HOI,k)!*(1. + /sac)
       hs(50)=henry(ind_I2O2,k)
       hs(51)=henry(ind_INO2,k)
-      hs(52)=-1.!henry(ind_INO3,k)
+      if (.not.lpJoyce14bc) hs(52)=-1.!henry(ind_INO3,k)
       hs(53)=henry(ind_I2,k)
       hs(54)=henry(ind_ICl,k)
       hs(55)=henry(ind_IBr,k)
@@ -5134,6 +5273,8 @@ c      print *,rb_fact,rc_fact
        if (vm(ind_gas(i)).eq.0.) then
          vg(i)=0.
        else
+        if (.not.lpJoyce14bc) then
+! ======= GENERAL CASE =========
          if (hs(ind_gas(i)).ne.0.) then
 c           vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+
 c     &           (rc_fact/hs(ind_gas(i)))) !Sehmel, 1980
@@ -5159,7 +5300,30 @@ c      &            (rc_fact/1.d-7)) !hs=0 => 1/hs -> infinity,
          endif
          if (hs(ind_gas(i)).eq.(-1./FCT))
      &        vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1)     ! "infinite solubility"
-      endif
+! ======= SPECIAL CASE =========
+        else if (lpJoyce14bc) then
+c no need to check if hs=0 as long as not both hs=0 and f0=0
+          xrb = rb_fact/(vm(ind_gas(i))**(2./3.))
+c rc = 1/ ((1/r_dc+r_cl) + 1/(r_ac + r_gs)); (19.50)
+c land use type: 6, mixed forest, wet-lands
+c season: 4 - winter, snow, subfreezing
+          xr_clS =  400.d0
+          xr_clO =  600.d0
+          xr_ac  = 1500.d0
+          xr_gsS =  100.d0
+          xr_gsO = 3500.d0
+c the following equations are 19.54 - 19.56
+          xr_dc = 100.d0*(1.d0+1000.d0/(sk+10.d0)) ! assume flat terrain, so last term in 19.54 = 1.
+          xr_cl = 1.d0/(hs(ind_gas(i))*1.d-5/xr_clS
+     &         + f0(ind_gas(i))/xr_clO)
+          xr_gs = 1.d0/(hs(ind_gas(i))*1.d-5/xr_gsS
+     &         + f0(ind_gas(i))/xr_gsO)
+          xrc = 1.d0/(1.d0/(xr_dc + xr_cl) + 1.d0/(xr_ac + xr_gs))
+          vg(i)=1.d0/(xra+xrb+xrc)
+
+        end if ! general/special case (lpJoyce14bc)
+
+       endif ! vm == 0
       enddo
 
       end subroutine gasdrydep
@@ -7010,9 +7174,18 @@ c heterogeneous rate function
 c a0=1..2  liquid size class
 c b0=1     gas phase reactant:     HNO3
 c c0=2..3  branch of het reaction: Cl-, Br-
+
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
+
       INCLUDE 'aer_Parameters.h'
       INCLUDE 'aer_Global.h'
-      integer a0,b0,c0
+
+      integer, intent(in) :: a0,b0,c0
+      real (kind=dp) :: hetT, xbr, xkt
 c calculate het_total
       if (a0.eq.1) then
          hetT=C(ind_Clml1) + C(ind_Brml1)
@@ -7021,8 +7194,7 @@ c        in KPP the rate is multiplied with [Cl-/Br-] so the branching
 c        expression k1=k*cl-/hetT is correctly implemented
          if (c0.eq.2) xbr=1.
          if (c0.eq.3) xbr=1.
-      endif
-      if (a0.eq.2) then
+      else if (a0.eq.2) then
          hetT=C(ind_Clml2) + C(ind_Brml2)
 c        branching ratio
          if (c0.eq.2) xbr=1.
@@ -7039,7 +7211,7 @@ c to get k in 1/s
          fdhet_a=0.
       endif
 
-      end
+      end function fdhet_a
 
 c----------------------------------------------------------------
 
@@ -7347,6 +7519,72 @@ c k(298K)=2.2d-12 cm3/(mlc s)
       tte=1./te
       DMS_add=9.5d-39*exp(5270.*tte)*o2/(1.+7.5d-29*exp(5610.*tte)*o2)
       end function DMS_add
+
+c----------------------------------------------------------------------------
+
+      function a_n2o5(k,kc)
+c     reactive uptake coeff of N2O5 (Bertram and Thornton, 2009)  PJ
+
+! jjb: adapt for Mistra v9, implicit none
+      ! cleaning: remove /cb52a/ f_sum
+
+      USE global_params, ONLY :
+! Imported Parameters:
+     &     j2,
+     &     j6,
+     &     n,
+     &     nkc
+
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      implicit none
+      integer, intent (in) :: k, kc
+      real(kind=dp) :: a_n2o5
+      real(kind=dp) :: denom, xclm, xh2o, xk2f, xno3m
+      real(kind=dp), parameter :: ppsmall = 1e-25_dp
+
+      common /blck12/ cw(nkc,n),cm(nkc,n)
+      real(kind=dp) :: cw, cm
+      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+      real(kind=dp) :: sl1, sion1
+      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+      real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+      if (cw(kc,k).gt.0.d0) then
+c     convert from (mol m-3) to (mol L-1), species 13: NO3-
+c     convert from (mol m-3) to (mol L-1), species 14: Cl-
+         xno3m = sion1(13,kc,k)/cw(kc,k) * 1e-3_dp
+         xclm  = sion1(14,kc,k)/cw(kc,k) * 1e-3_dp
+      else
+         xno3m = 0._dp
+         xclm = 0._dp
+      end if
+
+c     initialize water to (mol L-1)
+      xh2o = 0._dp
+      if (cm(1,k).gt.0._dp) then
+      if (cw(1,k).gt.0._dp) then
+         xh2o = 55.55_dp * (cm(1,k) / cw(1,k))
+      end if
+      end if
+
+c     big honking reactive uptake coefficient parameterization
+      xk2f = 1.15e6_dp - 1.15e6_dp * exp(-0.13_dp * xh2o)
+
+      denom = 1._dp
+      if (xno3m.gt.0.d0)
+!      if (xno3m.gt.ppsmall)
+     &     denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
+      a_n2o5 = 3.2e-8_dp * xk2f * (1._dp - (1._dp/denom))
+
+!      if (k.eq.2) print *,'gamma(N2O5),k=2',k,a_n2o5,xh2o,xno3m
+!     &     ,xclm,denom,t(k),p(k)
+!      if (k.eq.10) print *,'gamma(N2O5),k=10',k,a_n2o5,xh2o,xno3m
+!     &     ,xclm,denom,t(k),p(k)
+
+      end function a_n2o5
 
 c-----------------------------------------------------------------------------
 
