@@ -1507,6 +1507,7 @@ subroutine constm
 ! Modifications :
 ! -------------
 !    Josue Bock  Review, add header, missing declarations, f90
+!    Josue Bock  Add a test to print soil data only if isurf==1 (21-May-2021)
 
 ! == End of header =============================================================
 
@@ -1514,7 +1515,7 @@ subroutine constm
 ! Imported Parameters:
        chem, mic, rst, &
        ug, vg, wmin, wmax, &
-       scaleo3_m
+       isurf, scaleo3_m
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -1617,15 +1618,17 @@ subroutine constm
   write (jpfunprofm,6130)
 6130 format (6x,'rq(k,nka):')
   write (jpfunprofm,6010) (rq(k,nka),k=1,nkt)
-  write (jpfunprofm,6140)
+  if (isurf == 1) then
+     write (jpfunprofm,6140)
 6140 format (6x,'zb:')
-  write (jpfunprofm,6010) (zb(k),k=1,nb)
-  write (jpfunprofm,6150)
+     write (jpfunprofm,6010) (zb(k),k=1,nb)
+     write (jpfunprofm,6150)
 6150 format (6x,'dzb:')
-  write (jpfunprofm,6010) (dzb(k),k=1,nb)
-  write (jpfunprofm,6160)
+     write (jpfunprofm,6010) (dzb(k),k=1,nb)
+     write (jpfunprofm,6160)
 6160 format (6x,'dzbw:')
-  write (jpfunprofm,6010) (dzbw(k),k=1,nb)
+     write (jpfunprofm,6010) (dzbw(k),k=1,nb)
+  end if
   write (jpfunprofm,6170)
 6170 format (//,16x,'constants and parameters'/)
   write (jpfunprofm,6173)
