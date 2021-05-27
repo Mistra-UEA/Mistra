@@ -394,16 +394,19 @@ c            write (543,12) k,cm3(k,1),cm3(k,2)
       write (jpfunsr1) is4
       close (jpfunsr1)
 
-! Initialise vmean (constant factor calculation)
-      call v_mean_init
-! ... and make the first calculation
-      call v_mean (t(:nmax_chem_aer))
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!! Initialise vmean (constant factor calculation)
+!      call v_mean_init
+!! ... and make the first calculation
+!      call v_mean (t(:nmax_chem_aer))
 
 c Init calc of v_mean and henry
 c initialize all variables also for box run
+      call v_mean_a  (t,nf)
 !     call henry_a (t,p,nf) ! jjb second argument (p) not used
       call henry_a (t,nf)   ! jjb removed
       call st_coeff_a
+      call v_mean_t  (t,nf)
 !     call henry_t (t,p,nf) ! jjb second argument (p) not used
       call henry_t (t,nf)   ! jjb removed
       call st_coeff_t
@@ -514,10 +517,12 @@ c dry deposition velocities for gas phase
          enddo
       enddo
 
-! Compute the mean molecular speed (depends only on the temperature)
-      call v_mean (t(:nmax_chem_aer))
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!! Compute the mean molecular speed (depends only on the temperature)
+!      call v_mean (t(:nmax_chem_aer))
 
 ! Call all subroutines needed for aerosols (bins 1 & 2) (aer mechanism)
+      call v_mean_a  (t,nmaxf)      ! T varies slowly with time
       call henry_a (t,nmaxf)
       call st_coeff_a
       call equil_co_a (t,nmaxf)
@@ -526,6 +531,7 @@ c dry deposition velocities for gas phase
 
 ! If necessary, call all subroutines needed for droplets (bins 3 & 4) (tot mechanism)
       if (xph3.eq.1..or.xph4.eq.1.) then
+         call v_mean_t  (t,nmaxf)  ! T varies slowly with time
          call henry_t (t,nmaxf)
          call st_coeff_t
          call equil_co_t (t,nmaxf)
@@ -1125,6 +1131,354 @@ c
       end subroutine v_mean
 c
 c-----------------------------------------------------
+c
+
+      subroutine v_mean_t (tt,nmaxf)
+c mean molecular speed from Maxwell-Boltzmann distribution:
+c v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+
+      USE global_params, ONLY :
+! Imported Parameters:
+     &     nf,
+     &     n
+
+      implicit double precision (a-h,o-z)
+
+      include 'tot_Parameters.h' !additional common blocks and other definitions
+!      parameter (nf=100,n=nf+50)
+      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+
+      dimension tt(n)
+c v_mean in m/s
+c sqrt(8*R_gas/pi)=4.60138
+      func(a,k)=dsqrt(tt(k)/a)*4.60138
+
+! Initialisation of vmean
+      vmean(:,:) = 0.d0 ! jjb matrix
+
+      do k=1,nmaxf
+!        do l=1,NSPEC
+!           vmean(k,l)=0. ! jjb matrix above
+!        enddo
+         vmean(ind_NO,k) = func(3.d-2,k)
+         vmean(ind_NO2,k) = func(4.6d-2,k)
+         vmean(ind_HNO3,k) = func(6.3d-2,k)
+         vmean(ind_NH3,k) = func(1.7d-2,k)
+         vmean(ind_SO2,k) = func(6.4d-2,k)
+         vmean(ind_SO3,k) = func(8.0d-2,k) ! jjb was missing
+         vmean(ind_HOSO2,k) = func(8.1d-2,k) ! jjb was missing
+         vmean(ind_H2SO4,k) = func(9.8d-2,k)
+         vmean(ind_O3,k) = func(4.8d-2,k)
+         vmean(ind_CH4,k) = func(1.6d-2,k)
+         vmean(ind_C2H6,k) = func(3.d-2,k)
+c         vmean(ind_C3H8,k) = func(4.4d-2,k)
+c         vmean(ind_ALKA,k) = func(,k)
+         vmean(ind_ETHE,k) = func(2.8d-2,k)
+c         vmean(ind_ALKE,k) = func(,k)
+c         vmean(ind_AROM,k) = func(,k)
+         vmean(ind_ACO2,k) = func(4.6d-2,k)
+         vmean(ind_ACTA,k) = func(6.d-2,k)
+         vmean(ind_HCHO,k) = func(3.d-2,k)
+         vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
+         vmean(ind_H2O2,k) = func(3.4d-2,k)
+         vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
+         vmean(ind_HONO,k) = func(4.7d-2,k)
+         vmean(ind_PAN,k) = func(1.21d-1,k)
+c         vmean(ind_TPAN,k) = func(1.59d-1,k)
+c        vmean(ind_KET,k) = func(,k)
+c         vmean(ind_CRES,k) = func(1.08d-1,k)
+c         vmean(ind_DIAL,k) = func(8.4d-2,k)
+c         vmean(ind_GLYX,k) = func(5.8d-2,k)
+c         vmean(ind_MGLY,k) = func(7.2d-2,k)
+c        vmean(ind_NH4NO3,k) = func(8.1d-2,k)
+         vmean(ind_HCl,k) = func(3.6d-2,k)
+c        vmean(ind_R3N2,k) = func(,k)
+c        vmean(ind_RAN1,k) = func(,k)
+c        vmean(ind_RAN2,k) = func(,k)
+         vmean(ind_N2O5,k) = func(1.08d-1,k)
+!        vmean(ind_HNO4,k) =  func(6.3d-2,k) ! jjb mistake!
+         vmean(ind_HNO4,k) =  func(7.9d-2,k)
+         vmean(ind_NO3,k) = func(6.2d-2,k)
+         vmean(ind_DMS,k) = func(6.2d-2,k)
+         vmean(ind_HOCl,k) = func(5.2d-2,k)
+         vmean(ind_ClNO2,k) = func(8.1d-2,k)
+         vmean(ind_ClNO3,k) = func(9.7d-2,k)
+         vmean(ind_Cl2,k) = func(7.1d-2,k)
+         vmean(ind_Cl2O2,k) = func(1.029d-1,k)
+         vmean(ind_HBr,k) = func(8.1d-2,k)
+         vmean(ind_HOBr,k) = func(9.7d-2,k)
+         vmean(ind_BrNO2,k) = func(1.26d-1,k)
+         vmean(ind_BrNO3,k) = func(1.42d-1,k)
+         vmean(ind_Br2,k) = func(1.6d-1,k)
+         vmean(ind_BrCl,k) = func(1.15d-1,k)
+         vmean(ind_HI,k) = func(1.28d-1,k)
+         vmean(ind_HOI,k) = func(1.44d-1,k)
+         vmean(ind_I2O2,k) = func(2.86d-1,k)
+         vmean(ind_INO2,k) = func(1.73d-1,k)
+         vmean(ind_INO3,k) = func(1.89d-1,k)
+         vmean(ind_I2,k) = func(2.54d-1,k)
+         vmean(ind_ICl,k) = func(1.62d-1,k)
+         vmean(ind_IBr,k) = func(2.07d-1,k)
+         vmean(ind_HIO3,k) = func(1.76d-1,k)
+         vmean(ind_CH3I,k) = func(1.42d-1,k)
+         vmean(ind_CH2I2,k) = func(2.68d-1,k)
+         vmean(ind_CH2ClI,k) = func(1.76d-1,k)
+         vmean(ind_C3H7I,k) = func(1.7d-1,k)
+         vmean(ind_CH2BrI,k) = func(2.21d-1,k)
+!         vmean(ind_CHBr2I,k) = func(3.d-1,k)
+         vmean(ind_C2H5I,k) = func(1.56d-1,k)
+         vmean(ind_DMS,k) = func(6.2d-2,k)
+         vmean(ind_DMSO,k) = func(7.8d-2,k)
+         vmean(ind_DMSO2,k) = func(9.4d-2,k)
+         vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
+         vmean(ind_CH3S,k) = func(4.7d-2,k)
+         vmean(ind_CH3SO,k) = func(6.3d-2,k)
+         vmean(ind_CH3SO2,k) = func(7.9d-2,k)
+         vmean(ind_CH3SO3,k) = func(9.5d-2,k)
+         vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
+         vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
+         vmean(ind_CO,k) =  func(2.8d-2,k)
+         vmean(ind_CO2,k) =  func(4.4d-2,k)
+!         vmean(ind_I2O,k) = func(2.70d-1,k)
+!         vmean(ind_I2O3,k) = func(3.02d-1,k)
+!         vmean(ind_I2O4,k) = func(3.18d-1,k)
+!         vmean(ind_I2O5,k) = func(3.34d-1,k)
+!         vmean(ind_INO,k) = func(1.57d-1,k)
+         vmean(ind_Br2O,k) = func(1.76d-1,k)
+         vmean(ind_ClONO,k) = func(8.15d-2,k)
+         vmean(ind_ClO3,k) = func(8.35d-2,k)
+         vmean(ind_Cl2O3,k) = func(1.19d-1,k)
+         vmean(ind_CH3OH,k) = func(3.2d-2,k)
+         vmean(ind_C2H5OH,k) = func(4.6d-2,k)
+         vmean(ind_H2,k) = func(2.0d-3,k)
+         vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
+         vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
+         vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
+         vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
+         vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
+         vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
+c         vmean(ind_Hg,k)    = func(2.00d-1,k)
+c         vmean(ind_HgO,k)   = func(2.16d-1,k)
+c         vmean(ind_HgCl,k)  = func(2.36d-1,k)
+c         vmean(ind_HgCl2,k) = func(2.72d-1,k)
+c         vmean(ind_HgBr,k)  = func(2.81d-1,k)
+c         vmean(ind_HgBr2,k) = func(3.61d-1,k)
+
+C#DEFRAD
+         vmean(ind_OH,k) = func(1.7d-2,k)
+         vmean(ind_HO2,k) = func(3.3d-2,k)
+c         vmean(ind_AHO2,k) = func(6.3d-2,k)
+         vmean(ind_MCO3,k) = func(7.5d-2,k)
+         vmean(ind_MO2,k) = func(4.7d-2,k)
+         vmean(ind_ETO2,k) = func(6.1d-2,k)
+c        vmean(ind_KO2,k) = func(,k)
+c        vmean(ind_R3O2,k) = func(,k)
+c        vmean(ind_RAO2,k) = func(,k)
+c        vmean(ind_TO2,k) = func(,k)
+c         vmean(ind_TCO3,k) = func(1.15d-1,k)
+c         vmean(ind_ZO2,k) = func(,k)
+         vmean(ind_EO2,k) = func(7.7d-2,k)
+c         vmean(ind_PO2,k) = func(,k)
+         vmean(ind_CHO2,k) = func(4.6d-2,k)
+c         vmean(ind_CRO2,k) = func(6.d-2,k)
+c         vmean(ind_PRN1,k) = func(,k)
+         vmean(ind_O1D,k) = func(1.6d-2,k)
+         vmean(ind_Cl,k) = func(3.5d-2,k)
+         vmean(ind_ClO,k) = func(5.1d-2,k)
+         vmean(ind_OClO,k) = func(6.7d-2,k)
+         vmean(ind_Br,k) = func(8.d-2,k)
+         vmean(ind_BrO,k) = func(9.6d-2,k)
+         vmean(ind_I,k) = func(1.27d-1,k)
+         vmean(ind_IO,k) = func(1.43d-1,k)
+         vmean(ind_OIO,k) = func(1.59d-1,k)
+         vmean(ind_O3P,k) = func(1.6d-2,k)
+         vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
+         vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
+         vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
+
+C#DEFFIX
+         vmean(ind_O2,k) = func(3.2d-2,k)
+
+      enddo
+
+      end subroutine v_mean_t
+
+
+c
+c-----------------------------------------------------
+c
+
+      subroutine v_mean_a (tt,nmaxf)
+c mean molecular speed from Maxwell-Boltzmann distribution:
+c v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+
+      USE global_params, ONLY :
+! Imported Parameters:
+     &     nf,
+     &     n
+
+      implicit double precision (a-h,o-z)
+
+      include 'aer_Parameters.h' !additional common blocks and other definitions
+!      parameter (nf=100,n=nf+50)
+      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+
+      dimension tt(n)
+c v_mean in m/s
+c sqrt(8*R_gas/pi)=4.60138
+      func(a,k)=dsqrt(tt(k)/a)*4.60138
+
+! Initialisation of vmean
+      vmean(:,:) = 0.d0 ! jjb matrix
+
+      do k=1,nmaxf
+!        do l=1,NSPEC
+!           vmean(k,l)=0. ! jjb matrix above
+!        enddo
+         vmean(ind_NO,k) = func(3.d-2,k)
+         vmean(ind_NO2,k) = func(4.6d-2,k)
+         vmean(ind_HNO3,k) = func(6.3d-2,k)
+         vmean(ind_NH3,k) = func(1.7d-2,k)
+         vmean(ind_SO2,k) = func(6.4d-2,k)
+         vmean(ind_SO3,k) = func(8.0d-2,k) ! jjb was missing
+         vmean(ind_HOSO2,k) = func(8.1d-2,k) ! jjb was missing
+         vmean(ind_H2SO4,k) = func(9.8d-2,k)
+         vmean(ind_O3,k) = func(4.8d-2,k)
+         vmean(ind_CH4,k) = func(1.6d-2,k)
+         vmean(ind_C2H6,k) = func(3.d-2,k)
+c         vmean(ind_C3H8,k) = func(4.4d-2,k)
+c         vmean(ind_ALKA,k) = func(,k)
+         vmean(ind_ETHE,k) = func(2.8d-2,k)
+c         vmean(ind_ALKE,k) = func(,k)
+c         vmean(ind_AROM,k) = func(,k)
+         vmean(ind_ACO2,k) = func(4.6d-2,k)
+         vmean(ind_ACTA,k) = func(6.d-2,k)
+         vmean(ind_HCHO,k) = func(3.d-2,k)
+         vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
+         vmean(ind_H2O2,k) = func(3.4d-2,k)
+         vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
+         vmean(ind_HONO,k) = func(4.7d-2,k)
+         vmean(ind_PAN,k) = func(1.21d-1,k)
+c         vmean(ind_TPAN,k) = func(1.59d-1,k)
+c        vmean(ind_KET,k) = func(,k)
+c         vmean(ind_CRES,k) = func(1.08d-1,k)
+c         vmean(ind_DIAL,k) = func(8.4d-2,k)
+c         vmean(ind_GLYX,k) = func(5.8d-2,k)
+c         vmean(ind_MGLY,k) = func(7.2d-2,k)
+c        vmean(ind_NH4NO3,k) = func(8.1d-2,k)
+         vmean(ind_HCl,k) = func(3.6d-2,k)
+c        vmean(ind_R3N2,k) = func(,k)
+c        vmean(ind_RAN1,k) = func(,k)
+c        vmean(ind_RAN2,k) = func(,k)
+         vmean(ind_N2O5,k) = func(1.08d-1,k)
+!         vmean(ind_HNO4,k) =  func(6.3d-2,k) ! jjb mistake!
+         vmean(ind_HNO4,k) =  func(7.9d-2,k)
+         vmean(ind_NO3,k) = func(6.2d-2,k)
+         vmean(ind_DMS,k) = func(6.2d-2,k)
+         vmean(ind_HOCl,k) = func(5.2d-2,k)
+         vmean(ind_ClNO2,k) = func(8.1d-2,k)
+         vmean(ind_ClNO3,k) = func(9.7d-2,k)
+         vmean(ind_Cl2,k) = func(7.1d-2,k)
+         vmean(ind_Cl2O2,k) = func(1.029d-1,k)
+         vmean(ind_HBr,k) = func(8.1d-2,k)
+         vmean(ind_HOBr,k) = func(9.7d-2,k)
+         vmean(ind_BrNO2,k) = func(1.26d-1,k)
+         vmean(ind_BrNO3,k) = func(1.42d-1,k)
+         vmean(ind_Br2,k) = func(1.6d-1,k)
+         vmean(ind_BrCl,k) = func(1.15d-1,k)
+         vmean(ind_HI,k) = func(1.28d-1,k)
+         vmean(ind_HOI,k) = func(1.44d-1,k)
+         vmean(ind_I2O2,k) = func(2.86d-1,k)
+         vmean(ind_INO2,k) = func(1.73d-1,k)
+         vmean(ind_INO3,k) = func(1.89d-1,k)
+         vmean(ind_I2,k) = func(2.54d-1,k)
+         vmean(ind_ICl,k) = func(1.62d-1,k)
+         vmean(ind_IBr,k) = func(2.07d-1,k)
+         vmean(ind_HIO3,k) = func(1.76d-1,k)
+         vmean(ind_CH3I,k) = func(1.42d-1,k)
+         vmean(ind_CH2I2,k) = func(2.68d-1,k)
+         vmean(ind_CH2ClI,k) = func(1.76d-1,k)
+         vmean(ind_C3H7I,k) = func(1.7d-1,k)
+         vmean(ind_CH2BrI,k) = func(2.21d-1,k)
+!         vmean(ind_CHBr2I,k) = func(3.d-1,k)
+         vmean(ind_C2H5I,k) = func(1.56d-1,k)
+         vmean(ind_DMS,k) = func(6.2d-2,k)
+         vmean(ind_DMSO,k) = func(7.8d-2,k)
+         vmean(ind_DMSO2,k) = func(9.4d-2,k)
+         vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
+         vmean(ind_CH3S,k) = func(4.7d-2,k)
+         vmean(ind_CH3SO,k) = func(6.3d-2,k)
+         vmean(ind_CH3SO2,k) = func(7.9d-2,k)
+         vmean(ind_CH3SO3,k) = func(9.5d-2,k)
+         vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
+         vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
+         vmean(ind_CO,k) =  func(2.8d-2,k)
+         vmean(ind_CO2,k) =  func(4.4d-2,k)
+!         vmean(ind_I2O,k) = func(2.70d-1,k)
+!         vmean(ind_I2O3,k) = func(3.02d-1,k)
+!         vmean(ind_I2O4,k) = func(3.18d-1,k)
+!         vmean(ind_I2O5,k) = func(3.34d-1,k)
+!         vmean(ind_INO,k) = func(1.57d-1,k)
+         vmean(ind_Br2O,k) = func(1.76d-1,k)
+         vmean(ind_ClONO,k) = func(8.15d-2,k)
+         vmean(ind_ClO3,k) = func(8.35d-2,k)
+         vmean(ind_Cl2O3,k) = func(1.19d-1,k)
+         vmean(ind_CH3OH,k) = func(3.2d-2,k)
+         vmean(ind_C2H5OH,k) = func(4.6d-2,k)
+         vmean(ind_H2,k) = func(2.0d-3,k)
+         vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
+         vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
+         vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
+         vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
+         vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
+         vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
+c         vmean(ind_Hg,k)    = func(2.00d-1,k)
+c         vmean(ind_HgO,k)   = func(2.16d-1,k)
+c         vmean(ind_HgCl,k)  = func(2.36d-1,k)
+c         vmean(ind_HgCl2,k) = func(2.72d-1,k)
+c         vmean(ind_HgBr,k)  = func(2.81d-1,k)
+c         vmean(ind_HgBr2,k) = func(3.61d-1,k)
+
+C#DEFRAD
+         vmean(ind_OH,k) = func(1.7d-2,k)
+         vmean(ind_HO2,k) = func(3.3d-2,k)
+c         vmean(ind_AHO2,k) = func(6.3d-2,k)
+         vmean(ind_MCO3,k) = func(7.5d-2,k)
+         vmean(ind_MO2,k) = func(4.7d-2,k)
+         vmean(ind_ETO2,k) = func(6.1d-2,k)
+c        vmean(ind_KO2,k) = func(,k)
+c        vmean(ind_R3O2,k) = func(,k)
+c        vmean(ind_RAO2,k) = func(,k)
+c        vmean(ind_TO2,k) = func(,k)
+c         vmean(ind_TCO3,k) = func(1.15d-1,k)
+c         vmean(ind_ZO2,k) = func(,k)
+         vmean(ind_EO2,k) = func(7.7d-2,k)
+c         vmean(ind_PO2,k) = func(,k)
+         vmean(ind_CHO2,k) = func(4.6d-2,k)
+c         vmean(ind_CRO2,k) = func(6.d-2,k)
+c         vmean(ind_PRN1,k) = func(,k)
+         vmean(ind_O1D,k) = func(1.6d-2,k)
+         vmean(ind_Cl,k) = func(3.5d-2,k)
+         vmean(ind_ClO,k) = func(5.1d-2,k)
+         vmean(ind_OClO,k) = func(6.7d-2,k)
+         vmean(ind_Br,k) = func(8.d-2,k)
+         vmean(ind_BrO,k) = func(9.6d-2,k)
+         vmean(ind_I,k) = func(1.27d-1,k)
+         vmean(ind_IO,k) = func(1.43d-1,k)
+         vmean(ind_OIO,k) = func(1.59d-1,k)
+         vmean(ind_O3P,k) = func(1.6d-2,k)
+         vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
+         vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
+         vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
+
+C#DEFFIX
+         vmean(ind_O2,k) = func(3.2d-2,k)
+
+      enddo
+      end subroutine v_mean_a
+
+c
+c------------------------------------------------------
 c
 
       subroutine henry_t (tt,nmaxf)
@@ -1831,19 +2185,19 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
      &     nkt,
      &     nkc
 
-
-      USE gas_common, ONLY :
-! Imported Parameters:
-     &     j1,
-     &     j5,
-! Imported Array Variables with intent (in):
-     &     gas_k2m_t,
-     &     rad_k2m_t,
-     &     vm=>vmean
-
-
-      USE kpp_tot_Global, ONLY :
-     &     SPC_NAMES
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!      USE gas_common, ONLY :
+!! Imported Parameters:
+!     &     j1,
+!     &     j5,
+!! Imported Array Variables with intent (in):
+!     &     gas_k2m_t,
+!     &     rad_k2m_t,
+!     &     vm=>vmean
+!
+!
+!      USE kpp_tot_Global, ONLY :
+!     &     SPC_NAMES
 
       USE precision, ONLY :
 ! Imported Parameters:
@@ -1858,9 +2212,9 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
+!      real (kind=dp) :: time
+!      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
@@ -1914,37 +2268,38 @@ c loop over the nkc different chemical bins
 c loop over the species to be exchanged between gas and aqueous phase---
             do l=1,nx
 
-! jjb search for desired species index, from lex table, in gas_m2k_t table
-               jspec = 1
-               ! search in non radical gas list
-               do while(gas_k2m_t(jspec) /= lex(l) .and. jspec+1 <= j1)
-                  jspec = jspec+1
-               end do
-
-               ! search in radical gas list
-               if(gas_k2m_t(jspec) /= lex(l)) then
-               jspec = 1
-               do while(rad_k2m_t(jspec) /= lex(l) .and. jspec+1 <= j5)
-                  jspec = jspec+1
-               end do
-
-               if(rad_k2m_t(jspec) /= lex(l)) then
-                  if(trim(SPC_NAMES(lex(l))) == 'O2') then
-                     jspec = j1+j5+1
-                  else
-                     if(time<121.d0 .and. k==nmin.and.kc==1) then
-                        print*,"in fast_k_mt_t, error"
-                        print*,spc_names(lex(l))," kpp index ",lex(l)
-                     end if
-                     cycle
-                     !stop "stopped by SR fast_k_mt_t"
-                  end if
-               else
-                  jspec = jspec + j1 ! add offset in vmean array (radical case)
-               end if
-
-               end if
-! end jjb
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!! jjb search for desired species index, from lex table, in gas_m2k_t table
+!               jspec = 1
+!               ! search in non radical gas list
+!               do while(gas_k2m_t(jspec) /= lex(l) .and. jspec+1 <= j1)
+!                  jspec = jspec+1
+!               end do
+!
+!               ! search in radical gas list
+!               if(gas_k2m_t(jspec) /= lex(l)) then
+!               jspec = 1
+!               do while(rad_k2m_t(jspec) /= lex(l) .and. jspec+1 <= j5)
+!                  jspec = jspec+1
+!               end do
+!
+!               if(rad_k2m_t(jspec) /= lex(l)) then
+!                  if(trim(SPC_NAMES(lex(l))) == 'O2') then
+!                     jspec = j1+j5+1
+!                  else
+!                     if(time<121.d0 .and. k==nmin.and.kc==1) then
+!                        print*,"in fast_k_mt_t, error"
+!                        print*,spc_names(lex(l))," kpp index ",lex(l)
+!                     end if
+!                     cycle
+!                     !stop "stopped by SR fast_k_mt_t"
+!                  end if
+!               else
+!                  jspec = jspec + j1 ! add offset in vmean array (radical case)
+!               end if
+!
+!               end if
+!! end jjb
 
 c define summation limits (1) ---
                if (kc.eq.1.or.kc.eq.3) then
@@ -1987,8 +2342,9 @@ c here a volume weighted value is calculated, therefore weighting with r^3:
 c kmt=4/3*pi/L*sum(a)*sum(r){r^3*N*kt}
 
 ! < jjb 21-12-2016
-!                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
-                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
+                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
 ! jjb 21-12-2016 >
 
 c conversion: 1/cm^3 --> 1/m^3(air):10^6
@@ -2078,18 +2434,18 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
      &     nkt,
      &     nkc
 
-
-      USE gas_common, ONLY :
-! Imported Parameters:
-     &     j1,
-     &     j5,
-! Imported Array Variables with intent (in):
-     &     gas_k2m_a,
-     &     rad_k2m_a,
-     &     vm=>vmean
-
-      USE kpp_aer_Global, ONLY :
-     &     SPC_NAMES
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!      USE gas_common, ONLY :
+!! Imported Parameters:
+!     &     j1,
+!     &     j5,
+!! Imported Array Variables with intent (in):
+!     &     gas_k2m_a,
+!     &     rad_k2m_a,
+!     &     vm=>vmean
+!
+!      USE kpp_aer_Global, ONLY :
+!     &     SPC_NAMES
 
       USE precision, ONLY :
 ! Imported Parameters:
@@ -2106,9 +2462,9 @@ c but no mean values used (like in SR k_mt_a/t) but integrated values
       common /blck06/ kw(nka),ka
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
+!      real (kind=dp) :: time
+!      integer :: lday, lst, lmin, it, lcl, lct
 
       common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka),
      &              e(nkt),dew(nkt),rq(nkt,nka)
@@ -2165,40 +2521,41 @@ c loop over the nkc different chemical bins
 c loop over the species to be exchanged between gas and aqueous phase---
             do l=1,nx
 
-! jjb search for desired species index, from lex table, in gas_m2k_a table
-               !print*,spc_names(lex(l)),j1,j5
-               jspec = 1
-               ! search in non radical gas list
-               do while(gas_k2m_a(jspec) /= lex(l) .and. jspec+1 <= j1)
-                  jspec = jspec+1
-               end do
-
-               ! search in radical gas list
-               if(gas_k2m_a(jspec) /= lex(l)) then
-               jspec = 1
-               do while(rad_k2m_a(jspec) /= lex(l) .and. jspec+1 <= j5)
-                  jspec = jspec+1
-               end do
-
-               if(rad_k2m_a(jspec) /= lex(l)) then
-
-                  if(trim(SPC_NAMES(lex(l))) == 'O2') then
-                     jspec = j1+j5+1
-                  else
-                     if(time<121.d0 .and. k==nmin.and.kc==1) then
-                        print*,"in fast_k_mt_t, error"
-                        print*,spc_names(lex(l))," kpp index ",lex(l)
-                     end if
-                     cycle
-                     !stop "stopped by SR fast_k_mt_a"
-                  end if
-               else
-                  jspec = jspec + j1 ! add offset in vmean array (radical case)
-               end if
-
-               end if
-               !print*,"final jspec =",jspec
-! end jjb
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!! jjb search for desired species index, from lex table, in gas_m2k_a table
+!               !print*,spc_names(lex(l)),j1,j5
+!               jspec = 1
+!               ! search in non radical gas list
+!               do while(gas_k2m_a(jspec) /= lex(l) .and. jspec+1 <= j1)
+!                  jspec = jspec+1
+!               end do
+!
+!               ! search in radical gas list
+!               if(gas_k2m_a(jspec) /= lex(l)) then
+!               jspec = 1
+!               do while(rad_k2m_a(jspec) /= lex(l) .and. jspec+1 <= j5)
+!                  jspec = jspec+1
+!               end do
+!
+!               if(rad_k2m_a(jspec) /= lex(l)) then
+!
+!                  if(trim(SPC_NAMES(lex(l))) == 'O2') then
+!                     jspec = j1+j5+1
+!                  else
+!                     if(time<121.d0 .and. k==nmin.and.kc==1) then
+!                        print*,"in fast_k_mt_t, error"
+!                        print*,spc_names(lex(l))," kpp index ",lex(l)
+!                     end if
+!                     cycle
+!                     !stop "stopped by SR fast_k_mt_a"
+!                  end if
+!               else
+!                  jspec = jspec + j1 ! add offset in vmean array (radical case)
+!               end if
+!
+!               end if
+!               !print*,"final jspec =",jspec
+!! end jjb
 
 c define summation limits (1) ---
                if (kc.eq.1) then
@@ -2237,8 +2594,9 @@ c here a volume weighted value is calculated, therefore weighting with r^3:
 c kmt=4/3*pi/L*sum(a)*sum(r){r^3*N*kt}
 
 ! < jjb 21-12-2016
-!                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
-                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
+                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
 ! jjb 21-12-2016 >
 
 c conversion: 1/cm^3 --> 1/m^3(air):10^6
@@ -4393,6 +4751,12 @@ c Seinfeld and Pandis, 1999
 !    and replace the test at the end : if hs == -1 instead of if hs == -1/FCT
 ! 3) correction of one formula, double check
 
+! jjb 27-05-2021
+!   In this routine, arrays vm, hs and f0 (for gas) have dimension ind_gas(j1) (= j1_fake)
+!   This allows the user tu use the same indexing as used in gas_species, instead of the
+!   "compressed" indexing in j1
+!   The output of this routine, vg, is converted into compressed dimension through ind_gas
+!   indexing of arrays vm, hs and f0, which pick up only relevant values.
 
       USE data_surface, ONLY :
      &     ustern               ! frictional velocity
@@ -4408,7 +4772,8 @@ c Seinfeld and Pandis, 1999
      &     j1,
 ! Imported Array Variables with intent(in):
      &     ind_gas,
-     &     vmean,
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!     &     vmean,
      &     vg
 
       USE precision, ONLY :
@@ -4424,8 +4789,8 @@ c Seinfeld and Pandis, 1999
 !      common /gas_vdd/ vg(j1)
 !     dimension tt(n),freep(nf),rho(n),rb(j1),rc(j1),vm(j1),hs(j1), ! jjb rb & rc not used
 !    &     f0(j1)
-      real (kind=dp) :: tt(n),freep(nf),rho(n),vm(j1),hs(ind_gas(j1)),
-     &          f0(ind_gas(j1))
+      real (kind=dp) :: tt(n),freep(nf),rho(n),vm(ind_gas(j1)),
+     &          hs(ind_gas(j1)),f0(ind_gas(j1))
 c function used in calculation of Hstar
       funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
 
@@ -4450,11 +4815,117 @@ c      Hstar calculated from henry and sea water pH=8.1 (Riley and Skirrow, 1965
       xnu=xeta/rho(k)  !kinematic viscosity of air
 
 c get vmean for j1-list (no deposition or radicals or fixed)
-      !do jspec = 1,j1
-         vm(:) = vmean(:j1,k)
-      !end do
+c get vmean for j1-order from KPP names
+      vm(1)=vmean(ind_NO,k)
+      vm(2)=vmean(ind_NO2,k)
+      vm(3)=vmean(ind_HNO3,k)
+      vm(4)=vmean(ind_NH3,k)
+      vm(5)=vmean(ind_SO2,k)
+      vm(6)=vmean(ind_H2SO4,k)
+      vm(7)=vmean(ind_O3,k)
+      vm(8)=vmean(ind_CH4,k)
+      vm(9)=vmean(ind_C2H6,k)
+c      vm(10)=vmean(ind_C3H8,k)
+c      vm(11)=vmean(ind_ALKA,k)
+      vm(12)=vmean(ind_ETHE,k)
+c      vm(13)=vmean(ind_ALKE,k)
+c      vm(14)=vmean(ind_AROM,k)
+      vm(15)=vmean(ind_ACO2,k)
+      vm(16)=vmean(ind_ACTA,k)
+      vm(17)=vmean(ind_HCHO,k)
+      vm(18)=vmean(ind_ALD2,k)
+      vm(19)=vmean(ind_H2O2,k)
+      vm(20)=vmean(ind_ROOH,k)
+      vm(21)=vmean(ind_HONO,k)
+      vm(22)=vmean(ind_PAN,k)
+c      vm(23)=vmean(ind_TPAN,k)
+c      vm(24)=vmean(ind_KET,k)
+c      vm(25)=vmean(ind_CRES,k)
+c      vm(26)=vmean(ind_DIAL,k)
+c      vm(27)=vmean(ind_GLYX,k)
+c      vm(28)=vmean(ind_MGLY,k)
+c      vm(29)=vmean(ind_NH4NO3,k)
+      vm(30)=vmean(ind_HCl,k)
+c      vm(31)=vmean(ind_R3N2,k)
+c      vm(32)=vmean(ind_RAN2,k)
+c      vm(33)=vmean(ind_RAN1,k)
+      vm(34)=vmean(ind_N2O5,k)
+      vm(35)=vmean(ind_HNO4,k)
+      vm(36)=vmean(ind_NO3,k)
+      vm(37)=vmean(ind_DMS,k)
+      vm(38)=vmean(ind_HOCl,k)
+      vm(39)=vmean(ind_ClNO2,k)
+      vm(40)=vmean(ind_ClNO3,k)
+      vm(41)=vmean(ind_Cl2,k)
+      vm(42)=vmean(ind_HBr,k)
+      vm(43)=vmean(ind_HOBr,k)
+      vm(44)=vmean(ind_BrNO2,k)
+      vm(45)=vmean(ind_BrNO3,k)
+      vm(46)=vmean(ind_Br2,k)
+      vm(47)=vmean(ind_BrCl,k)
+      vm(48)=vmean(ind_HI,k)
+      vm(49)=vmean(ind_HOI,k)
+      vm(50)=vmean(ind_I2O2,k)
+      vm(51)=vmean(ind_INO2,k)
+      vm(52)=vmean(ind_INO3,k)
+      vm(53)=vmean(ind_I2,k)
+      vm(54)=vmean(ind_ICl,k)
+      vm(55)=vmean(ind_IBr,k)
+      vm(56)=vmean(ind_CH3I,k)
+      vm(57)=vmean(ind_CH2I2,k)
+      vm(58)=vmean(ind_CH2ClI,k)
+      vm(59)=vmean(ind_C3H7I,k)
+      vm(60)=vmean(ind_DMSO,k)
+      vm(61)=vmean(ind_CH3SO2,k)
+      vm(62)=vmean(ind_CH3SO3,k)
+      vm(63)=vmean(ind_CH3SO3H,k) !MSA=CH3S(OO)OH
+      vm(64)=vmean(ind_CO,k)
+      vm(65)=vmean(ind_Cl2O2,k)
+      vm(66)=vmean(ind_DMOO,k) ! CH3SCH2OO
+      vm(67)=vmean(ind_CH3S,k)
+      vm(68)=vmean(ind_CH3SO,k)
+      vm(69)=vmean(ind_CH3SO2H,k) ! MSIA=CH3S(O)OH
+      vm(70)=vmean(ind_DMSO2,k)
+      vm(71)=vmean(ind_CH2BrI,k)
+!      vm(72)=vmean(ind_CHBr2I,k)
+      vm(73)=vmean(ind_C2H5I,k)
+      vm(74)=vmean(ind_HIO3,k)
+c      vm(75)=vmean(ind_NUCV,k)
+      vm(76)=vmean(ind_SO3,k)
+      vm(77)=vmean(ind_HOSO2,k)
+      vm(78)=vmean(ind_CO2,k)
+!      vm(79)=vmean(ind_I2O,k)
+!      vm(80)=vmean(ind_I2O3,k)
+!      vm(81)=vmean(ind_I2O4,k)
+!      vm(82)=vmean(ind_I2O5,k)
+!      vm(83)=vmean(ind_INO,k)
+      vm(84)=vmean(ind_Br2O,k)
+      vm(85)=vmean(ind_ClONO,k)
+      vm(86)=vmean(ind_ClO3,k)
+      vm(87)=vmean(ind_Cl2O3,k)
+      vm(88)=vmean(ind_CH3OH,k)
+      vm(89)=vmean(ind_C2H5OH,k)
+      vm(90)=vmean(ind_H2,k)
+      vm(91)=vmean(ind_NHS,k)
+      vm(92)=vmean(ind_RCl,k)
+      vm(93)=vmean(ind_RBr,k)
+      vm(94)=vmean(ind_XOR,k)
+      vm(95)=vmean(ind_SOR,k)
+      vm(96)=vmean(ind_SPAN,k)
+c      vm(97)=vmean(ind_Hg,k)
+c      vm(98)=vmean(ind_HgO,k)
+c      vm(99)=vmean(ind_HgCl,k)
+c      vm(100)=vmean(ind_HgCl2,k)
+c      vm(101)=vmean(ind_HgBr,k)
+c      vm(102)=vmean(ind_HgBr2,k)
 
 c     vm(radical 29)=vmean(ind_OIO,k)
+
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+      !!do jspec = 1,j1
+      !   vm(:) = vmean(:j1,k)
+      !!end do
+
 c get henry constant for j1-order from KPP names and calculate Hstar
       sac=10.**(-8.1d0) ![H+]=10^(- pH), pH=8.1
       hs(1)=henry(ind_NO,k)
@@ -4610,27 +5081,34 @@ c calculate vg from rb and rc for each species
 c      rc_fact=2.54d+4/(tt(k)*ustern)  !Sehmel, 1980
 c      print *,rb_fact,rc_fact
       do i=1,j1
-       if (vm(i).eq.0.) then
+       if (vm(ind_gas(i)).eq.0.) then
          vg(i)=0.
        else
          if (hs(ind_gas(i)).ne.0.) then
-c           vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+(rc_fact/hs(i))) !Sehmel, 1980
-            vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+1./(hs(ind_gas(i))*
-     &           1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+c           vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+
+c     &           (rc_fact/hs(ind_gas(i)))) !Sehmel, 1980
+            vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+
+     &            1./(hs(ind_gas(i))*1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+
+!! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
+!            vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+1./(hs(ind_gas(i))*
+!     &           1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+
          else
-c            vg(i)= 1./(xra+(rb_fact/(vm(i)**(2./3.)))+(rc_fact/1.d-7)) !hs=0 => 1/hs -> infinity,
+c            vg(i)= 1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+
+c      &            (rc_fact/1.d-7)) !hs=0 => 1/hs -> infinity,
                                                               !here just a value for hstar is chosen
                                                               !to get a small v_dd
             if (f0(ind_gas(i)) > 0.) then
 !               print*,xra,rb_fact,vm(i),f0(ind_gas(i))
-               vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))
+               vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))
      &               +1./(f0(ind_gas(i))/2000.))
             else
                vg(i)=0.
             end if
          endif
          if (hs(ind_gas(i)).eq.(-1./FCT))
-     &        vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+.1)     ! "infinite solubility"
+     &        vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1)     ! "infinite solubility"
       endif
       enddo
 
