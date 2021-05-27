@@ -6955,6 +6955,47 @@ c 1/298.=3.3557d-3
 
 c----------------------------------------------------------------
 
+! jjb: old function for heterogeneous rates, kept for legacy
+
+      double precision function fdhet_a (a0,b0,c0)
+c heterogeneous rate function
+
+c a0=1..2  liquid size class
+c b0=1     gas phase reactant:     HNO3
+c c0=2..3  branch of het reaction: Cl-, Br-
+      INCLUDE 'aer_Parameters.h'
+      INCLUDE 'aer_Global.h'
+      integer a0,b0,c0
+c calculate het_total
+      if (a0.eq.1) then
+         hetT=C(ind_Clml1) + C(ind_Brml1)
+c        branching ratio = 1, because f(X) is assumed to be 1
+c        in KPP the rate is multiplied with [Cl-/Br-] so the branching
+c        expression k1=k*cl-/hetT is correctly implemented
+         if (c0.eq.2) xbr=1.
+         if (c0.eq.3) xbr=1.
+      endif
+      if (a0.eq.2) then
+         hetT=C(ind_Clml2) + C(ind_Brml2)
+c        branching ratio
+         if (c0.eq.2) xbr=1.
+         if (c0.eq.3) xbr=1.
+      endif
+c mass transfer coefficient
+      if (b0.eq.1) xkt=yxkmtd(a0,ind_HNO3)
+
+c kmt in (m^3_air/(m^3_aq*s)) therefore multiplication with LWC (m^3_aq/m^3_air)
+c to get k in 1/s
+      if (hetT.gt.0.d0) then
+         fdhet_a=xkt * ycwd(a0) * xbr /hetT
+      else
+         fdhet_a=0.
+      endif
+
+      end
+
+c----------------------------------------------------------------
+
       double precision function fhet_da (xliq,xhet,a0,b0,c0)
 c heterogeneous rate function
 c ClFCT     = 5.0D2                ; factor for H02/H01, i.e Cl-/H2O
