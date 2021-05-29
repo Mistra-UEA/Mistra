@@ -143,7 +143,7 @@ nuc.o: nuc.f90 config.mod constants.mod file_unit.mod global_params.mod gas_comm
 	rm -f mod_nuc.mod
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
-kpp.o: kpp.f tot_Parameters.h tot_Global.h aer_Parameters.h aer_Global.h gas_Parameters.h gas_Global.h \
+kpp.o: kpp.f90 tot_Parameters.h tot_Global.h aer_Parameters.h aer_Global.h gas_Parameters.h gas_Global.h \
 	kpp_tot_global.mod kpp_tot_parameters.mod \
 	kpp_aer_global.mod kpp_aer_parameters.mod \
 	config.mod constants.mod gas_common.mod global_params.mod precision.mod Makefile
