@@ -17,257 +17,289 @@
 
 
 ! additional subroutines for KPP version
+! --------------------------------------
 
-      subroutine initc (box,n_bl)
-! initialization of chemistry module
+! Author of this file:
+! --------------------
+!    Roland von Glasow
 
-      USE config, ONLY : &
-           iaertyp, &
-!           iod,         &
-           lpJoyce14bc
+! Modifications :
+! -------------
+!
 
-      USE constants, ONLY : &
+! =======================================================================
+! =======================================================================
+
+subroutine initc (box,n_bl)
+
+! Description :
+! -----------
+  ! initialisation of chemistry module
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+       iaertyp,      &
+       iod,          &
+       lpJoyce14bc,  &
+       neula
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-           Avogadro, &
-           m_air
+       Avogadro, &
+       m_air
 
-      USE file_unit, ONLY : &
-           jpfunprofc, &
-           jpfunsg1, &
-           jpfunsr1
+  USE file_unit, ONLY : &
+       jpfuneul,   &
+       jpfunout,   &
+       jpfunprofc, &
+       jpfunsg1,   &
+       jpfunsr1
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Parameters:
-           j1, &
-           j5, &
+       j1, &
+       j5, &
 ! Imported Array Variables with intent(in):
-           ind_gas, &
-           gas_is_halo, &
-           gas_name, &
+       ind_gas, &
+       gas_is_halo, &
+       gas_name, &
 ! Imported Array Variables with intent(inout):
-           s1, &
-           s1_init_grd, &
-           s1_init_top, &
-           es1, &
+       s1, &
+       s1_init_grd, &
+       s1_init_top, &
+       es1, &
 ! Imported Array Variables with intent (out):
-           s3, &
-           vg
+       s3, &
+       vg
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j3, &
-           j6, &
-           nf, &
-           n, &
-           nka, &
-           nkt, &
-           nkc, &
-           nlev, &
-           nrxn
+       j2, &
+       j3, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc, &
+       nlev, &
+       nrxn
 
-      USE kpp_aer_Parameters, ONLY : &
-           nspec_a=>NSPEC
-      USE kpp_tot_Parameters, ONLY : &
-           nspec_t=>NSPEC
+  USE kpp_aer_Parameters, ONLY : &
+       nspec_a=>NSPEC
+  USE kpp_tot_Parameters, ONLY : &
+       nspec_t=>NSPEC
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      logical box
-      integer n_bl
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
 ! Local scalars:
-      double precision x0
-      integer ia,j,k,kc
-      logical tr_ue
-      ! sea salt initialisation
-      double precision xso42m,xhco3m,xno3m,xbrm,xclm,xim,xio3m,xiod
+  integer :: ia,j,k,kc
+  logical :: tr_ue
+  real (kind=dp) :: x0
+  ! sea salt initialisation
+  real (kind=dp) :: xso42m,xhco3m,xno3m,xbrm,xclm,xim,xio3m,xiod
 
 ! Local arrays:
-      double precision &
-           freep(nf), &
-           is4(n,3), &
-           xm(n), &
-           x4(n), &
-           x2(j1)
+  real (kind=dp) :: &
+       freep(nf), &
+       is4(n,3), &
+       xm(n), &
+       x4(n), &
+       x2(j1)
 
 ! Common blocks:
-      common /blck01/ am3(n),cm3(n)
-      double precision am3, cm3
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
 
-      common /blck11/ rc(nkc,n)
-      double precision rc
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      double precision cw, cm
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
 
-      common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
-      double precision conv2
+  common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
+  real (kind=dp) :: conv2
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      double precision :: sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /blck78/ sa1(nka,j2),sac1(nka,j2)
-      double precision sa1,sac1
+  common /blck78/ sa1(nka,j2),sac1(nka,j2)
+  real (kind=dp) :: sa1,sac1
 
-      common /budg/ bg(2,nrxn,nlev),il(nlev)
-      double precision bg
-      integer il
+  common /budg/ bg(2,nrxn,nlev),il(nlev)
+  real (kind=dp) :: bg
+  integer :: il
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      real (kind=dp) :: detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-      common /cb63/ fcs(nka),xmol3(nka)
-      double precision fcs, xmol3
+  common /cb63/ fcs(nka),xmol3(nka)
+  real (kind=dp) :: fcs, xmol3
 
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /kinv_i/ kinv
+  integer :: kinv
 
-      common /kpp_l1/ cloudt(nkc,n)
-      logical cloudt
+  common /kpp_l1/ cloudt(nkc,n)
+  logical :: cloudt
 
-      common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
-      double precision xcryssulf,xcrysss,xdelisulf,xdeliss
+  common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
+  real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
 
-      common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
-           xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
-      double precision henry_la, xkmt_la, xkef_la, xkeb_la
+  common /kpp_eul/ xadv(10),nspec(10)
+  real (kind=dp) :: xadv
+  integer :: nspec
 
-      common /kpp_ltot/ henry_lt(NSPEC_t,nf),xkmt_lt(nf,nkc,NSPEC_t), &
-           xkef_lt(nf,nkc,NSPEC_t),xkeb_lt(nf,nkc,NSPEC_t)
-      double precision henry_lt, xkmt_lt, xkef_lt, xkeb_lt
-!- End of header ---------------------------------------------------------------
+  common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
+       xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
+  real (kind=dp) :: henry_la, xkmt_la, xkef_la, xkeb_la
+
+  common /kpp_ltot/ henry_lt(NSPEC_t,nf),xkmt_lt(nf,nkc,NSPEC_t), &
+       xkef_lt(nf,nkc,NSPEC_t),xkeb_lt(nf,nkc,NSPEC_t)
+  real (kind=dp) :: henry_lt, xkmt_lt, xkef_lt, xkeb_lt
+
+! == End of declarations =======================================================
 
 
 ! print input concentrations and emission rates (user values):
 ! ------------------------------------------------------------
 ! initial mixing ratio of gas phase species in nmol mol-1 (=ppb)
-      ! mixing ratio at ground
-      write (jpfunprofc,6010)
- 6010 format (6x,'initial gas concentration at the surface [ppb]')
-      write (jpfunprofc,6020) (s1_init_grd(j),j=1,j1)
-      ! mixing ratio at top
-      write (jpfunprofc,6012)
- 6012 format (6x,'initial gas concentration at the top [ppb]')
-      write (jpfunprofc,6020) (s1_init_top(j),j=1,j1)
-! emission rates of gas phase species in molecules/cm**2/s
-      write (jpfunprofc,6025)
- 6025 format (6x,'emission rates [molecules/cm**2/s]')
-      write (jpfunprofc,6020) (es1(j),j=1,j1)
- 6020 format (1x,10e12.5)
+  ! mixing ratio at ground
+  write (jpfunprofc,6010)
+6010 format (6x,'initial gas concentration at the surface [ppb]')
+  write (jpfunprofc,6020) (s1_init_grd(j),j=1,j1)
+  ! mixing ratio at top
+  write (jpfunprofc,6012)
+6012 format (6x,'initial gas concentration at the top [ppb]')
+  write (jpfunprofc,6020) (s1_init_top(j),j=1,j1)
+  ! emission rates of gas phase species in molecules/cm**2/s
+  write (jpfunprofc,6025)
+6025 format (6x,'emission rates [molecules/cm**2/s]')
+  write (jpfunprofc,6020) (es1(j),j=1,j1)
+6020 format (1x,10e12.5)
 
 
-! jjb
 ! Initialisation to 0 of some arrays, which are not necessarily updated for layers nf+1 to n
-      cw(:,:) = 0.d0
-      rc(:,:) = 0.d0
-      cm(:,:) = 0.d0
-      conv2(:,:) = 0.d0
+  cw(:,:) = 0._dp
+  rc(:,:) = 0._dp
+  cm(:,:) = 0._dp
+  conv2(:,:) = 0._dp
 
-! jjb: partly from Peter Brauer version
 ! initiate all ions with marginal concentration to avoid computational problems
-      sion1(:,:,:) = 0.d0
-      sl1(:,:,:) = 0.d0
+  sion1(:,:,:) = 0._dp
+  sl1(:,:,:) = 0._dp
 
 ! jjb 25-10-2017
 ! initialise vg so that the first call to sedc/sedc_box see defined values
 ! It might be necessary to check the order the subroutines are called, and/or
 ! the calls hereafter: gasdrydep should probably be included as well
 ! but need to check
-      vg(:) = 0.d0
+  vg(:) = 0._dp
 
 ! jjb 14/02/2017
 !     initialise the reaction rate arrays
-      henry_la(:,:) = 0.d0
-      henry_lt(:,:) = 0.d0
-      xkmt_la(:,:,:) = 0.d0
-      xkmt_lt(:,:,:) = 0.d0
-      xkef_la(:,:,:) = 0.d0
-      xkef_lt(:,:,:) = 0.d0
-      xkeb_la(:,:,:) = 0.d0
-      xkeb_lt(:,:,:) = 0.d0
+  henry_la(:,:) = 0._dp
+  henry_lt(:,:) = 0._dp
+  xkmt_la(:,:,:) = 0._dp
+  xkmt_lt(:,:,:) = 0._dp
+  xkef_la(:,:,:) = 0._dp
+  xkef_lt(:,:,:) = 0._dp
+  xkeb_la(:,:,:) = 0._dp
+  xkeb_lt(:,:,:) = 0._dp
 
 ! conversion of gaseous species and air density
 ! air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*Avogadro/m_air*1e-6
-      am3(1)=rho(1)/m_air
-
-! Initialize arrays(k)
-      do k=2,n
-         cm3(k)=rho(k)*Avogadro/m_air*1e-6   ! [air] in mlc/cm^3
-         am3(k)=rho(k)/m_air                 ! [air] in mol/m^3
+  do k=1,n
+     cm3(k) = rho(k) * Avogadro / m_air * 1e-6   ! [air] in mlc/cm^3
+     am3(k) = rho(k) / m_air                     ! [air] in mol/m^3
 ! conversion of gaseous species in ppb to mol/m**3(air)
-         xm(k)=am3(k)*1.d-9                     ! ppb --> mol/m^3
+     xm(k) = am3(k) * 1.e-9_dp                   ! ppb --> mol/m^3
 
 ! exp. decrease of concentrations from surface to free troposphere
-         x4(k)=eta(k)/1900.
-         x4(k)=min(1.d0,x4(k))
-      end do
+     x4(k) = eta(k) / 1900._dp     ! jjb this may need to be adjusted
+     x4(k) = min(1._dp, x4(k))
+  end do
 
 ! Initialize arrays(j)
-      do j=1,j1
-         if(s1_init_grd(j).ne.0.d0) then
-            ! avoid log(0) by adding a small value to s1_init_top
-            x2(j) = -log(s1_init_grd(j))+log(s1_init_top(j)+1.d-10)
-         else
-            x2(j) = 0.d0
+  do j=1,j1
+     if(s1_init_grd(j).gt.0._dp) then
+        ! avoid log(0) by adding a small value to s1_init_top
+        x2(j) = -log(s1_init_grd(j)) + log(s1_init_top(j) + 1.e-10_dp)
+     else
+        x2(j) = 0._dp
 ! The interpolation method does not allow to calculate a gradient
-         ! (see below: s1(:,:) = s1_init_grd(:)*... )
-         ! with a top concentration > 0 and a ground concentration = 0
-         ! Warn the user if this case arise
-            if(s1_init_top(j).ne.0.d0) then
-               print*,"Warning with gas species nb. ",ind_gas(j)
-               print*,"  Its top concentration is > 0 while its ground"
-               print*,"  concentration is = 0"
-               print*,"  The interpolation method does not allow this"
-               print*,"  See SR initc"
-            end if
-         end if
-      end do
+        ! (see below: s1(:,:) = s1_init_grd(:)*... )
+        ! with a top concentration > 0 and a ground concentration = 0
+        ! Warn the user if this case arise
+        !  jjb: this could be solved by simply adding a small value to groud conc=0, same as top conc above
+        if(s1_init_top(j).gt.0._dp) then
+           write (jpfunout,*)"Warning with gas species nb. ",ind_gas(j)
+           write (jpfunout,*)"  Its top concentration is > 0 while its ground"
+           write (jpfunout,*)"  concentration is = 0"
+           write (jpfunout,*)"  The interpolation method does not allow this"
+           write (jpfunout,*)"  See SR initc"
+        end if
+     end if
+  end do
 
 ! ......................................................................
 ! Initialise gas concentration in the whole column
-      s1(:,1) = 0.d0
-      do k=2,n
-         do j=1,j1
+  s1(:,1) = 0._dp
+  do k=2,n
+     do j=1,j1
 
-            ! halogen only in BL, but there no gradient
-            if(gas_is_halo(j) .and. k<kinv .and. k>2 &
-               .and.trim(gas_name(j))/='HCl') then
-               s1(j,k) = s1(j,k-1)
-            else if(gas_is_halo(j) .and. k>=kinv &
-                    .and. trim(gas_name(j))/='HCl' ) then
-               s1(j,k) = 0.d0
+        ! halogen only in BL, but there no gradient
+        if(gas_is_halo(j) .and. k<kinv .and. k>2 .and.trim(gas_name(j))/='HCl') then
+           s1(j,k) = s1(j,k-1)
+        else if(gas_is_halo(j) .and. k>=kinv .and. trim(gas_name(j))/='HCl' ) then
+           s1(j,k) = 0._dp
 
-            ! general case
-            else
-               s1(j,k)=s1_init_grd(j)*exp(x4(k)*x2(j))*xm(k)
-            end if
-         end do
-      end do
+        ! general case
+        else
+           s1(j,k) = s1_init_grd(j) * exp(x4(k) * x2(j)) * xm(k)
+        end if
+     end do
+  end do
 ! ......................................................................
 
 ! initial radical concentrations in mol/m**3(air)
-      do k=1,n
-         do j=1,j5
-            s3(j,k)=0.
-         end do
-      end do
-      xiod=0.
-      !if (iod) xiod=1.
+  do k=1,n
+     do j=1,j5
+        s3(j,k) = 0._dp
+     end do
+  end do
+  xiod = 0._dp
+  if (iod) xiod = 1._dp
+
+! Eulerian configuration: read input file
+  if (neula.eq.0) then
+     open (jpfuneul,file='euler_in.dat',status='old')
+     do j=1,10
+        read (jpfuneul,5100) nspec(j),xadv(j)
+     enddo
+     close (jpfuneul)
+  endif
+5100 format (i3,d8.2)
 
 
 ! define crystallization and deliquescene rel humidities (Seinfeld and Pandis,
@@ -277,150 +309,152 @@
 ! sea salt particle were produced as droplets and shrank, but did not get "dry"
 ! if rel hum is below crys rH in FT, and it's getting more humid then the deli rH
 ! has to be taken for reactivation of aerosol chemistry
-      xcryssulf= 0.4  ! crystallization humities
-      xcrysss  = 0.42
-      xdelisulf= 0.7  ! assumed based on mixing between different salts - should be
+  xcryssulf = 0.4_dp  ! crystallization humities
+  xcrysss   = 0.42_dp
+  xdelisulf = 0.7_dp  ! assumed based on mixing between different salts - should be
                       ! calculated explicitly if this starts to be critical (ie for
                       ! non-marine cases)
-      xdeliss  = 0.75
-      print *,'deliquescence rH  ',xdelisulf,xdeliss
-      print *,'crystallization rH',xcryssulf,xcrysss
+  xdeliss   = 0.75_dp
+  write (jpfunout,*)'deliquescence rH  ',xdelisulf,xdeliss
+  write (jpfunout,*)'crystallization rH',xcryssulf,xcrysss
 
 ! array cloudt: was there a cloud in this layer in previous timestep?
 ! initialize with "true" to assure that aerosol chemistry is on in FT for
 ! layers in which rH > xcrystallization
-      do k=1,n
-         do kc=1,nkc
-            cloudt(kc,k)=.true.
-         enddo
-      enddo
+  do k=1,n
+     do kc=1,nkc
+        cloudt(kc,k) = .true.
+     enddo
+  enddo
 
 ! initial loading of aerosols with nh3,so4,fe(3),mn(2) (x0=mole/particle)
-! watch out: sa1 is defined as sa1(..,j2,..) but addressed in j6 (=ion, sion1) terms
+! watch out: sa1 is defined as sa1(..,j2) but addressed in j6 (=ion, sion1) terms
 !            except for DOM which is in sl1 (therefore it is in j2)!!
-      sa1(:,:) = 0._dp
-      do ia=1,nka
+  sa1(:,:) = 0._dp
+  do ia=1,nka
+     x0 = en(ia) * 1.e-3_dp * fcs(ia) / xmol3(ia)
+
 !! ocean aerosol: particles with rn(ia)<.5 mum: 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
 ! ocean aerosol: particles with rn(ia)<.5 mum: 34% (NH4)2SO4, 65.6% NH4HSO4, 0.4% NH4NO3
-         x0=en(ia)*1.d-03*fcs(ia)/xmol3(ia)
-         if (iaertyp == 3) then
-            if (rn(ia).lt.0.5_dp) then
-!               sa1(ia,13)=x0*0.04 !NO3-
-               sa1(ia,13)=x0*0.004 !NO3-
-               sa1(ia,2)=x0*1.34   !NH4+
-               sa1(ia,8)=x0*0.34   !SO4=
-               sa1(ia,19)=x0*0.656 !HSO4-
+     if (iaertyp == 3) then
+        if (rn(ia).lt.0.5_dp) then
+!           sa1(ia,13) = x0 * 0.04_dp   !NO3-
+           sa1(ia,13) = x0 * 0.004_dp  !NO3-
+           sa1(ia,2)  = x0 * 1.34_dp   !NH4+
+           sa1(ia,8)  = x0 * 0.34_dp   !SO4=
+           sa1(ia,19) = x0 * 0.656_dp  !HSO4-
 ! larger particles: pure nacl
-            else
+        else
 ! sea salt particle
 ! x0 = mol / particle
 ! all the xiii are scaled to the sum of all negative ions in seawater,
 ! Na+ is the sum of all positive ions; to get the correct molar ratios of
 ! Cl- or Br- to Na+, the lumped Na+ has to be multiplied by 0.806
-               xso42m=0.0485
-               xhco3m=4.2d-3
-               xno3m =1.0d-7
-               xbrm  =1.45d-3
-               xim   =7.4d-8/.545*xiod
-               xio3m =2.64d-7/.545*xiod
-               xclm  =1-(xso42m+xhco3m+xno3m+xbrm+xim+xio3m)
-               sa1(ia, 8)=xso42m*x0 ! SO4=
-               sa1(ia, 9)=xhco3m*x0 ! HCO3-
-               sa1(ia,13)=xno3m*x0  ! NO3-
-               sa1(ia,14)=xclm*x0   ! Cl-
-               sa1(ia,20)=x0        ! "Na+" -  eletronegativity
-               sa1(ia,24)=xbrm*x0   ! Br-
-               sa1(ia,34)=xim*x0    ! I-
-               sa1(ia,36)=xio3m*x0  ! IO3-
-               sa1(ia,j2-j3+4)=0.27*xbrm*x0 !unspecified DOM
-                                    !according to #2210: 0.27*[Br-]; enriched compared to ocean water ratio
-            endif
+           xso42m = 0.0485_dp
+           xhco3m = 4.2e-3_dp
+           xno3m  = 1.0e-7_dp
+           xbrm   = 1.45e-3_dp
+           xim    = 7.4e-8_dp / .545_dp * xiod
+           xio3m  = 2.64e-7_dp / .545_dp * xiod
+           xclm   = 1._dp - (xso42m+xhco3m+xno3m+xbrm+xim+xio3m)
+           sa1(ia, 8) = xso42m * x0 ! SO4=
+           sa1(ia, 9) = xhco3m * x0 ! HCO3-
+           sa1(ia,13) = xno3m * x0  ! NO3-
+           sa1(ia,14) = xclm * x0   ! Cl-
+           sa1(ia,20) = x0          ! "Na+" -  eletronegativity
+           sa1(ia,24) = xbrm * x0   ! Br-
+           sa1(ia,34) = xim * x0    ! I-
+           sa1(ia,36) = xio3m * x0  ! IO3-
+           sa1(ia,j2-j3+4) = 0.27_dp * xbrm * x0 ! unspecified DOM
+                                                 ! according to #2210: 0.27*[Br-]; enriched compared to ocean water ratio
+        endif
 
-         else if (iaertyp == 1) then
+     else if (iaertyp == 1) then
 !! urban aerosol:
 !! 2/3*xm = mole mass nh4no3; 1/3*xm = mole mass (nh4)2so4;
 !! xm=en(ia)*fcs(ia)*1d-3: total soluble mole mass
 !! --> 4/3*xm mole nh3, 2/3*xm mole no3, 1/3*xm mole so4
-!            if (xmol3(ia).lt.130.) then
-!               x0=en(ia)*1.d-03*fcs(ia)/(3.*xmol3(ia))
-!               sa1(ia,3)=x0*2.
-!               sa1(ia,4)=x0*4.
-!               sa1(ia,6)=x0
-!            else
+!        if (xmol3(ia).lt.130.) then
+!           x0=en(ia)*1.d-03 * fcs(ia)/(3. * xmol3(ia))
+!           sa1(ia,3)=x0 * 2.
+!           sa1(ia,4)=x0 * 4.
+!           sa1(ia,6)=x0
+!        else
 
-            ! Joyce et al 2014 case
-            if (lpJoyce14bc) then
+        ! Joyce et al 2014 case
+        if (lpJoyce14bc) then
 ! soluble part of urban aerosol: pure H2SO4   PJ
 ! x0 = mol / particle
 ! molar ratios  "aeroPJ"  SR inic
-               sa1(ia,1) =x0*0.1868*2. !H+       PJ  (2*SO4=)
-               sa1(ia,2) =x0*0.        !NH4+     PJ
-               sa1(ia,8) =x0*0.1868    !SO4=     PJ
-               sa1(ia,13)=x0*0.        !NO3-     PJ
-               if(rn(ia).le.0.5)then   ! Cl-
-!                  sa1(ia,14)=x0*0.0356 !Cl-      PJ (cl_b23c)
-                  sa1(ia,14)=x0*0.0227 !Cl-      PJ (b25)
-               else
-                  sa1(ia,14)=x0*0.     ! No Cl- in supermicron
-               end if
-               sa1(ia,19)=x0*0.        !HSO4-    PJ
-!               sa1(ia,j2-j3+4)=x0*0.5757 !DOM      PJ  (obs DOM)
-!               sa1(ia,j2-j3+4)=x0*0.7763 !DOM      PJ  (obs total PM2.5)
-               sa1(ia,j2-j3+4)=x0*0.6642 !DOM      PJ  (b25)
-            end if              ! Joyce
-         end if                 ! iaertyp
-      end do                    !ia
+           sa1(ia,1)  = x0 * 0.1868 * 2._dp !H+       PJ  (2*SO4=)
+           sa1(ia,2)  = x0 * 0._dp          !NH4+     PJ
+           sa1(ia,8)  = x0 * 0.1868_dp      !SO4=     PJ
+           sa1(ia,13) = x0 * 0._dp          !NO3-     PJ
+           if(rn(ia).le.0.5_dp)then         ! Cl-
+!              sa1(ia,14)=x0 * 0.0356_dp     !Cl-      PJ (cl_b23c)
+              sa1(ia,14) = x0 * 0.0227_dp   !Cl-      PJ (b25)
+           else
+              sa1(ia,14) = x0 * 0._dp       ! No Cl- in supermicron
+           end if
+           sa1(ia,19) = x0 * 0._dp          !HSO4-    PJ
+!           sa1(ia,j2-j3+4) = x0 * 0.5757_dp !DOM      PJ  (obs DOM)
+!           sa1(ia,j2-j3+4) = x0 * 0.7763_dp !DOM      PJ  (obs total PM2.5)
+           sa1(ia,j2-j3+4) = x0 * 0.6642_dp !DOM      PJ  (b25)
+        end if              ! Joyce
+     end if                 ! iaertyp
+  end do                    !ia
 
 
 ! print initial concentrations (continued)
-      write (jpfunprofc,6030)
- 6030 format (6x,'sa1(nka,4)')
-      write (jpfunprofc,6020) (sa1(ia,4),ia=1,nka)
-      write (jpfunprofc,6040)
- 6040 format (6x,'sa1(nka,6)')
-      write (jpfunprofc,6020) (sa1(ia,6),ia=1,nka)
-      write (jpfunprofc,6050)
+  write (jpfunprofc,6030)
+6030 format (6x,'sa1(nka,4)')
+  write (jpfunprofc,6020) (sa1(ia,4),ia=1,nka)
+  write (jpfunprofc,6040)
+6040 format (6x,'sa1(nka,6)')
+  write (jpfunprofc,6020) (sa1(ia,6),ia=1,nka)
+  write (jpfunprofc,6050)
 ! 6050 format (6x,'sa1(nka,j2-j3+4)')
-!      write (jpfunprofc,6020) (sa1(ia,j2-j3+4),ia=1,nka)
-!      write (jpfunprofc,6060)
+!  write (jpfunprofc,6020) (sa1(ia,j2-j3+4),ia=1,nka)
+!  write (jpfunprofc,6060)
 ! 6060 format (6x,'sa1(nka,j2-j3+5)')
-!      write (jpfunprofc,6020) (sa1(ia,j2-j3+5),ia=1,nka)
- 6050 format (6x,'sa1(nka,14)')
-      write (jpfunprofc,6020) (sa1(ia,14),ia=1,nka)
-      write (jpfunprofc,6060)
- 6060 format (6x,'sa1(nka,24)')
-      write (jpfunprofc,6020) (sa1(ia,24),ia=1,nka)
+!  write (jpfunprofc,6020) (sa1(ia,j2-j3+5),ia=1,nka)
+6050 format (6x,'sa1(nka,14)')
+  write (jpfunprofc,6020) (sa1(ia,14),ia=1,nka)
+  write (jpfunprofc,6060)
+6060 format (6x,'sa1(nka,24)')
+  write (jpfunprofc,6020) (sa1(ia,24),ia=1,nka)
 
 ! levels for  rate output
-      il(1) =  5
-      if (box) il(1)=n_bl
-      il(2) = 15
-      il(3) = 25
-      il(4) = 35
-      il(5) = 45
-      il(6) = 55
-      il(7) = 65
-      il(8) = 75
-      il(9) = 85
-      il(10)= 95
-      il(11)=105
-      il(12)=115
-      il(13)=125
-      il(14)=135
-      il(15)=145
+  il(1) =  5
+  if (box) il(1)=n_bl
+  il(2) = 15
+  il(3) = 25
+  il(4) = 35
+  il(5) = 45
+  il(6) = 55
+  il(7) = 65
+  il(8) = 75
+  il(9) = 85
+  il(10)= 95
+  il(11)=105
+  il(12)=115
+  il(13)=125
+  il(14)=135
+  il(15)=145
+
 ! initial output for plotting
-      do k=1,n
-            is4(k,1)=am3(k) ! stay consistent with plot routine array size!
-            is4(k,2)=0.
-            is4(k,3)=0.
-!            write (542,12) k,am3(k,1),am3(k,2)
-!            write (543,12) k,cm3(k,1),cm3(k,2)
-      enddo
+  do k=1,n
+     is4(k,1) = am3(k) ! stay consistent with plot routine array size!
+     is4(k,2) = 0._dp
+     is4(k,3) = 0._dp
+!     write (542,12) k,am3(k,1),am3(k,2)
+!     write (543,12) k,cm3(k,1),cm3(k,2)
+  enddo
 ! 12   format (i3,2d16.8)
-      write (jpfunsg1) is4
-      close (jpfunsg1)
-      write (jpfunsr1) is4
-      close (jpfunsr1)
+  write (jpfunsg1) is4
+  close (jpfunsg1)
+  write (jpfunsr1) is4
+  close (jpfunsr1)
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !! Initialise vmean (constant factor calculation)
@@ -430,26 +464,24 @@
 
 ! Init calc of v_mean and henry
 ! initialize all variables also for box run
-      call v_mean_a  (t,nf)
-!     call henry_a (t,p,nf) ! jjb second argument (p) not used
-      call henry_a (t,nf)   ! jjb removed
-      call st_coeff_a
-      call v_mean_t  (t,nf)
-!     call henry_t (t,p,nf) ! jjb second argument (p) not used
-      call henry_t (t,nf)   ! jjb removed
-      call st_coeff_t
+  call v_mean_a  (t,nf)
+  call henry_a (t,nf)
+  call st_coeff_a
+  call v_mean_t  (t,nf)
+  call henry_t (t,nf)
+  call st_coeff_t
 
 ! initialize all levels also in box run
 ! free path length (lambda=freep):
-      do k=1,nf
-         freep(k)=2.28d-5 * t(k) / p(k)
-      enddo
-      tr_ue = .false. !.true.
-      call init_konc
-      call fast_k_mt_a(freep,tr_ue,nf)
-      call activ_init
+  do k=1,nf
+     freep(k) = 2.28e-5_dp * t(k) / p(k)
+  enddo
+  tr_ue = .false. !.true.
+  call init_konc
+  call fast_k_mt_a(freep,tr_ue,nf)
+  call activ_init
 
-      end subroutine initc
+end subroutine initc
 
 !
 !-----------------------------------------------------
@@ -3399,10 +3431,10 @@
             sion1(13,1,k)=sion1(13,1,k)+ap(k,ia)*sa1(ia,13)*1.d6
             if (lpJoyce14bc) &
             sion1(14,1,k)=sion1(14,1,k)+ap(k,ia)*sa1(ia,14)*1.d6 !Cl- (cl_b23c) PJ
-            sion1(17,1,k)=sion1(19,1,k)                         !mixing tracer
+            sion1(17,1,k)=sion1(19,1,k)                          !mixing tracer
             sion1(19,1,k)=sion1(19,1,k)+ap(k,ia)*sa1(ia,19)*1.d6
             if (lpJoyce14bc) &
-            sl1(j2-j3+4,1,k)=sl1(j2-j3+4,1,k)+ap(k,ia)*          !DOM    PJ &
+            sl1(j2-j3+4,1,k)=sl1(j2-j3+4,1,k)+ap(k,ia)* &        !DOM    PJ
                  sa1(ia,j2-j3+4)*1.d6
 ! NO3-, NH4-, SO4=, HSO4- : j6 used in sion1, sa1
 ! Br-, HCO3-, I-, IO3-, Cl-: j6 used in sion1, sa1
@@ -5158,7 +5190,6 @@
 !      hs(32)=henry(ind_RAN2,k)
 !      hs(33)=henry(ind_RAN1,k)
       if (.not.lpJoyce14bc) hs(34)=-1.!henry(ind_N2O5,k)
-      hs(34)=-1.!henry(ind_N2O5,k)
       hs(35)=henry(ind_HNO4,k)
       hs(36)=henry(ind_NO3,k)
       hs(37)=henry(ind_DMS,k)
@@ -7184,8 +7215,8 @@
 ! b0=1     gas phase reactant:     HNO3
 ! c0=2..3  branch of het reaction: Cl-, Br-
 
-      USE precision, ONLY :
-! Imported Parameters: &
+      USE precision, ONLY : &
+! Imported Parameters:
            dp
 
       implicit none
@@ -7584,7 +7615,7 @@
       xk2f = 1.15e6_dp - 1.15e6_dp * exp(-0.13_dp * xh2o)
 
       denom = 1._dp
-      if (xno3m.gt.0.d0)
+      if (xno3m.gt.0.d0) &
 !      if (xno3m.gt.ppsmall) &
            denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
       a_n2o5 = 3.2e-8_dp * xk2f * (1._dp - (1._dp/denom))

@@ -87,7 +87,6 @@ program mistra
        isurf,        &
        mic,          &
        netCDF,       &
-       neula,        &
        nuc,          &
        rst,          &
        iaertyp,      &
@@ -149,7 +148,6 @@ program mistra
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /band_rat/ photol_j(nphrxn,n)
-  common /kpp_eul/ xadv(10),nspec(10)
 
 
   dimension aer(n,nka)
@@ -159,18 +157,10 @@ program mistra
   ! initialisation switch
   llinit = .true.
 
+  ! Read namelist
   call read_config
 
   fogtype='a'
-
-  if (neula.eq.0) then
-     open (12,file='euler_in.dat',status='old')
-     do i=1,10
-        read (12,5100) nspec(i),xadv(i)
-     enddo
-     close (12)
-  endif
- 5100 format (i3,d8.2)
 
   if (chem) call mk_interface
 
