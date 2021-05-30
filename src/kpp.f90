@@ -371,6 +371,7 @@
          end if                 ! iaertyp
       end do                    !ia
 
+
 ! print initial concentrations (continued)
       write (jpfunprofc,6030)
  6030 format (6x,'sa1(nka,4)')
@@ -652,6 +653,7 @@
            1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
       alpha(ind_NO,k) =  5.0D-05
       alpha(ind_NO2,k) =  1.5D-03
+
       if (lpJoyce14bc) then
          alpha(ind_NO3,k) =  2.5D-03
       else
@@ -664,6 +666,7 @@
 !         alpha(ind_N2O5,k) =  2.7D-02
          alpha(ind_N2O5,k) =  1.0D-01
       end if
+
       alpha(ind_HONO,k) =  4.0D-02
 !      alpha(ind_HNO3,k) =  8.6D-02
       alpha(ind_HNO3,k) =  5.0D-01
@@ -841,6 +844,7 @@
            1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
       alpha(ind_NO,k) =  5.0D-05
       alpha(ind_NO2,k) =  1.5D-03
+
       if (lpJoyce14bc) then
          alpha(ind_NO3,k) =  2.5D-03 ! jjb: lower limit Thomas et al. (1989), Mihelcic et al. (1993) (cited by Finlayson Pitt & Pitt, Chemistry of the Upper and Lower Atmosphere, 2000
       else
@@ -853,6 +857,7 @@
 !         alpha(ind_N2O5,k) =  2.7D-02
          alpha(ind_N2O5,k) =  1.0D-01
       end if
+
       alpha(ind_HONO,k) =  4.0D-02
 !      alpha(ind_HNO3,k) =  8.6D-02
       alpha(ind_HNO3,k) =  5.0D-01
@@ -3554,6 +3559,7 @@
       end if
 
       do ia=iamin, iamax
+
 ! compare SR equil in str.f
 ! aerosols in equilibrium with ambient rH:
          feu(k_in)=dmin1(feu(k_in),0.99999d0)
@@ -3672,6 +3678,7 @@
  1000  continue
 
       enddo ! ia
+
 
       end subroutine aer_source
 
@@ -5151,6 +5158,7 @@
 !      hs(32)=henry(ind_RAN2,k)
 !      hs(33)=henry(ind_RAN1,k)
       if (.not.lpJoyce14bc) hs(34)=-1.!henry(ind_N2O5,k)
+      hs(34)=-1.!henry(ind_N2O5,k)
       hs(35)=henry(ind_HNO4,k)
       hs(36)=henry(ind_NO3,k)
       hs(37)=henry(ind_DMS,k)
@@ -7187,6 +7195,7 @@
 
       integer, intent(in) :: a0,b0,c0
       real (kind=dp) :: hetT, xbr, xkt
+
 ! calculate het_total
       if (a0.eq.1) then
          hetT=C(ind_Clml1) + C(ind_Brml1)
