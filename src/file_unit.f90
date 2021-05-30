@@ -30,6 +30,8 @@ module file_unit
   integer, parameter :: jpfunnam = 1
   integer, parameter :: jpfuncfgout = 2
 
+  integer, parameter :: jpfuneul = 3
+
 ! prof* files
   integer, parameter :: jpfunprofm = 11
   integer, parameter :: jpfunprofc = 12

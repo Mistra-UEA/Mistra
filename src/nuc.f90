@@ -130,7 +130,7 @@ subroutine nuc_init (Napari,Lovejoy,iod)
 
   USE file_unit, ONLY: &
 ! Imported Parameters:
-       jpfunerr
+       jpfunerr, jpfunout
 
   USE gas_common, ONLY: &
 ! Imported Parameters:
@@ -225,8 +225,13 @@ subroutine nuc_init (Napari,Lovejoy,iod)
 ! ==============================================================================
 !   Retrieve the species names from gas (radical or non radical) name lists
 ! ==============================================================================
+  write (jpfunout,*)'Proceed to nuc initialisation: retrieve the species indexes'
+
   do jvap = 1,nvap
      jspec = 1 ! initialise index
+
+     write (jpfunout,*)'Search for ',nuc_name(jvap)
+
      if (ical(jvap) == 0) then
         do while ( trim(gas_name(jspec)) /= trim(nuc_name(jvap)) )
            jspec = jspec+1
@@ -237,7 +242,8 @@ subroutine nuc_init (Napari,Lovejoy,iod)
            end if
         end do
         ivap(jvap) = jspec
-        m_vap(jvap) = gas_mass (jspec)
+        m_vap(jvap) = gas_mass(jspec)
+        write (jpfunout,1010)trim(nuc_name(jvap)),' found in gas list with index ',jspec,', mass = ',gas_mass(jspec)
 
      else if (ical(jvap) == 1) then
         do while ( trim(rad_name(jspec)) /= trim(nuc_name(jvap)) )
@@ -249,7 +255,8 @@ subroutine nuc_init (Napari,Lovejoy,iod)
            end if
         end do
         ivap(jvap) = jspec
-        m_vap(jvap) = rad_mass (jspec)
+        m_vap(jvap) = rad_mass(jspec)
+        write (jpfunout,1010)trim(nuc_name(jvap)),' found in rad list with index ',jspec,', mass = ',rad_mass(jspec)
 
      else
         write (jpfunerr,'(a)')'Error in SR nuc_init:'
@@ -273,6 +280,7 @@ subroutine nuc_init (Napari,Lovejoy,iod)
         end if
      end do
      ind_H2SO4 = jspec
+     write (jpfunout,*)'Napari: H2SO4 found with index ',jspec
 
      jspec = 1              ! initialise index
      do while ( trim(gas_name(jspec)) /= 'NH3' )
@@ -284,6 +292,7 @@ subroutine nuc_init (Napari,Lovejoy,iod)
         end if
      end do
      ind_NH3 = jspec
+     write (jpfunout,*)'Napari: NH3 found with index ',jspec
   else
      ind_H2SO4 = 0
      ind_NH3   = 0
@@ -306,12 +315,14 @@ subroutine nuc_init (Napari,Lovejoy,iod)
         end if
      end do
      ind_OIO = jspec
+     write (jpfunout,*)'Lovejoy: OIO found with index ',jspec
   else
      ind_OIO = 0
   end if
 
 !  print*,'ind_H2SO4, ind_NH3, ind_OIO',ind_H2SO4, ind_NH3, ind_OIO
 !  write(*,1011)(jvap,ivap(jvap),ical(jvap),m_vap(jvap),jvap=1,nvap)
+1010 format(a,a,i4,a,f6.3)
 ! 1011 format(3i4,f6.3)
 
 

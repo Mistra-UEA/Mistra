@@ -134,12 +134,17 @@ real (KIND=dp) :: &
 ! Surface settings
 integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
 
+! Special runs switchs
+logical :: lpJoyce14bc ! Switch on some special configuration of Joyce et al 2014 (base case)
+
 character (len=100) :: cnmlfile
 
 character (len=100) :: cinpdir      ! input directory: general data files for Mistra
 character (len=109) :: cinpdir_phot ! input directory for photolysis data files
 character (len=100) :: coutdir      ! output directory
 character (len=100) :: cmechdir     ! mechanism directory
+character (len=100) :: cgaslistfile ! user file holding the list of gas phase species
+character (len=100) :: cradlistfile ! user file holding the list of gas phase radical species
 
 
 namelist /mistra_cfg/ &
@@ -154,21 +159,22 @@ namelist /mistra_cfg/ &
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
      rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
- ! Surface setings
+! Surface setings
      isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
      iaertyp,         &
-     chem,            &
-     halo,            &
-     iod,             &
-     nkc_l,           &
+! Chemistry setings
+     chem, halo, iod, nkc_l,   &
+     cgaslistfile, cradlistfile,  &
      neula,           &
      box,             &
      bl_box,          &
      nlevbox,         &
      z_box,           &
-     nuc,             &
-     scaleo3_m
+     nuc, ifeed,      &
+     scaleo3_m,       &
+! Special configuration
+     lpJoyce14bc
 
 contains
 
@@ -296,17 +302,24 @@ z0 = 0.01_dp
 jpAlbedoOpt = 0
 mic = .false.
 iaertyp = 3
+! Chemistry setings
 chem = .false.
 halo = .false.
 iod = .false.
 nkc_l = 4
+cgaslistfile='gas_species.csv'
+cradlistfile='gas_radical_species.csv'
 neula = 1
 box = .false.
 bl_box = .false.
 nlevbox = 2
 z_box = 700._dp
 nuc = .false.
+ifeed = 0
 scaleo3_m = 300._dp
+
+! Special configuration
+lpJoyce14bc = .false.
 
 call getenv ('NAMELIST',cnmlfile)
 
@@ -328,6 +341,10 @@ end if
 if (nuc.and..not.chem) then
    nuc = .false.
    write(jpfunout,'(a)') 'Warning: nuc has been set to false since chemistry is off'
+end if
+if (.not.nuc) then
+   ifeed = 0
+   ! do not display warning message in this case
 end if
 
 ! =====================================================

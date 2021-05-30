@@ -29,6 +29,8 @@ subroutine mk_interface
 
 
 USE config, ONLY : &
+     cgaslistfile, &
+     cradlistfile, &
      coutdir
 
 USE gas_common, ONLY :    &
@@ -74,7 +76,7 @@ call global_parameters_check
 ! =======================================================
 ! -- 2.1 -- Non radical gas species
 ! =======================================================
-call read_mistra_gas_data
+call read_mistra_gas_data (trim(cgaslistfile))
 
 ! Allocate KPP to Mistra tables (in Mistra order) and match indexes
 allocate ( gas_k2m_g(j1), gas_k2m_a(j1), gas_k2m_t(j1) )
@@ -118,7 +120,7 @@ write(13,*)gas_m2k_t(:,:)
 ! =======================================================
 ! -- 2.2 -- Radical gas species
 ! =======================================================
-call read_mistra_rad_data
+call read_mistra_rad_data (trim(cradlistfile))
 
 ! Allocate KPP to Mistra tables (in Mistra order) and match indexes
 allocate ( rad_k2m_g(j5), rad_k2m_a(j5), rad_k2m_t(j5) )
@@ -200,7 +202,7 @@ end subroutine global_parameters_check
 
 
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-subroutine read_mistra_gas_data
+subroutine read_mistra_gas_data (file_name)
 
 !     Imports and checks user defined gas data file,
 !     and creates conversion tables between Mistra and KPP indexes
@@ -259,7 +261,7 @@ USE precision, ONLY : &
 implicit none
 
 ! Local parameters:
-character (len=*), parameter :: file_name = 'gas_species.csv'
+character (len=*), intent(in) :: file_name
 
 ! Local scalars:
 integer :: nb_gas      ! The total number of gas species actually used
@@ -632,7 +634,7 @@ end subroutine read_mistra_gas_data
 
 
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-subroutine read_mistra_rad_data
+subroutine read_mistra_rad_data (file_name)
 
 !     Imports and checks user defined radical (gas phase) data file,
 !     and creates conversion tables between Mistra and KPP indexes
@@ -687,7 +689,7 @@ USE precision, ONLY : &
 implicit none
 
 ! Local parameters:
-character (len=*), parameter :: file_name = 'gas_radical_species.csv'
+character (len=*), intent(in) :: file_name
 
 ! Local scalars:
 integer :: nb_rad      ! The total number of rad species actually used

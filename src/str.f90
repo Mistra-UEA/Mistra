@@ -87,11 +87,11 @@ program mistra
        isurf,        &
        mic,          &
        netCDF,       &
-       neula,        &
        nuc,          &
        rst,          &
        iaertyp,      &
-       lstmax
+       lstmax,       &
+       lpJoyce14bc
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -119,7 +119,7 @@ program mistra
   end interface
 
   logical Napari, Lovejoy, both
-  logical :: llinit
+  logical :: llinit, llcallphotol, llsetjrates0
 
 ! Common blocks:
   common /cb16/ u0,albedo(mbs),thk(nrlay)
@@ -148,8 +148,6 @@ program mistra
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /band_rat/ photol_j(nphrxn,n)
-  common /kpp_eul/ xadv(10),nspec(10)
-  common /nucfeed/ ifeed
 
 
   dimension aer(n,nka)
@@ -159,18 +157,10 @@ program mistra
   ! initialisation switch
   llinit = .true.
 
+  ! Read namelist
   call read_config
 
   fogtype='a'
-  ifeed = 1
-  if (neula.eq.0) then
-     open (12,file='euler_in.dat',status='old')
-     do i=1,10
-        read (12,5100) nspec(i),xadv(i)
-     enddo
-     close (12)
-  endif
- 5100 format (i3,d8.2)
 
   if (chem) call mk_interface
 
@@ -241,15 +231,15 @@ program mistra
 ! Continue the initialisation, both cases
 ! ---------------------------------------
 
+! initialization of radiation code, and first calculation
+  call radiation (llinit)
+
 ! output of meteorological and chemical constants of current run
   call constm
   if (chem) call constc
 ! output of initial vertical profiles
   call profm (dt)
   if (chem) call profc (dt,mic)
-
-! initialization of radiation code, and first calculation
-  call radiation (llinit)
 
 ! initial photolysis rates
 !  if (chem) call photol
@@ -413,15 +403,37 @@ program mistra
      if (.not.box) call radiation (llinit)
 ! new photolysis rates
      if (chem) then
-        if (u0.gt.3.48e-2) then
-! optimize this!!
-           if (u0.gt.3.48e-2.and.u0.le.0.4.and.lmin/2*2.eq.lmin &
-                .or.u0.gt.0.4.and.lmin/2*2.eq.lmin) call photol
-           if (box.and.BL_box) call ave_j (nz_box,n_bl)
+
+        ! Condition to call photolysis code (may depend on configuration)
+        if (lpJoyce14bc) then
+           if (u0.gt.1.0d-2) then
+              llcallphotol = .true.
+              llsetjrates0 = .false.
+           else
+              llcallphotol = .false.
+              llsetjrates0 = .true.
+           end if
         else
+           if (u0.gt.3.48e-2 .and. lmin/2*2.eq.lmin) then
+              llcallphotol = .true.
+              llsetjrates0 = .false.
+           else
+              llcallphotol = .false.
+              if (u0.gt.3.48e-2) then ! in this case, keep using the previously calculated rates
+                 llsetjrates0 = .false.
+              else
+                 llsetjrates0 = .true.
+              end if
+           end if
+        end if
+        ! Call photolysis code
+        if (llcallphotol) then
+           call photol
+           if (box.and.BL_box) call ave_j (nz_box,n_bl)
+        else if (llsetjrates0) then
            do k=1,n
-              do i=1,nphrxn ! jjb
-                 photol_j(i,k)=0.
+              do i=1,nphrxn
+                 photol_j(i,k)=0._dp
               enddo
            enddo
         endif
@@ -432,7 +444,7 @@ program mistra
 !    ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-        call oneD_dist
+        call oneD_dist_new
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
@@ -755,7 +767,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
-       ug, vg, wmin, wmax, nwProfOpt
+       ug, vg, wmin, wmax, nwProfOpt, &
+       lpJoyce14bc
 
 
   USE constants, ONLY : &
@@ -777,31 +790,39 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        jpfunerr, jpfunout, & ! standard error/output files
        jpfunpb               ! ploutm files: pm*, pb*
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nb, &
-     &     nka, &
-     &     nkt
+       nf, &
+       n, &
+       nb, &
+       nka, &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit double precision (a-h,o-z)
 ! initial profiles of meteorological variables
 
-      logical, intent(in) :: rst
+  character (len=1), intent(in) :: fogtype
+  integer, intent(in) :: iaertyp
+  logical, intent(in) :: rst
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
   integer, parameter :: jpdaypermonth(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
-  real (kind=dp), parameter :: gamma = g / cp ! dry adiabatic lapse rate (K/m)
+  real (kind=dp), parameter :: gamma = 0.0098 ! = g / cp = dry adiabatic lapse rate (K/m)
 
+  character *10 fname
   integer :: jm ! running indexes
   integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
   real (kind=dp) :: deltat, rdec, zgamma
+! Local arrays
+  real(kind=dp) :: wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)
+!  dimension aer(nf,nka)
+!  dimension fnorm(n)
+
 ! Common blocks:
   common /cb18/ alat,declin                ! for the SZA calculation
   real(kind=dp) :: alat,declin
@@ -843,15 +864,13 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
   common /cb63/ fcs(nka),xmol3(nka)
+  real(kind=dp) :: fcs, xmol3
+  common /ff_0/ ff_0(nka)
+  real(kind=dp) :: ff_0
   common /kinv_i/ kinv
   integer :: kinv
 
-      dimension wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)
-!     dimension aer(nf,nka)
-!     dimension fnorm(n)
-      character *1 fogtype
-      character *10 fname
-      data xmol2 /18./
+  data xmol2 /18./
 
 ! constants for aerosol distributions after jaenicke (1988)
 ! 3 modes j=1,2,3
@@ -865,18 +884,19 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! constants for aerosol distributions after jaenicke (1988)
 ! except constants for maritime aerosol distribution
 ! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
-      data ((wn(i,j),i=1,4),j=1,3) &
-     & /1.6169d+05,1.1791d+04,159.576,79.788, &
-     & 664.9,105.29,427.438,94.138, &
-     & 4.3091d+04,2.9846d+03,5.322,0.0596/
-      data ((wr(i,j),i=1,4),j=1,3) &
-     & /6.51d-03,7.39d-03,0.027,3.6d-03, &
-     & 7.14d-03,.0269,.105,.127, &
-     & .0248,.0419,.12,.259/
-      data ((ws(i,j),i=1,4),j=1,3) &
-     & /8.3299,9.8765,8.,1.2019, &
-     & 1.1273,1.6116,39.86,7.8114, &
-     & 4.4026,7.0665,2.469,2.7682/
+  data ((wn(i,j),i=1,4),j=1,3) &
+       /1.6169e+05_dp, 1.1791e+04_dp, 159.576_dp, 79.788_dp, &
+             664.9_dp,     105.29_dp, 427.438_dp, 94.138_dp, &
+        4.3091e+04_dp, 2.9846e+03_dp,   5.322_dp, 0.0596_dp/
+  data ((wr(i,j),i=1,4),j=1,3) &
+       /6.51e-03_dp, 7.39e-03_dp, 0.027_dp, 3.6e-03_dp, &
+        7.14e-03_dp,    .0269_dp,  .105_dp,    .127_dp, &
+           .0248_dp,    .0419_dp,   .12_dp,    .259_dp/
+  data ((ws(i,j),i=1,4),j=1,3) &
+       /8.3299_dp, 9.8765_dp,    8._dp, 1.2019_dp, &
+        1.1273_dp, 1.6116_dp, 39.86_dp, 7.8114_dp, &
+        4.4026_dp, 7.0665_dp, 2.469_dp, 2.7682_dp/
+
 !c aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
       dfdlogr(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
      &               wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)+ &
@@ -995,7 +1015,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       do k=2,n
          punten = poben
          dd     = detw(k) * cc / t(k)
-         poben  = punten * (1._dp - dd) / (1. + dd)
+         poben  = punten * (1._dp - dd) / (1._dp + dd)
          p(k)   = 0.5_dp * (poben + punten)
       enddo
 
@@ -1029,6 +1049,12 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
             w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
          case (2)
             w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
+         case (3) ! Bott 2020: wmax above kinv, decreasing linearly to zero (wmin) at the surface
+            if (k <= kinv) then
+               w(k) = (wmax-wmin)/zinv * eta(k) + wmin
+            else
+               w(k) = wmax
+            end if
          case default
             call abortM ('Wrong option for nwProfOpt, choose 1 or 2')
          end select
@@ -1078,16 +1104,28 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      fsum(:)   = 0._dp
      do k=1,n
         nar(k) = iaertyp
-        x0 = 1.0_dp
-        if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+
+        ! Define a scaling factor to tune the original distributions
+        ! General case
+        if (.not.lpJoyce14bc) then
+           x0 = 1._dp
+           if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+        ! special case for Joyce et al 2014 study
+        else if (lpJoyce14bc) then
+           x0 = 1.e-4_dp
+        end if
+
         do ia=1,nka
-          ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
-          if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
-          fsum(k) = fsum(k) + ff(1,ia,k)
+           ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
+           ! special case: save the distribution to replenish (save only once, k==1)
+           if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
+           if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           fsum(k) = fsum(k) + ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
 !        fnorm(k)=fsum(k)
       enddo
+
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
 !#      fname(3:3)=fogtype
@@ -1131,13 +1169,33 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
 ! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
 2000  continue
-      if (rn(ia).le.1._dp) then
-         fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
-      else
-         fcs(ia) = 0.1_dp
+
+! Aerosol type 1 = urban
+      ! general case
+      if (.not.lpJoyce14bc) then
+         if (rn(ia).le.1._dp) then
+            fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
+         else
+            fcs(ia) = 0.1_dp
+         end if
+         xnue = (3._dp + 2._dp * 2._dp) / 3._dp
+         xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+
+      ! special case for Joyce et al 2014 study
+      ! making urban aerosol H2SO4 with remaining mass DOM and gas uptake
+      else if (lpJoyce14bc) then
+         if (rn(ia).le.1._dp) then
+            fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+         else
+            fcs(ia) = 0.1_dp
+         end if
+         ! "average" number of dissoc. ions, H+,SO4=,DOM, Cl- (4)
+         xnue = (3._dp ) / 4._dp
+         ! "average" MW of ion = MW components/#
+         ! sulfacid(98.08)+octene(122.21)+Cl- / 4 diss. com
+         xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
       end if
-      xnue = (3._dp + 2._dp * 2._dp) / 3._dp
-      xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+
       go to 1030
 ! soluble part of rural aerosol: pure (NH4)2SO4
 2010  continue
@@ -1852,6 +1910,7 @@ subroutine sedp (dt)
   !
   ! jjb bugfix ds1 ds2, they were the wrong way
   ! jjb note the different definition of psi: ff here, while ff*detw in latest Bott version of the code
+  ! jjb minor bugfix in c(2) definition, deta(k) was used instead of deta(2). No consequence since they are identical
 
 ! == End of header =============================================================
 
@@ -1940,12 +1999,11 @@ subroutine sedp (dt)
 
               do k=2,nf
 !                 c(k)=dtmax/deta(k)*(ww+w(k))
-                 c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6,t(k) &
-     &                 ,p(k)))
-!     &                 ,p(k))+w(k))
+!                 c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6, t(k), p(k))+w(k))
+                 c(k)=dtmax/deta(k)*(-1.*vterm(rq(jt,ia)*1.d-6, t(k), p(k)))
               enddo
 ! particle dry deposition velocity in lowest model layer:
-              c(2)=dmin1(c(2),dtmax/deta(k)*vd(jt,ia)*(-1.))
+              c(2)=min(c(2),dtmax/deta(2)*vd(jt,ia)*(-1.))
               c(1)   = c(2)
               dt0    = dt0 - dtmax
               x1     = psi(2)
@@ -1998,6 +2056,10 @@ subroutine sedc (dt)
 ! dry deposition and emission of gaseous species
 
 ! jjb work done = implicit none, missing declarations, little cleaning, modules including constants
+
+  USE config, ONLY : &
+! Imported Parameters:
+       lpJoyce14bc
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -2079,10 +2141,22 @@ subroutine sedc (dt)
 !      vg(72)=0.     ! CHBr2I         emission is net flux
 !      vg(73)=0.     ! C2H5I          emission is net flux
 
-  if(ind_gas_rev(4) /= 0) &
-       vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
-  if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
-       vg(ind_gas_rev(34))=vg(ind_gas_rev(30)) ! N2O5=HCl
+  if (.not.lpJoyce14bc) then
+     if(ind_gas_rev(4) /= 0) &
+          vg(ind_gas_rev(4))=0.27e-2_dp              ! NH3 old value, that fitted "nicely" in model    !=0. ! emission is net flux or
+  end if
+
+  ! N2O5
+  ! special case for Joyce et al 2014 study
+  if (lpJoyce14bc) then
+     if(ind_gas_rev(34) /= 0) &
+          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff, 2010)  PJ
+  ! general case
+  else
+     if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
+          vg(ind_gas_rev(34))=vg(ind_gas_rev(30))  ! N2O5=HCl
+  end if
+
   if(ind_gas_rev(37) /= 0) &
        vg(ind_gas_rev(37))=0._dp                  ! DMS           emission is net flux
   if(ind_gas_rev(38) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -2158,6 +2232,30 @@ subroutine sedc (dt)
      s1(j,2)=s1(j,2)+es1(j)*x4*dt*1.e+4_dp/(detw(2)*Avogadro)
   enddo
 
+! Scenario emission for special model study
+  if (lpJoyce14bc) then
+!  surface gas emission  "gasPJ"
+!  if(lst.le.2) then
+!  if(lst.ge.2.AND.lst.le.3) then
+     if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3) then
+!     es1(1)=1.0d12       ! NO
+        es1(ind_gas_rev(1))=1.4e12_dp        ! NO (b25)
+!     es1(4)=4.2e10       ! NH3 (base23)
+!     es1(4)=3.4e11       ! NH3
+!     es1(4)=5.2d10       ! NH3 (3.7% of NO, based on inventory)
+        es1(ind_gas_rev(4))=6.7e10_dp        ! NH3 (4.76% of NO, Yokelson 97)
+!     es1(4)=4.2d11       ! NH3
+!     es1(4)=6.3d11       ! NH3 (b25)
+!     es1(4)=1.0d12       ! NH3
+!     es1(5)=1.5d11       ! SO2 (Dick,2003)
+        es1(ind_gas_rev(5))=3.0e11_dp        ! SO2 (DEC, 2008)
+     else
+        es1(ind_gas_rev(1))=0._dp
+        es1(ind_gas_rev(4))=0._dp
+        es1(ind_gas_rev(5))=0._dp
+     endif
+  end if
+
 end subroutine sedc
 
 !
@@ -2176,6 +2274,7 @@ subroutine sedl (dt)
 
 ! Modifications :
 ! -------------
+  ! jjb minor bugfix in c(2) definition, deta(k) was used instead of deta(2). No consequence since they are identical
   !
 
 ! == End of header =============================================================
@@ -2243,7 +2342,7 @@ subroutine sedl (dt)
         cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
      enddo
 ! particle dry deposition velocity in lowest model layer:
-     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     cc(2)=min(cc(2),-1._dp/deta(2)*vdm(kc))
      do l=1,j2
         do k=2,nf
            psi(k)=sl1(l,kc,k)
@@ -2691,7 +2790,7 @@ subroutine difp (dt)
   !                          There was actually a bug if chem = .false.
   !                          First redefined a local am3 = rho/M_air, with a further 1e6 factor
   !                            in the conversion (thus acm3 = am3 * 1e6)
-  !                          After tests, using rho instead of acm3 gives exactely the same result
+  !                          After tests, using rho instead of acm3 gives exactly the same result
   !                          But am3(k-1)/am3(k) has also been introduced in xc coefficient
   !                          It seems wrong, thus removed
   !
@@ -3304,7 +3403,7 @@ subroutine atk1
   xl(1) = 0._dp
   do k=2,kinv-1
      x0 = kappa * etw(k)
-     x1 = max(detw(k),x2 * (0.1_dp - x4 * exp((etw(k) - zinv) / 15._dp)))
+     x1 = max(detw(k), x2 * (0.1_dp - x4 * exp((etw(k) - zinv) / 15._dp)))
      xl(k) = x0 * x1 / (x0 + x1)
   enddo
   do k=kinv,n
@@ -5334,11 +5433,12 @@ end subroutine advseda
 
 ! Modifications :
 ! -------------
-  ! jjb bugfix: added nuc in argument list, needed in two if tests
+  ! jjb bugfix: added nuc in argument list, needed in two if tests. Also added ifeed (from /nucfeed/, then from config)
 
 ! == End of header =============================================================
 
       USE config, ONLY : &
+     &     ifeed,        &
      &     nkc_l
 
       USE constants, ONLY : &
@@ -5397,7 +5497,6 @@ end subroutine advseda
       dimension smp(nkc,n) ! smp total aerosol mass [mg cm**-3]
       dimension vc(nkc,nkc,n)
       data lj2/1,2,8,9,13,14,19,20,30/
-      common /nucfeed/ ifeed ! jjb added so that ifeed is known in this SR (used in 2 IF tests)
 
 ! == End of declarations =======================================================
 
