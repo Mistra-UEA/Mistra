@@ -36,6 +36,10 @@ subroutine initc (box,n_bl)
 ! -----------
   ! initialisation of chemistry module
 
+! Modifications :
+! -------------
+  ! jjb: missing initialisations
+
 ! == End of header =============================================================
 
 ! Declarations :
@@ -90,7 +94,7 @@ subroutine initc (box,n_bl)
        nlev, &
        nrxn
 
-  USE kpp_aer_Parameters, ONLY : &
+  USE kpp_aer_Parameters, ONLY : & ! jjb rename NSPEC so that variables related to both mechanisms can be declared below
        nspec_a=>NSPEC
   USE kpp_tot_Parameters, ONLY : &
        nspec_t=>NSPEC
@@ -124,56 +128,40 @@ subroutine initc (box,n_bl)
 ! Common blocks:
   common /blck01/ am3(n),cm3(n)
   real (kind=dp) :: am3, cm3
-
   common /blck11/ rc(nkc,n)
   real (kind=dp) :: rc
-
   common /blck12/ cw(nkc,n),cm(nkc,n)
   real (kind=dp) :: cw, cm
-
   common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
   real (kind=dp) :: conv2
-
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-
   common /blck78/ sa1(nka,j2),sac1(nka,j2)
   real (kind=dp) :: sa1,sac1
-
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
-
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
   real (kind=dp) :: detw, deta, eta, etw
-
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
                 e(nkt),dew(nkt),rq(nkt,nka)
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
-
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-
   common /cb63/ fcs(nka),xmol3(nka)
   real (kind=dp) :: fcs, xmol3
-
   common /kinv_i/ kinv
   integer :: kinv
-
   common /kpp_l1/ cloudt(nkc,n)
   logical :: cloudt
-
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
-
   common /kpp_eul/ xadv(10),nspec(10)
   real (kind=dp) :: xadv
   integer :: nspec
-
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
        xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
   real (kind=dp) :: henry_la, xkmt_la, xkef_la, xkeb_la
-
   common /kpp_ltot/ henry_lt(NSPEC_t,nf),xkmt_lt(nf,nkc,NSPEC_t), &
        xkef_lt(nf,nkc,NSPEC_t),xkeb_lt(nf,nkc,NSPEC_t)
   real (kind=dp) :: henry_lt, xkmt_lt, xkef_lt, xkeb_lt
@@ -487,130 +475,144 @@ end subroutine initc
 !-----------------------------------------------------
 !
 
-      subroutine liq_parm (xra,box,n_bl)
-! parameter for liquid phase chemistry
-! LWC, henry, k_mt needed for calculation of gas <--> liquid transfer
-! (see cb kpp_l)
-! nkc=4; 1: sulfate aerosol, 2: seasalt aerosol, 3: sulfate droplets
-!        4: seasalt droplets
-! xra: aerodynamic resistence, needed for calculation of dry deposition velocities
+subroutine liq_parm (xra,box,n_bl)
 
-      USE constants, ONLY : &
+! Description :
+! -----------
+  ! parameter for liquid phase chemistry
+  ! LWC, henry, k_mt needed for calculation of gas <--> liquid transfer
+  ! (see cb kpp_l)
+  ! nkc=4; 1: sulfate aerosol, 2: seasalt aerosol, 3: sulfate droplets
+  !        4: seasalt droplets
+  ! xra: aerodynamic resistence, needed for calculation of dry deposition velocities
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE constants, ONLY : &
 ! Imported Parameters:
-           Avogadro, &
-           m_air
+       Avogadro, &
+       m_air
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nkc
+       nf, &
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      common /blck01/ am3(n),cm3(n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: xra ! aerodynamic resistence
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+! Local scalars:
+  integer :: iph3, iph4, itime, k, kc, nmin, nmin2, nmaxf, nmax
+  logical :: update_now
+! Local arrays:
+  real (kind=dp) :: freep(nf)
 
-      common /kpp_l1/ cloudt(nkc,n)
-      logical cloudt
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kpp_l1/ cloudt(nkc,n)
+  logical :: cloudt
 
-      logical box
-      dimension freep(nf)
-      logical update_now
+! == End of declarations =======================================================
 
-      itime = int(time) ! jjb bugfix: previously lmin was used, but lmin doesn't change during
-                        !   6 dd dub-timesteps... thus fast_k_mt_* routines were called 6 times
-                        !   during a minute, then not during the next minute...
-                        !   Now called once every 2 minutes, as expected.
-      nmin  = 1
-      nmin2 = 2
-      nmaxf = nf
-      nmax  = n
-      if (box) then
-         nmin  = n_bl
-         nmin2 = n_bl
-         nmaxf = n_bl
-         nmax  = n_bl
-      endif
+  itime = int(time) ! jjb bugfix: previously lmin was used, but lmin doesn't change during
+                    !   6 dd dub-timesteps... thus fast_k_mt_* routines were called 6 times
+                    !   during a minute, then not during the next minute...
+                    !   Now called once every 2 minutes, as expected.
+  nmin  = 1
+  nmin2 = 2
+  nmaxf = nf
+  nmax  = n
+  if (box) then
+     nmin  = n_bl
+     nmaxf = n_bl
+     nmax  = n_bl
+  endif
 
 ! free path length (lambda=freep):
-      do k=nmin,nmaxf
-         freep(k)=2.28d-5 * t(k) / p(k)
-      enddo
+  do k=nmin,nmaxf
+     freep(k) = 2.28e-5_dp * t(k) / p(k)
+  enddo
 
 ! conversion of gaseous species and air density
 ! air density: [rho]=kg/m^3
-      cm3(1)=rho(1)*Avogadro/m_air*1e-6
-      am3(1)=rho(1)/m_air
-      cm3(nmin2:nmax)=rho(nmin2:nmax)*Avogadro/m_air*1e-6 ! [air] in mlc/cm^3
-      am3(nmin2:nmax)=rho(nmin2:nmax)/m_air               ! [air] in mol/m^3
+  cm3(1:nmax) = rho(1:nmax) * Avogadro / m_air * 1e-6_dp ! [air] in mlc/cm^3
+  am3(1:nmax) = rho(1:nmax) / m_air                      ! [air] in mol/m^3
 
 
 ! dry deposition velocities for gas phase
-      call gasdrydep (xra,t,rho,freep)
+  call gasdrydep (xra,t,rho,freep)
 
-      call cw_rc (nmaxf)
+  call cw_rc (nmaxf)
 
-! Check if the tot mechanism will be called or not (xph3/4 = 1.) and if a new bin is activated somewhere (update_now)
-      xph3=0.
-      xph4=0.
-      update_now = .false.
+! Check if the tot mechanism will be called or not (iph3/4 = 1) and if a new bin is activated somewhere (update_now)
+  iph3 = 0
+  iph4 = 0
+  update_now = .false.
 
-      do k=nmin,nmaxf
-         do kc=1,nkc
-            if (cm(kc,k).gt.0.) then
-               if (.not.cloudt(kc,k)) update_now = .true.
-               if (kc.eq.3) xph3=1.
-               if (kc.eq.4) xph4=1.
-            endif
-         enddo
-      enddo
+  do k=nmin2,nmaxf
+     do kc=1,nkc
+        if (cm(kc,k).gt.0._dp) then
+           if (.not.cloudt(kc,k)) update_now = .true.
+           if (kc.eq.3) iph3 = 1
+           if (kc.eq.4) iph4 = 1
+        endif
+     enddo
+  enddo
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !! Compute the mean molecular speed (depends only on the temperature)
-!      call v_mean (t(:nmax_chem_aer))
+!    call v_mean (t(:nmax_chem_aer))
 
 ! Call all subroutines needed for aerosols (bins 1 & 2) (aer mechanism)
-      call v_mean_a  (t,nmaxf)      ! T varies slowly with time
-      call henry_a (t,nmaxf)
-      call st_coeff_a
-      call equil_co_a (t,nmaxf)
-      if (itime/120*120.eq.itime .or. update_now ) &
-         call fast_k_mt_a(freep,box,n_bl)
+  call v_mean_a (t,nmaxf)      ! T varies slowly with time
+  call henry_a (t,nmaxf)
+  call st_coeff_a
+  call equil_co_a (t,nmaxf)
+  if (itime/120*120.eq.itime .or. update_now ) call fast_k_mt_a(freep,box,n_bl)
 
 ! If necessary, call all subroutines needed for droplets (bins 3 & 4) (tot mechanism)
-      if (xph3.eq.1..or.xph4.eq.1.) then
-         call v_mean_t  (t,nmaxf)  ! T varies slowly with time
-         call henry_t (t,nmaxf)
-         call st_coeff_t
-         call equil_co_t (t,nmaxf)
-         if(itime/120*120.eq.itime .or. update_now) &
-             call fast_k_mt_t(freep,box,n_bl)
-      endif
+  if (iph3.eq.1 .or. iph4.eq.1) then
+     call v_mean_t (t,nmaxf)  ! T varies slowly with time
+     call henry_t (t,nmaxf)
+     call st_coeff_t
+     call equil_co_t (t,nmaxf)
+     if(itime/120*120.eq.itime .or. update_now) call fast_k_mt_t(freep,box,n_bl)
+  endif
 
 ! calculate rate for surface reaction OH + Cl-
-!      call gamma_surf (box,n_bl) ! jjb not used
+!   call gamma_surf (box,n_bl) ! jjb not used
 
 ! calculate rates for DRY heterogeneous reactions
-      call dry_cw_rc (nmax)
-      call dry_rates_g (t,p,nmax)
-      call dry_rates_a (freep,nmaxf)
-      call dry_rates_t (freep,nmaxf)
+  call dry_cw_rc (nmax)
+  call dry_rates_g (t,p,nmax)
+  call dry_rates_a (freep,nmaxf)
+  call dry_rates_t (freep,nmaxf)
 
-      call activ (box,n_bl)
+  call activ (box,n_bl)
 
-      end subroutine liq_parm
+end subroutine liq_parm
 
 
 !
