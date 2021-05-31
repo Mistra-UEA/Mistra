@@ -619,383 +619,375 @@ end subroutine liq_parm
 !--------------------------------------------------------------------------------
 !
 
-      subroutine st_coeff_t
-! sticking coefficients, needed for calculation of k_mt
+subroutine st_coeff_t
 
-      USE config, ONLY : &
+! Description :
+! -----------
+  ! sticking coefficients, needed for calculation of k_mt
+
+  ! Reference: for instance Davidovits et al, Chem. Rev. 2006, 106, 1323-1354
+
+! Modifications :
+! -------------
+  ! jjb: factorise some repetitive calculations
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
 ! Imported Parameters:
-           lpJoyce14bc
+       lpJoyce14bc
 
-      USE global_params, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n
+       cal => cal15, &   ! calorie      [J]
+       R => gas_const    ! gas constant [J/(mol*K)]
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf, &
+       n
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'tot_Parameters.h' !additional common blocks and other definitions
+  implicit none
 
-      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      double precision alpha, vmean
+  include 'tot_Parameters.h' !additional common blocks and other definitions
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+  real (kind=dp), parameter :: CoR = cal/R
 
-      double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
-      double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
+! Local scalars:
+  integer :: j, k
+  real (kind=dp) :: CoRT, RT, tcorr, zexp2
+  real (kind=dp), external :: a_n2o5
 
-      double precision, parameter :: C_o_R = CAL/RGAS
+! Common blocks:
+  common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-      double precision :: RT               ! RGAS * T(k)
-      double precision :: C_o_RT           ! CAL / (RGAS*T(k))
-      double precision :: tcorr
-      double precision, external :: a_n2o5
+! == End of declarations =======================================================
 
-      integer :: j, k
 
 ! Initialisation (default value = 0.1)
-      alpha(:,:) = 0.1d0
+  alpha(:,:) = 0.1_dp
 
-      do k=2,nf
+  do k=2,nf
 
-         tcorr=1./t(k)-1./298.15
-         RT = RGAS*t(k)
-         C_o_RT = CAL/RT
+     ! Compute a few factors used several times
+     tcorr = 1._dp / t(k) - 1._dp / 298.15_dp
+     RT    = R * t(k)
+     CoRT  = cal/RT
+     zexp2 = exp(2000._dp * tcorr)
 
 ! for some species a temperature dependence is calculated/estimated
 ! using:
 ! alpha = 1./(1.+1./(1./(1./alpha(T0)-1.)*EXP((-DeltaH/RGAS)*TCORR)))
+
 ! standard value
-      alpha(ind_H2SO4,k) =0.65
-      alpha(ind_CH4,k) =0.1
-      alpha(ind_HNO4,k) =0.1
+     alpha(ind_H2SO4,k) = 0.65_dp
+     !alpha(ind_CH4,k)   = 0.1_dp ! default value
+     !alpha(ind_HNO4,k)  = 0.1_dp
 ! experimentally determined values (from MOCCA)
-      alpha(ind_O3P,k) =1.0d-6  ! JPL #15
-      alpha(ind_O1D,k) =1.0d-6  ! JPL #15
-      alpha(ind_O3,k) =  2.0D-03
-      alpha(ind_O2,k) = &
-           1./(1.+1./(1./(1./1.0d-2 -1.)*exp(2000.d0*TCORR))) ! 06.04.00
-!      alpha(ind_OH,k) =  4.0D-03
-      alpha(ind_OH,k) =  1.0D-2
-      alpha(ind_HO2,k) =  2.0D-01
-!      alpha(ind_H2O2,k) =  9.1D-02
-      alpha(ind_H2O2,k) = &
-           1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
-      alpha(ind_NO,k) =  5.0D-05
-      alpha(ind_NO2,k) =  1.5D-03
+     alpha(ind_O3P,k) = 1.0e-6_dp  ! JPL #15
+     alpha(ind_O1D,k) = 1.0e-6_dp  ! JPL #15
+     alpha(ind_O3,k)  = 2.0e-3_dp
+     alpha(ind_O2,k)  = 1./(1._dp +1./(1./(1./1.0d-2 - 1._dp)*zexp2)) ! 06.04.00
+!     alpha(ind_OH,k) = 4.0D-03
+     alpha(ind_OH,k) = 1.0e-2_dp
+     alpha(ind_HO2,k) = 2.0e-1_dp
+!     alpha(ind_H2O2,k) =  9.1D-02
+     alpha(ind_H2O2,k) = 1./(exp(-26.d3/RT+107.8456/R) + 1._dp)
+     alpha(ind_NO,k) =  5.0D-05
+     alpha(ind_NO2,k) =  1.5D-03
 
-      if (lpJoyce14bc) then
-         alpha(ind_NO3,k) =  2.5D-03
-      else
-!         alpha(ind_NO3,k) =  2.5D-03
-         alpha(ind_NO3,k) =  4.0D-02
-      end if
-      if (lpJoyce14bc) then
-         alpha(ind_N2O5,k) = a_n2o5(k,1)
-      else
-!         alpha(ind_N2O5,k) =  2.7D-02
-         alpha(ind_N2O5,k) =  1.0D-01
-      end if
+     if (lpJoyce14bc) then
+        alpha(ind_NO3,k) =  2.5D-03 ! jjb: lower limit Thomas et al. (1989), Mihelcic et al. (1993) (cited by Finlayson Pitt & Pitt, Chemistry of the Upper and Lower Atmosphere, 2000
+     else
+!        alpha(ind_NO3,k) = 2.5D-03
+        alpha(ind_NO3,k) = 4.0D-02
+     end if
+     if (lpJoyce14bc) then
+        alpha(ind_N2O5,k) = a_n2o5(k,1)
+     else
+!        alpha(ind_N2O5,k) = 2.7D-02
+!        alpha(ind_N2O5,k) = 1.0D-01 ! default value
+     end if
 
-      alpha(ind_HONO,k) =  4.0D-02
-!      alpha(ind_HNO3,k) =  8.6D-02
-      alpha(ind_HNO3,k) =  5.0D-01
-      alpha(ind_NH3,k) =  6.0D-02
-      alpha(ind_MO2,k) = &
-           1./(1.+1./(1./(1./1.0d-2-1.)*exp(2000.d0*TCORR)))   ! 06.04.00
-!+      alpha(ind_ROOH,k) =  5.5D-03
-!      alpha(ind_ROOH,k) =  5.5D-03
-!      alpha(ind_ROOH,k) =  0.01
-      alpha(ind_ROOH,k)= &
-           1./(exp(-6.5D3*C_o_RT+32.5*C_o_R)+1.)
-      alpha(ind_HCHO,k) =  4.0D-02
-!      alpha(ind_ACO2,k) =  1.8D-02  !HCOOH
-      alpha(ind_ACO2,k)= &
-           1./(exp(-7.9E3*C_o_RT+34.9*C_o_R)+1.)   !HCOOH
-      alpha(ind_ACTA,k) =  6.7D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_CH3OH,k) =  5.6D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_C2H5OH,k) =  4.8D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_CO2,k) = &
-           1./(1.+1./(1./(1./1.0d-2-1.)*exp(2000.d0*TCORR))) !06.04.00
-!      alpha(ind_HCl,k) =  7.2D-02
-!      alpha(ind_HCl,k) = 0.1
-      alpha(ind_HCl,k) =  1./(exp(-3.072d3/t(k) + 1.283d1)+1.) !T=290: 0.096, T=270: 0.190
-!      alpha(ind_HOCl,k) =  7.2D-02
-!      alpha(ind_HOCl,k) =  5.0D-01 see below
-      alpha(ind_ClNO3,k) =  1.0D-01
-!      alpha(ind_Cl2,k) =  5.5D-02
-      alpha(ind_Cl2,k) = &
-           1./(exp(-1.3D4*C_o_RT+50.*C_o_R)+1.)
-!      alpha(ind_HBr,k) =  7.2D-02
-!      alpha(ind_HBr,k) = 0.05
-      alpha(ind_HBr,k) = 1./(exp(-3.94d3/t(k) + 1.664d1) + 1.) !T=290K: 0.017, T=270K: 0.130
-      alpha(ind_HOBr,k) =  6.0D-01  ! #1077
-      alpha(ind_HOCl,k) = alpha(ind_HOBr,k)
-      alpha(ind_BrNO3,k) =  8.0D-01
-!      alpha(ind_Br2,k) =  5.5D-02
-      alpha(ind_Br2,k) = &
-           1./(exp(-1.3D4*C_o_RT+50.*C_o_R)+1.)
-!      alpha(ind_BrCl,k) =  5.5D-02
-      alpha(ind_BrCl,k) = 0.33 !#840 alpha(ind_Cl2,k)
-      alpha(ind_SO2,k) =  1.1D-01
-!      alpha(ind_CH3SO3H,k) =  8.4D-02
-      alpha(ind_CH3SO3H,k)= &
-           1./(exp(-3.50D3*C_o_RT+16.7*C_o_R) &
-           +1.) ! MSA, #955
-      alpha(ind_DMS,k) = 1.0D-2 ! assumed
-!      alpha(ind_DMSO,k) =  5.6D-02
-      alpha(ind_DMSO,k) =1./(exp(-5.12D3*C_o_RT+23.1*C_o_R) &
-           +1.)  ! #955
-      alpha(ind_DMSO2,k) = &
-           1./(exp(-10.7D3*C_o_RT+43.0*C_o_R) &
-           +1.) ! #955
-      alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
+     alpha(ind_HONO,k) = 4.0D-02
+!     alpha(ind_HNO3,k) = 8.6D-02
+     alpha(ind_HNO3,k) = 5.0D-01
+     alpha(ind_NH3,k) = 6.0D-02
+     alpha(ind_MO2,k) = 1./(1._dp +1./(1./(1./1.0d-2-1._dp)*zexp2))   ! 06.04.00
+!     alpha(ind_ROOH,k) = 5.5D-03
+!     alpha(ind_ROOH,k) = 0.01
+     alpha(ind_ROOH,k)= 1./(exp(-6.5D3*CoRT+32.5*CoR)+1._dp)
+     alpha(ind_HCHO,k) = 4.0D-02
+!     alpha(ind_ACO2,k) = 1.8D-02  !HCOOH
+     alpha(ind_ACO2,k)= 1./(exp(-7.9E3*CoRT+34.9*CoR)+1._dp)   !HCOOH
+     alpha(ind_ACTA,k) = 6.7D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_CH3OH,k) = 5.6D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_C2H5OH,k) = 4.8D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_CO2,k) = 1./(1._dp +1./(1./(1./1.0d-2-1._dp)*zexp2)) !06.04.00
+!     alpha(ind_HCl,k) = 7.2D-02
+!     alpha(ind_HCl,k) = 0.1 ! default value
+     alpha(ind_HCl,k) = 1./(exp(-3.072d3/t(k) + 1.283d1) + 1._dp) !T=290: 0.096, T=270: 0.190
+!     alpha(ind_HOCl,k) = 7.2D-02
+!     alpha(ind_HOCl,k) = 5.0D-01 see below
+!     alpha(ind_ClNO3,k) = 1.0D-01 ! default value
+!     alpha(ind_Cl2,k) = 5.5D-02
+     alpha(ind_Cl2,k) = 1./(exp(-1.3d4*CoRT + 50.*CoR) + 1._dp)
+!     alpha(ind_HBr,k) = 7.2D-02
+!     alpha(ind_HBr,k) = 0.05
+     alpha(ind_HBr,k) = 1./(exp(-3.94d3/t(k) + 1.664d1) + 1._dp) !T=290K: 0.017, T=270K: 0.130
+     alpha(ind_HOBr,k) = 6.0D-01  ! #1077
+     alpha(ind_HOCl,k) = alpha(ind_HOBr,k)
+     alpha(ind_BrNO3,k) = 8.0D-01
+!     alpha(ind_Br2,k) = 5.5D-02
+     alpha(ind_Br2,k) = 1./(exp(-1.3D4*CoRT+50.*CoR)+1._dp)
+!      alpha(ind_BrCl,k) = 5.5D-02
+     alpha(ind_BrCl,k) = 0.33_dp !#840 alpha(ind_Cl2,k)
+     alpha(ind_SO2,k) = 1.1D-01
+!      alpha(ind_CH3SO3H,k) = 8.4D-02
+     alpha(ind_CH3SO3H,k)= 1./(exp(-3.50D3*CoRT+16.7*CoR) + 1._dp) ! MSA, #955
+     alpha(ind_DMS,k) = 1.0D-2 ! assumed
+!      alpha(ind_DMSO,k) = 5.6D-02
+     alpha(ind_DMSO,k) = 1./(exp(-5.12D3*CoRT+23.1*CoR) + 1._dp)  ! #955
+     alpha(ind_DMSO2,k) = 1./(exp(-10.7D3*CoRT+43.0*CoR) + 1._dp) ! #955
+     alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
 ! no uptake of other DMS products like CH3SCH2OO, CH3S, CH3SO, CH3SO2, CH3SO3
-      alpha(ind_INO3,k) = 1./(1.+1./(1./(1./1.0d-1 -1.)* &
-                         exp(2000.d0*TCORR)))!06.04.00
-!!      alpha(ind_HOI,k) =  7.2D-02
-!!      alpha(ind_HOI,k) =  5.0D-01
-      alpha(ind_HOI,k) = alpha(ind_HOBr,k)
-!!      alpha(ind_HI,k) =  7.2D-02
-      alpha(ind_HI,k) =  1./(exp(-4.13d3/t(k) + 1.715d1)+1.)
-      alpha(ind_I2,k) =  1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_IO,k) =  1./(1.+1./(1./(1./ 5.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_I2O2,k) = 1./(1.+1./(1./(1./ 1.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_ICl,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_IBr,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_INO2,k) = 1./(1.+1./(1./(1./ 1.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_ClCHOk,k) =  1./(1.+1./(1./(1./ 1.0d-1 -1.)*
-!     &                 exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_BrCHOk,k) =  1./(1.+1./(1./(1./ 1.0d-1 -1.)*
-!     &                  exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_OIO,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)*exp(2000.d0*
-!     &     TCORR)))             ! assumed, #980
-      alpha(ind_OIO,k) = 1.
-      alpha(ind_HIO3,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)*exp(2000.d0* &
-           TCORR)))             ! assumed, #980
-      alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
+     alpha(ind_INO3,k) = 1./(1._dp +1./(1./(1./1.0d-1 -1._dp)*zexp2))!06.04.00
+!!      alpha(ind_HOI,k) = 7.2D-02
+!!      alpha(ind_HOI,k) = 5.0D-01
+     alpha(ind_HOI,k) = alpha(ind_HOBr,k)
+!!      alpha(ind_HI,k) = 7.2D-02
+     alpha(ind_HI,k) = 1./(exp(-4.13d3/t(k) + 1.715d1)+1._dp)
+     alpha(ind_I2,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_IO,k) = 1./(1._dp +1./(1./(1./ 5.0d-1 -1._dp) * zexp2))!06.04.00
+     alpha(ind_I2O2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
+     alpha(ind_ICl,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_INO2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
+!     alpha(ind_ClCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!      alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!      alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
+     alpha(ind_OIO,k) = 1._dp
+     alpha(ind_HIO3,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2))  ! assumed, #980
+     alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
 !     alpha(ind_I2O,k) = ?
 !     alpha(ind_I2O3,k) = ?
 
-!      alpha(ind_Hg,k)    =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgO,k)   =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgCl,k)  =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgCl2,k) =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgBr,k)  =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgBr2,k) =  1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_Hg,k)    = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgO,k)   = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgCl,k)  = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgCl2,k) = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgBr,k)  = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgBr2,k) = 1.d-1       ! caution - wild guess, no information found!!
 
-      enddo
+  enddo
 
 ! check that alpha <= 1 to avoid that the T-dependencies mess up the
 !  numbers
-      do k=2,nf
-         do j=1,NSPEC
-            alpha(j,k)=min(1.d0,alpha(j,k))
-         end do
-      end do
+  do k=2,nf
+     do j=1,NSPEC
+        alpha(j,k)=min(1.d0,alpha(j,k))
+     end do
+  end do
 
-      end subroutine st_coeff_t
+end subroutine st_coeff_t
 
 !
 !--------------------------------------------------------------------------------
 !
 
-      subroutine st_coeff_a
-! sticking coefficients, needed for calculation of k_mt
+subroutine st_coeff_a
 
-      USE config, ONLY : &
+! Description :
+! -----------
+  ! sticking coefficients, needed for calculation of k_mt
+
+  ! Reference: for instance Davidovits et al, Chem. Rev. 2006, 106, 1323-1354
+
+! Modifications :
+! -------------
+  ! jjb: factorise some repetitive calculations
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
 ! Imported Parameters:
-           lpJoyce14bc
+       lpJoyce14bc
 
-      USE global_params, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n
+       cal => cal15, &   ! calorie      [J]
+       R => gas_const    ! gas constant [J/(mol*K)]
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       nf, &
+       n
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  implicit none
 
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      double precision alpha, vmean
+  include 'aer_Parameters.h' !additional common blocks and other definitions
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+  real (kind=dp), parameter :: CoR = cal/R
 
-      double precision, parameter :: RGAS= 8.314  ! gas constant [J/(mol*K)]
-      double precision, parameter :: CAL = 4.1868 ! conversion calorie->Joule [J/cal]
+! Local scalars:
+  integer :: j, k
+  real (kind=dp) :: CoRT, RT, tcorr, zexp2
+  real (kind=dp), external :: a_n2o5
 
-      double precision, parameter :: C_o_R = CAL/RGAS
+! Common blocks:
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-      double precision :: RT               ! RGAS * T(k)
-      double precision :: C_o_RT           ! CAL / (RGAS*T(k))
-      double precision :: tcorr
-      double precision, external :: a_n2o5
+! == End of declarations =======================================================
 
-      integer :: j, k
 
 ! Initialisation (default value = 0.1)
-      alpha(:,:) = 0.1d0
+  alpha(:,:) = 0.1_dp
 
-      do k=2,nf
+  do k=2,nf
 
-         tcorr=1./t(k)-1./298.15
-         RT = RGAS*t(k)
-         C_o_RT = CAL/RT
+     ! Compute a few factors used several times
+     tcorr = 1._dp / t(k) - 1._dp / 298.15_dp
+     RT    = R * t(k)
+     CoRT  = cal/RT
+     zexp2 = exp(2000._dp * tcorr)
 
 ! for some species a temperature dependence is calculated/estimated
 ! using:
 ! alpha = 1./(1.+1./(1./(1./alpha(T0)-1.)*EXP((-DeltaH/RGAS)*TCORR)))
+
 ! standard value
-      alpha(ind_H2SO4,k) =0.65
-      alpha(ind_CH4,k) =0.1
-      alpha(ind_HNO4,k) =0.1
+     alpha(ind_H2SO4,k) = 0.65_dp
+     !alpha(ind_CH4,k)   = 0.1_dp ! default value
+     !alpha(ind_HNO4,k)  = 0.1_dp
 ! experimentally determined values (from MOCCA)
-      alpha(ind_O3P,k) =1.0d-6  ! JPL #15
-      alpha(ind_O1D,k) =1.0d-6  ! JPL #15
-      alpha(ind_O3,k) =  2.0D-03
-      alpha(ind_O2,k) = &
-           1./(1.+1./(1./(1./1.0d-2 -1.)*exp(2000.d0*TCORR))) ! 06.04.00
-!      alpha(ind_OH,k) =  4.0D-03
-      alpha(ind_OH,k) =  1.0D-2
-      alpha(ind_HO2,k) =  2.0D-01
-!      alpha(ind_H2O2,k) =  9.1D-02
-      alpha(ind_H2O2,k) = &
-           1./(exp(-26.d3/RT+107.8456/RGAS) + 1.)
-      alpha(ind_NO,k) =  5.0D-05
-      alpha(ind_NO2,k) =  1.5D-03
+     alpha(ind_O3P,k) = 1.0e-6_dp  ! JPL #15
+     alpha(ind_O1D,k) = 1.0e-6_dp  ! JPL #15
+     alpha(ind_O3,k)  = 2.0e-3_dp
+     alpha(ind_O2,k)  = 1./(1._dp +1./(1./(1./1.0d-2 - 1._dp)*zexp2)) ! 06.04.00
+!     alpha(ind_OH,k) = 4.0D-03
+     alpha(ind_OH,k) = 1.0e-2_dp
+     alpha(ind_HO2,k) = 2.0e-1_dp
+!     alpha(ind_H2O2,k) = 9.1D-02
+     alpha(ind_H2O2,k) = 1./(exp(-26.d3/RT+107.8456/R) + 1._dp)
+     alpha(ind_NO,k) = 5.0D-05
+     alpha(ind_NO2,k) = 1.5D-03
 
-      if (lpJoyce14bc) then
-         alpha(ind_NO3,k) =  2.5D-03 ! jjb: lower limit Thomas et al. (1989), Mihelcic et al. (1993) (cited by Finlayson Pitt & Pitt, Chemistry of the Upper and Lower Atmosphere, 2000
-      else
-!         alpha(ind_NO3,k) =  2.5D-03
-         alpha(ind_NO3,k) =  4.0D-02
-      end if
-      if (lpJoyce14bc) then
-         alpha(ind_N2O5,k) = a_n2o5(k,1)
-      else
-!         alpha(ind_N2O5,k) =  2.7D-02
-         alpha(ind_N2O5,k) =  1.0D-01
-      end if
+     if (lpJoyce14bc) then
+        alpha(ind_NO3,k) = 2.5D-03 ! jjb: lower limit Thomas et al. (1989), Mihelcic et al. (1993) (cited by Finlayson Pitt & Pitt, Chemistry of the Upper and Lower Atmosphere, 2000
+     else
+!        alpha(ind_NO3,k) = 2.5D-03
+        alpha(ind_NO3,k) = 4.0D-02
+     end if
+     if (lpJoyce14bc) then
+        alpha(ind_N2O5,k) = a_n2o5(k,1)
+     else
+!        alpha(ind_N2O5,k) = 2.7D-02
+!        alpha(ind_N2O5,k) = 1.0D-01 ! default value
+     end if
 
-      alpha(ind_HONO,k) =  4.0D-02
-!      alpha(ind_HNO3,k) =  8.6D-02
-      alpha(ind_HNO3,k) =  5.0D-01
-      alpha(ind_NH3,k) =  6.0D-02
-      alpha(ind_MO2,k) = &
-           1./(1.+1./(1./(1./1.0d-2-1.)*exp(2000.d0*TCORR)))   ! 06.04.00
-!+      alpha(ind_ROOH,k) =  5.5D-03
-!      alpha(ind_ROOH,k) =  5.5D-03
-!      alpha(ind_ROOH,k) =  0.01
-      alpha(ind_ROOH,k)= &
-           1./(exp(-6.5D3*C_o_RT+32.5*C_o_R)+1.)
-      alpha(ind_HCHO,k) =  4.0D-02
-!      alpha(ind_ACO2,k) =  1.8D-02  !HCOOH
-      alpha(ind_ACO2,k)= &
-           1./(exp(-7.9E3*C_o_RT+34.9*C_o_R)+1.)   !HCOOH
-      alpha(ind_ACTA,k) =  6.7D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_CH3OH,k) =  5.6D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_C2H5OH,k) =  4.8D-02  ! at 273 K, Jayne et al., 1991
-      alpha(ind_CO2,k) = &
-           1./(1.+1./(1./(1./1.0d-2-1.)*exp(2000.d0*TCORR))) !06.04.00
-!      alpha(ind_HCl,k) =  7.2D-02
-!      alpha(ind_HCl,k) = 0.1
-      alpha(ind_HCl,k) =  1./(exp(-3.072d3/t(k) + 1.283d1)+1.) !T=290: 0.096, T=270: 0.190
-!      alpha(ind_HOCl,k) =  7.2D-02
-!      alpha(ind_HOCl,k) =  5.0D-01 see below
-      alpha(ind_ClNO3,k) =  1.0D-01
-!      alpha(ind_Cl2,k) =  5.5D-02
-      alpha(ind_Cl2,k) = &
-           1./(exp(-1.3D4*C_o_RT+50.*C_o_R)+1.)
-!      alpha(ind_HBr,k) =  7.2D-02
-!      alpha(ind_HBr,k) = 0.05
-      alpha(ind_HBr,k) = 1./(exp(-3.94d3/t(k) + 1.664d1) + 1.) !T=290K: 0.017, T=270K: 0.130
-      alpha(ind_HOBr,k) =  6.0D-01  ! #1077
-      alpha(ind_HOCl,k) = alpha(ind_HOBr,k)
-      alpha(ind_BrNO3,k) =  8.0D-01
-!      alpha(ind_Br2,k) =  5.5D-02
-      alpha(ind_Br2,k) = &
-           1./(exp(-1.3D4*C_o_RT+50.*C_o_R)+1.)
-!      alpha(ind_BrCl,k) =  5.5D-02
-      alpha(ind_BrCl,k) = 0.33 !#840 alpha(ind_Cl2,k)
-      alpha(ind_SO2,k) =  1.1D-01
-!      alpha(ind_CH3SO3H,k) =  8.4D-02
-      alpha(ind_CH3SO3H,k)= &
-           1./(exp(-3.50D3*C_o_RT+16.7*C_o_R) &
-           +1.) ! MSA, #955
-      alpha(ind_DMS,k) = 1.0D-2 ! assumed
-!      alpha(ind_DMSO,k) =  5.6D-02
-      alpha(ind_DMSO,k) =1./(exp(-5.12D3*C_o_RT+23.1*C_o_R) &
-           +1.)  ! #955
-      alpha(ind_DMSO2,k) = &
-           1./(exp(-10.7D3*C_o_RT+43.0*C_o_R) &
-           +1.) ! #955
-      alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
+     alpha(ind_HONO,k) = 4.0D-02
+!     alpha(ind_HNO3,k) = 8.6D-02
+     alpha(ind_HNO3,k) = 5.0D-01
+     alpha(ind_NH3,k) = 6.0D-02
+     alpha(ind_MO2,k) = 1./(1._dp +1./(1./(1./1.0d-2-1._dp)*zexp2))   ! 06.04.00
+!     alpha(ind_ROOH,k) = 5.5D-03
+!     alpha(ind_ROOH,k) = 0.01
+     alpha(ind_ROOH,k)= 1./(exp(-6.5D3*CoRT+32.5*CoR)+1._dp)
+     alpha(ind_HCHO,k) = 4.0D-02
+!     alpha(ind_ACO2,k) = 1.8D-02  !HCOOH
+     alpha(ind_ACO2,k)= 1./(exp(-7.9E3*CoRT+34.9*CoR)+1._dp)   !HCOOH
+     alpha(ind_ACTA,k) = 6.7D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_CH3OH,k) = 5.6D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_C2H5OH,k) = 4.8D-02  ! at 273 K, Jayne et al., 1991
+     alpha(ind_CO2,k) = 1./(1._dp +1./(1./(1./1.0d-2-1._dp)*zexp2)) !06.04.00
+!     alpha(ind_HCl,k) = 7.2D-02
+!     alpha(ind_HCl,k) = 0.1 ! default value
+     alpha(ind_HCl,k) = 1./(exp(-3.072d3/t(k) + 1.283d1) + 1._dp) !T=290: 0.096, T=270: 0.190
+!     alpha(ind_HOCl,k) = 7.2D-02
+!     alpha(ind_HOCl,k) = 5.0D-01 see below
+!     alpha(ind_ClNO3,k) = 1.0D-01 ! default value
+!     alpha(ind_Cl2,k) = 5.5D-02
+     alpha(ind_Cl2,k) = 1./(exp(-1.3d4*CoRT + 50.*CoR) + 1._dp)
+!     alpha(ind_HBr,k) = 7.2D-02
+!     alpha(ind_HBr,k) = 0.05
+     alpha(ind_HBr,k) = 1./(exp(-3.94d3/t(k) + 1.664d1) + 1._dp) !T=290K: 0.017, T=270K: 0.130
+     alpha(ind_HOBr,k) = 6.0D-01  ! #1077
+     alpha(ind_HOCl,k) = alpha(ind_HOBr,k)
+     alpha(ind_BrNO3,k) = 8.0D-01
+!     alpha(ind_Br2,k) = 5.5D-02
+     alpha(ind_Br2,k) = 1./(exp(-1.3D4*CoRT+50.*CoR)+1._dp)
+!      alpha(ind_BrCl,k) = 5.5D-02
+     alpha(ind_BrCl,k) = 0.33_dp !#840 alpha(ind_Cl2,k)
+     alpha(ind_SO2,k) = 1.1D-01
+!      alpha(ind_CH3SO3H,k) = 8.4D-02
+     alpha(ind_CH3SO3H,k)= 1./(exp(-3.50D3*CoRT+16.7*CoR) + 1._dp) ! MSA, #955
+     alpha(ind_DMS,k) = 1.0D-2 ! assumed
+!      alpha(ind_DMSO,k) = 5.6D-02
+     alpha(ind_DMSO,k) = 1./(exp(-5.12D3*CoRT+23.1*CoR) + 1._dp)  ! #955
+     alpha(ind_DMSO2,k) = 1./(exp(-10.7D3*CoRT+43.0*CoR) + 1._dp) ! #955
+     alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
 ! no uptake of other DMS products like CH3SCH2OO, CH3S, CH3SO, CH3SO2, CH3SO3
-      alpha(ind_INO3,k) = 1./(1.+1./(1./(1./1.0d-1 -1.)* &
-                         exp(2000.d0*TCORR)))!06.04.00
-!!      alpha(ind_HOI,k) =  7.2D-02
-!!      alpha(ind_HOI,k) =  5.0D-01
-      alpha(ind_HOI,k) = alpha(ind_HOBr,k)
-!!      alpha(ind_HI,k) =  7.2D-02
-      alpha(ind_HI,k) =  1./(exp(-4.13d3/t(k) + 1.715d1)+1.)
-      alpha(ind_I2,k) =  1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_IO,k) =  1./(1.+1./(1./(1./ 5.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_I2O2,k) = 1./(1.+1./(1./(1./ 1.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_ICl,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_IBr,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-      alpha(ind_INO2,k) = 1./(1.+1./(1./(1./ 1.0d-1 -1.)* &
-                       exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_ClCHOk,k) =  1./(1.+1./(1./(1./ 1.0d-1 -1.)*
-!     &                 exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_BrCHOk,k) =  1./(1.+1./(1./(1./ 1.0d-1 -1.)*
-!     &                  exp(2000.d0*TCORR)))!06.04.00
-!      alpha(ind_OIO,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)*exp(2000.d0*
-!     &     TCORR)))             ! assumed, #980
-      alpha(ind_OIO,k) = 1.
-      alpha(ind_HIO3,k) = 1./(1.+1./(1./(1./ 1.0d-2 -1.)*exp(2000.d0* &
-           TCORR)))             ! assumed, #980
-      alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
+     alpha(ind_INO3,k) = 1./(1._dp +1./(1./(1./1.0d-1 -1._dp)*zexp2))!06.04.00
+!!      alpha(ind_HOI,k) = 7.2D-02
+!!      alpha(ind_HOI,k) = 5.0D-01
+     alpha(ind_HOI,k) = alpha(ind_HOBr,k)
+!!      alpha(ind_HI,k) = 7.2D-02
+     alpha(ind_HI,k) = 1./(exp(-4.13d3/t(k) + 1.715d1)+1._dp)
+     alpha(ind_I2,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_IO,k) = 1./(1._dp +1./(1./(1./ 5.0d-1 -1._dp) * zexp2))!06.04.00
+     alpha(ind_I2O2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
+     alpha(ind_ICl,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     alpha(ind_INO2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
+!     alpha(ind_ClCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!      alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!      alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
+     alpha(ind_OIO,k) = 1._dp
+     alpha(ind_HIO3,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2))  ! assumed, #980
+     alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
 !     alpha(ind_I2O,k) = ?
 !     alpha(ind_I2O3,k) = ?
 
-!      alpha(ind_Hg,k)    =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgO,k)   =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgCl,k)  =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgCl2,k) =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgBr,k)  =  1.d-1       ! caution - wild guess, no information found!!
-!      alpha(ind_HgBr2,k) =  1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_Hg,k)    = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgO,k)   = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgCl,k)  = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgCl2,k) = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgBr,k)  = 1.d-1       ! caution - wild guess, no information found!!
+!     alpha(ind_HgBr2,k) = 1.d-1       ! caution - wild guess, no information found!!
 
-      enddo
+  enddo
 
 ! check that alpha <= 1 to avoid that the T-dependencies mess up the
 !  numbers
-      do k=2,nf
-         do j=1,NSPEC
-            alpha(j,k)=min(1.d0,alpha(j,k))
-         end do
-      end do
+  do k=2,nf
+     do j=1,NSPEC
+        alpha(j,k)=min(1.d0,alpha(j,k))
+     end do
+  end do
 
-      end subroutine st_coeff_a
+end subroutine st_coeff_a
 
 
 !
@@ -1288,8 +1280,8 @@ end subroutine liq_parm
 !        vmean(ind_RAN1,k) = func(,k)
 !        vmean(ind_RAN2,k) = func(,k)
          vmean(ind_N2O5,k) = func(1.08d-1,k)
-!        vmean(ind_HNO4,k) =  func(6.3d-2,k) ! jjb mistake!
-         vmean(ind_HNO4,k) =  func(7.9d-2,k)
+!        vmean(ind_HNO4,k) = func(6.3d-2,k) ! jjb mistake!
+         vmean(ind_HNO4,k) = func(7.9d-2,k)
          vmean(ind_NO3,k) = func(6.2d-2,k)
          vmean(ind_DMS,k) = func(6.2d-2,k)
          vmean(ind_HOCl,k) = func(5.2d-2,k)
@@ -1329,8 +1321,8 @@ end subroutine liq_parm
          vmean(ind_CH3SO3,k) = func(9.5d-2,k)
          vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
          vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
-         vmean(ind_CO,k) =  func(2.8d-2,k)
-         vmean(ind_CO2,k) =  func(4.4d-2,k)
+         vmean(ind_CO,k) = func(2.8d-2,k)
+         vmean(ind_CO2,k) = func(4.4d-2,k)
 !         vmean(ind_I2O,k) = func(2.70d-1,k)
 !         vmean(ind_I2O3,k) = func(3.02d-1,k)
 !         vmean(ind_I2O4,k) = func(3.18d-1,k)
@@ -1463,8 +1455,8 @@ end subroutine liq_parm
 !        vmean(ind_RAN1,k) = func(,k)
 !        vmean(ind_RAN2,k) = func(,k)
          vmean(ind_N2O5,k) = func(1.08d-1,k)
-!         vmean(ind_HNO4,k) =  func(6.3d-2,k) ! jjb mistake!
-         vmean(ind_HNO4,k) =  func(7.9d-2,k)
+!         vmean(ind_HNO4,k) = func(6.3d-2,k) ! jjb mistake!
+         vmean(ind_HNO4,k) = func(7.9d-2,k)
          vmean(ind_NO3,k) = func(6.2d-2,k)
          vmean(ind_DMS,k) = func(6.2d-2,k)
          vmean(ind_HOCl,k) = func(5.2d-2,k)
@@ -1504,8 +1496,8 @@ end subroutine liq_parm
          vmean(ind_CH3SO3,k) = func(9.5d-2,k)
          vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
          vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
-         vmean(ind_CO,k) =  func(2.8d-2,k)
-         vmean(ind_CO2,k) =  func(4.4d-2,k)
+         vmean(ind_CO,k) = func(2.8d-2,k)
+         vmean(ind_CO2,k) = func(4.4d-2,k)
 !         vmean(ind_I2O,k) = func(2.70d-1,k)
 !         vmean(ind_I2O3,k) = func(3.02d-1,k)
 !         vmean(ind_I2O4,k) = func(3.18d-1,k)
@@ -1655,8 +1647,8 @@ end subroutine liq_parm
          henry(ind_INO3,k)=0.0d0      !
 !         henry(ind_I2O,k)=0.0d0      !
 !         henry(ind_I2O3,k)=0.0d0      !
-!         henry(ind_OIO,k)  =   unknown but not needed as only surface reaction and no reversible uptake
-!         henry(ind_HIO3,k) =                      -"-
+!         henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
+!         henry(ind_HIO3,k) =                     -"-
          henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
 !        henry(ind_CH3SO2,k)= !RS_MOCCA
 !        henry(ind_CH3SO3,k)= !RS_MOCCA
@@ -1872,8 +1864,8 @@ end subroutine liq_parm
          henry(ind_INO3,k)=0.0d0      !
 !         henry(ind_I2O,k)=0.0d0      !
 !         henry(ind_I2O3,k)=0.0d0      !
-!         henry(ind_OIO,k)  =   unknown but not needed as only surface reaction and no reversible uptake
-!         henry(ind_HIO3,k) =                      -"-
+!         henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
+!         henry(ind_HIO3,k) =                     -"-
          henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
 !        henry(ind_CH3SO2,k)= !RS_MOCCA
 !        henry(ind_CH3SO3,k)= !RS_MOCCA
@@ -2884,7 +2876,7 @@ end subroutine liq_parm
                  1.0D4*cv2*xgamma(k,1,kc)*xgamma(k,14,kc)
 
             xkef(k,kc,ind_Cl2ml1) = xsw*5.2d4*xgamma(k,15,kc)    !Chameides '84
-            xkeb(k,kc,ind_Cl2ml1) =  1.d10*cv2*xgamma(k,14,kc)
+            xkeb(k,kc,ind_Cl2ml1) = 1.d10*cv2*xgamma(k,14,kc)
 
 !            xkef(k,kc,ind_Cl2) = 1.1D-3
 !            xkeb(k,kc,ind_Cl2) = 2.1D2* cv2
@@ -3099,7 +3091,7 @@ end subroutine liq_parm
                  1.0D4* cv2*xgamma(k,1,kc)*xgamma(k,14,kc)
 
             xkef(k,kc,ind_Cl2ml1) = xsw*5.2d4*xgamma(k,15,kc)    !Chameides '84
-            xkeb(k,kc,ind_Cl2ml1) =  1.d10*cv2*xgamma(k,14,kc)
+            xkeb(k,kc,ind_Cl2ml1) = 1.d10*cv2*xgamma(k,14,kc)
 
 !            xkef(k,kc,ind_Cl2) = 1.1D-3
 !            xkeb(k,kc,ind_Cl2) = 2.1D2* cv2
