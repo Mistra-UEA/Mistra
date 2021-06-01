@@ -751,22 +751,22 @@ subroutine st_coeff_t
      alpha(ind_BrNO3,k) = 8.0D-01
 !     alpha(ind_Br2,k) = 5.5D-02
      alpha(ind_Br2,k) = 1./(exp(-1.3D4*CoRT+50.*CoR)+1._dp)
-!      alpha(ind_BrCl,k) = 5.5D-02
+!     alpha(ind_BrCl,k) = 5.5D-02
      alpha(ind_BrCl,k) = 0.33_dp !#840 alpha(ind_Cl2,k)
      alpha(ind_SO2,k) = 1.1D-01
-!      alpha(ind_CH3SO3H,k) = 8.4D-02
+!     alpha(ind_CH3SO3H,k) = 8.4D-02
      alpha(ind_CH3SO3H,k)= 1./(exp(-3.50D3*CoRT+16.7*CoR) + 1._dp) ! MSA, #955
      alpha(ind_DMS,k) = 1.0D-2 ! assumed
-!      alpha(ind_DMSO,k) = 5.6D-02
+!     alpha(ind_DMSO,k) = 5.6D-02
      alpha(ind_DMSO,k) = 1./(exp(-5.12D3*CoRT+23.1*CoR) + 1._dp)  ! #955
      alpha(ind_DMSO2,k) = 1./(exp(-10.7D3*CoRT+43.0*CoR) + 1._dp) ! #955
      alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
 ! no uptake of other DMS products like CH3SCH2OO, CH3S, CH3SO, CH3SO2, CH3SO3
      alpha(ind_INO3,k) = 1./(1._dp +1./(1./(1./1.0d-1 -1._dp)*zexp2))!06.04.00
-!!      alpha(ind_HOI,k) = 7.2D-02
-!!      alpha(ind_HOI,k) = 5.0D-01
+!!     alpha(ind_HOI,k) = 7.2D-02
+!!     alpha(ind_HOI,k) = 5.0D-01
      alpha(ind_HOI,k) = alpha(ind_HOBr,k)
-!!      alpha(ind_HI,k) = 7.2D-02
+!!     alpha(ind_HI,k) = 7.2D-02
      alpha(ind_HI,k) = 1./(exp(-4.13d3/t(k) + 1.715d1)+1._dp)
      alpha(ind_I2,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
      alpha(ind_IO,k) = 1./(1._dp +1./(1./(1./ 5.0d-1 -1._dp) * zexp2))!06.04.00
@@ -775,8 +775,8 @@ subroutine st_coeff_t
      alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
      alpha(ind_INO2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
 !     alpha(ind_ClCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
-!      alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
-!      alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
+!     alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!     alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
      alpha(ind_OIO,k) = 1._dp
      alpha(ind_HIO3,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2))  ! assumed, #980
      alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
@@ -938,22 +938,22 @@ subroutine st_coeff_a
      alpha(ind_BrNO3,k) = 8.0D-01
 !     alpha(ind_Br2,k) = 5.5D-02
      alpha(ind_Br2,k) = 1./(exp(-1.3D4*CoRT+50.*CoR)+1._dp)
-!      alpha(ind_BrCl,k) = 5.5D-02
+!     alpha(ind_BrCl,k) = 5.5D-02
      alpha(ind_BrCl,k) = 0.33_dp !#840 alpha(ind_Cl2,k)
      alpha(ind_SO2,k) = 1.1D-01
-!      alpha(ind_CH3SO3H,k) = 8.4D-02
+!     alpha(ind_CH3SO3H,k) = 8.4D-02
      alpha(ind_CH3SO3H,k)= 1./(exp(-3.50D3*CoRT+16.7*CoR) + 1._dp) ! MSA, #955
      alpha(ind_DMS,k) = 1.0D-2 ! assumed
-!      alpha(ind_DMSO,k) = 5.6D-02
+!     alpha(ind_DMSO,k) = 5.6D-02
      alpha(ind_DMSO,k) = 1./(exp(-5.12D3*CoRT+23.1*CoR) + 1._dp)  ! #955
      alpha(ind_DMSO2,k) = 1./(exp(-10.7D3*CoRT+43.0*CoR) + 1._dp) ! #955
      alpha(ind_CH3SO2H,k) = 2.0D-4 ! assumed #2123, MSIA
 ! no uptake of other DMS products like CH3SCH2OO, CH3S, CH3SO, CH3SO2, CH3SO3
      alpha(ind_INO3,k) = 1./(1._dp +1./(1./(1./1.0d-1 -1._dp)*zexp2))!06.04.00
-!!      alpha(ind_HOI,k) = 7.2D-02
-!!      alpha(ind_HOI,k) = 5.0D-01
+!!     alpha(ind_HOI,k) = 7.2D-02
+!!     alpha(ind_HOI,k) = 5.0D-01
      alpha(ind_HOI,k) = alpha(ind_HOBr,k)
-!!      alpha(ind_HI,k) = 7.2D-02
+!!     alpha(ind_HI,k) = 7.2D-02
      alpha(ind_HI,k) = 1./(exp(-4.13d3/t(k) + 1.715d1)+1._dp)
      alpha(ind_I2,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
      alpha(ind_IO,k) = 1./(1._dp +1./(1./(1./ 5.0d-1 -1._dp) * zexp2))!06.04.00
@@ -962,8 +962,8 @@ subroutine st_coeff_a
      alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
      alpha(ind_INO2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
 !     alpha(ind_ClCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
-!      alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
-!      alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
+!     alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
+!     alpha(ind_OIO,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2)) ! assumed, #980
      alpha(ind_OIO,k) = 1._dp
      alpha(ind_HIO3,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp)*zexp2))  ! assumed, #980
      alpha(ind_XOR,k) = 7.0d-2  ! same as bromoethanol, Jayne et al., 1991
@@ -1106,7 +1106,7 @@ end subroutine st_coeff_a
 !-----------------------------------------------------
 !
 
-      subroutine v_mean (temperature)
+     subroutine v_mean (temperature)
 
 ! Description :
 ! -----------
@@ -1217,349 +1217,410 @@ end subroutine st_coeff_a
 !-----------------------------------------------------
 !
 
-      subroutine v_mean_t (tt,nmaxf)
-! mean molecular speed from Maxwell-Boltzmann distribution:
-! v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+subroutine v_mean_t (tt,nmaxf)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! mean molecular speed from Maxwell-Boltzmann distribution:
+  ! v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+  ! v_mean in m/s
+
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! jjb vmean SO3 and HOSO2 were missing, HNO4 was wrong (HNO3 mass used instead of HNO4)
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n
+       nf, &
+       n
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'tot_Parameters.h' !additional common blocks and other definitions
-!      parameter (nf=100,n=nf+50)
-      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  implicit none
 
-      dimension tt(n)
-! v_mean in m/s
-! sqrt(8*R_gas/pi)=4.60138
-      func(a,k)=dsqrt(tt(k)/a)*4.60138
+  include 'tot_Parameters.h' !additional common blocks and other definitions
+
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: tt(n)
+  integer, intent(in) :: nmaxf
+
+! Local scalars:
+  integer :: k
+
+! Common blocks:
+  common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+
+! Statement function
+  real (kind=dp) :: func, a
+  ! sqrt(8*R_gas/pi)=4.60138
+  func(a,k)=sqrt(tt(k)/a)*4.60138
+
+! == End of declarations =======================================================
 
 ! Initialisation of vmean
-      vmean(:,:) = 0.d0 ! jjb matrix
+  vmean(:,:) = 0._dp
 
-      do k=1,nmaxf
-!        do l=1,NSPEC
-!           vmean(k,l)=0. ! jjb matrix above
-!        enddo
-         vmean(ind_NO,k) = func(3.d-2,k)
-         vmean(ind_NO2,k) = func(4.6d-2,k)
-         vmean(ind_HNO3,k) = func(6.3d-2,k)
-         vmean(ind_NH3,k) = func(1.7d-2,k)
-         vmean(ind_SO2,k) = func(6.4d-2,k)
-         vmean(ind_SO3,k) = func(8.0d-2,k) ! jjb was missing
-         vmean(ind_HOSO2,k) = func(8.1d-2,k) ! jjb was missing
-         vmean(ind_H2SO4,k) = func(9.8d-2,k)
-         vmean(ind_O3,k) = func(4.8d-2,k)
-         vmean(ind_CH4,k) = func(1.6d-2,k)
-         vmean(ind_C2H6,k) = func(3.d-2,k)
-!         vmean(ind_C3H8,k) = func(4.4d-2,k)
-!         vmean(ind_ALKA,k) = func(,k)
-         vmean(ind_ETHE,k) = func(2.8d-2,k)
-!         vmean(ind_ALKE,k) = func(,k)
-!         vmean(ind_AROM,k) = func(,k)
-         vmean(ind_ACO2,k) = func(4.6d-2,k)
-         vmean(ind_ACTA,k) = func(6.d-2,k)
-         vmean(ind_HCHO,k) = func(3.d-2,k)
-         vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
-         vmean(ind_H2O2,k) = func(3.4d-2,k)
-         vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
-         vmean(ind_HONO,k) = func(4.7d-2,k)
-         vmean(ind_PAN,k) = func(1.21d-1,k)
-!         vmean(ind_TPAN,k) = func(1.59d-1,k)
-!        vmean(ind_KET,k) = func(,k)
-!         vmean(ind_CRES,k) = func(1.08d-1,k)
-!         vmean(ind_DIAL,k) = func(8.4d-2,k)
-!         vmean(ind_GLYX,k) = func(5.8d-2,k)
-!         vmean(ind_MGLY,k) = func(7.2d-2,k)
-!        vmean(ind_NH4NO3,k) = func(8.1d-2,k)
-         vmean(ind_HCl,k) = func(3.6d-2,k)
-!        vmean(ind_R3N2,k) = func(,k)
-!        vmean(ind_RAN1,k) = func(,k)
-!        vmean(ind_RAN2,k) = func(,k)
-         vmean(ind_N2O5,k) = func(1.08d-1,k)
-!        vmean(ind_HNO4,k) = func(6.3d-2,k) ! jjb mistake!
-         vmean(ind_HNO4,k) = func(7.9d-2,k)
-         vmean(ind_NO3,k) = func(6.2d-2,k)
-         vmean(ind_DMS,k) = func(6.2d-2,k)
-         vmean(ind_HOCl,k) = func(5.2d-2,k)
-         vmean(ind_ClNO2,k) = func(8.1d-2,k)
-         vmean(ind_ClNO3,k) = func(9.7d-2,k)
-         vmean(ind_Cl2,k) = func(7.1d-2,k)
-         vmean(ind_Cl2O2,k) = func(1.029d-1,k)
-         vmean(ind_HBr,k) = func(8.1d-2,k)
-         vmean(ind_HOBr,k) = func(9.7d-2,k)
-         vmean(ind_BrNO2,k) = func(1.26d-1,k)
-         vmean(ind_BrNO3,k) = func(1.42d-1,k)
-         vmean(ind_Br2,k) = func(1.6d-1,k)
-         vmean(ind_BrCl,k) = func(1.15d-1,k)
-         vmean(ind_HI,k) = func(1.28d-1,k)
-         vmean(ind_HOI,k) = func(1.44d-1,k)
-         vmean(ind_I2O2,k) = func(2.86d-1,k)
-         vmean(ind_INO2,k) = func(1.73d-1,k)
-         vmean(ind_INO3,k) = func(1.89d-1,k)
-         vmean(ind_I2,k) = func(2.54d-1,k)
-         vmean(ind_ICl,k) = func(1.62d-1,k)
-         vmean(ind_IBr,k) = func(2.07d-1,k)
-         vmean(ind_HIO3,k) = func(1.76d-1,k)
-         vmean(ind_CH3I,k) = func(1.42d-1,k)
-         vmean(ind_CH2I2,k) = func(2.68d-1,k)
-         vmean(ind_CH2ClI,k) = func(1.76d-1,k)
-         vmean(ind_C3H7I,k) = func(1.7d-1,k)
-         vmean(ind_CH2BrI,k) = func(2.21d-1,k)
-!         vmean(ind_CHBr2I,k) = func(3.d-1,k)
-         vmean(ind_C2H5I,k) = func(1.56d-1,k)
-         vmean(ind_DMS,k) = func(6.2d-2,k)
-         vmean(ind_DMSO,k) = func(7.8d-2,k)
-         vmean(ind_DMSO2,k) = func(9.4d-2,k)
-         vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
-         vmean(ind_CH3S,k) = func(4.7d-2,k)
-         vmean(ind_CH3SO,k) = func(6.3d-2,k)
-         vmean(ind_CH3SO2,k) = func(7.9d-2,k)
-         vmean(ind_CH3SO3,k) = func(9.5d-2,k)
-         vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
-         vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
-         vmean(ind_CO,k) = func(2.8d-2,k)
-         vmean(ind_CO2,k) = func(4.4d-2,k)
-!         vmean(ind_I2O,k) = func(2.70d-1,k)
-!         vmean(ind_I2O3,k) = func(3.02d-1,k)
-!         vmean(ind_I2O4,k) = func(3.18d-1,k)
-!         vmean(ind_I2O5,k) = func(3.34d-1,k)
-!         vmean(ind_INO,k) = func(1.57d-1,k)
-         vmean(ind_Br2O,k) = func(1.76d-1,k)
-         vmean(ind_ClONO,k) = func(8.15d-2,k)
-         vmean(ind_ClO3,k) = func(8.35d-2,k)
-         vmean(ind_Cl2O3,k) = func(1.19d-1,k)
-         vmean(ind_CH3OH,k) = func(3.2d-2,k)
-         vmean(ind_C2H5OH,k) = func(4.6d-2,k)
-         vmean(ind_H2,k) = func(2.0d-3,k)
-         vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
-         vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
-         vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
-         vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
-         vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
-         vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
-!         vmean(ind_Hg,k)    = func(2.00d-1,k)
-!         vmean(ind_HgO,k)   = func(2.16d-1,k)
-!         vmean(ind_HgCl,k)  = func(2.36d-1,k)
-!         vmean(ind_HgCl2,k) = func(2.72d-1,k)
-!         vmean(ind_HgBr,k)  = func(2.81d-1,k)
-!         vmean(ind_HgBr2,k) = func(3.61d-1,k)
+  do k=1,nmaxf
+     vmean(ind_NO,k) = func(3.d-2,k)
+     vmean(ind_NO2,k) = func(4.6d-2,k)
+     vmean(ind_HNO3,k) = func(6.3d-2,k)
+     vmean(ind_NH3,k) = func(1.7d-2,k)
+     vmean(ind_SO2,k) = func(6.4d-2,k)
+     vmean(ind_SO3,k) = func(8.0d-2,k)
+     vmean(ind_HOSO2,k) = func(8.1d-2,k)
+     vmean(ind_H2SO4,k) = func(9.8d-2,k)
+     vmean(ind_O3,k) = func(4.8d-2,k)
+     vmean(ind_CH4,k) = func(1.6d-2,k)
+     vmean(ind_C2H6,k) = func(3.d-2,k)
+!     vmean(ind_C3H8,k) = func(4.4d-2,k)
+!     vmean(ind_ALKA,k) = func(,k)
+     vmean(ind_ETHE,k) = func(2.8d-2,k)
+!     vmean(ind_ALKE,k) = func(,k)
+!     vmean(ind_AROM,k) = func(,k)
+     vmean(ind_ACO2,k) = func(4.6d-2,k)
+     vmean(ind_ACTA,k) = func(6.d-2,k)
+     vmean(ind_HCHO,k) = func(3.d-2,k)
+     vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
+     vmean(ind_H2O2,k) = func(3.4d-2,k)
+     vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
+     vmean(ind_HONO,k) = func(4.7d-2,k)
+     vmean(ind_PAN,k) = func(1.21d-1,k)
+!     vmean(ind_TPAN,k) = func(1.59d-1,k)
+!     vmean(ind_KET,k) = func(,k)
+!     vmean(ind_CRES,k) = func(1.08d-1,k)
+!     vmean(ind_DIAL,k) = func(8.4d-2,k)
+!     vmean(ind_GLYX,k) = func(5.8d-2,k)
+!     vmean(ind_MGLY,k) = func(7.2d-2,k)
+!     vmean(ind_NH4NO3,k) = func(8.1d-2,k)
+     vmean(ind_HCl,k) = func(3.6d-2,k)
+!     vmean(ind_R3N2,k) = func(,k)
+!     vmean(ind_RAN1,k) = func(,k)
+!     vmean(ind_RAN2,k) = func(,k)
+     vmean(ind_N2O5,k) = func(1.08d-1,k)
+     vmean(ind_HNO4,k) = func(7.9d-2,k)
+     vmean(ind_NO3,k) = func(6.2d-2,k)
+     vmean(ind_DMS,k) = func(6.2d-2,k)
+     vmean(ind_HOCl,k) = func(5.2d-2,k)
+     vmean(ind_ClNO2,k) = func(8.1d-2,k)
+     vmean(ind_ClNO3,k) = func(9.7d-2,k)
+     vmean(ind_Cl2,k) = func(7.1d-2,k)
+     vmean(ind_Cl2O2,k) = func(1.029d-1,k)
+     vmean(ind_HBr,k) = func(8.1d-2,k)
+     vmean(ind_HOBr,k) = func(9.7d-2,k)
+     vmean(ind_BrNO2,k) = func(1.26d-1,k)
+     vmean(ind_BrNO3,k) = func(1.42d-1,k)
+     vmean(ind_Br2,k) = func(1.6d-1,k)
+     vmean(ind_BrCl,k) = func(1.15d-1,k)
+     vmean(ind_HI,k) = func(1.28d-1,k)
+     vmean(ind_HOI,k) = func(1.44d-1,k)
+     vmean(ind_I2O2,k) = func(2.86d-1,k)
+     vmean(ind_INO2,k) = func(1.73d-1,k)
+     vmean(ind_INO3,k) = func(1.89d-1,k)
+     vmean(ind_I2,k) = func(2.54d-1,k)
+     vmean(ind_ICl,k) = func(1.62d-1,k)
+     vmean(ind_IBr,k) = func(2.07d-1,k)
+     vmean(ind_HIO3,k) = func(1.76d-1,k)
+     vmean(ind_CH3I,k) = func(1.42d-1,k)
+     vmean(ind_CH2I2,k) = func(2.68d-1,k)
+     vmean(ind_CH2ClI,k) = func(1.76d-1,k)
+     vmean(ind_C3H7I,k) = func(1.7d-1,k)
+     vmean(ind_CH2BrI,k) = func(2.21d-1,k)
+!     vmean(ind_CHBr2I,k) = func(3.d-1,k)
+     vmean(ind_C2H5I,k) = func(1.56d-1,k)
+     vmean(ind_DMS,k) = func(6.2d-2,k)
+     vmean(ind_DMSO,k) = func(7.8d-2,k)
+     vmean(ind_DMSO2,k) = func(9.4d-2,k)
+     vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
+     vmean(ind_CH3S,k) = func(4.7d-2,k)
+     vmean(ind_CH3SO,k) = func(6.3d-2,k)
+     vmean(ind_CH3SO2,k) = func(7.9d-2,k)
+     vmean(ind_CH3SO3,k) = func(9.5d-2,k)
+     vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
+     vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
+     vmean(ind_CO,k) = func(2.8d-2,k)
+     vmean(ind_CO2,k) = func(4.4d-2,k)
+!     vmean(ind_I2O,k) = func(2.70d-1,k)
+!     vmean(ind_I2O3,k) = func(3.02d-1,k)
+!     vmean(ind_I2O4,k) = func(3.18d-1,k)
+!     vmean(ind_I2O5,k) = func(3.34d-1,k)
+!     vmean(ind_INO,k) = func(1.57d-1,k)
+     vmean(ind_Br2O,k) = func(1.76d-1,k)
+     vmean(ind_ClONO,k) = func(8.15d-2,k)
+     vmean(ind_ClO3,k) = func(8.35d-2,k)
+     vmean(ind_Cl2O3,k) = func(1.19d-1,k)
+     vmean(ind_CH3OH,k) = func(3.2d-2,k)
+     vmean(ind_C2H5OH,k) = func(4.6d-2,k)
+     vmean(ind_H2,k) = func(2.0d-3,k)
+     vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
+     vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
+     vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
+     vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
+     vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
+     vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
+!     vmean(ind_Hg,k)    = func(2.00d-1,k)
+!     vmean(ind_HgO,k)   = func(2.16d-1,k)
+!     vmean(ind_HgCl,k)  = func(2.36d-1,k)
+!     vmean(ind_HgCl2,k) = func(2.72d-1,k)
+!     vmean(ind_HgBr,k)  = func(2.81d-1,k)
+!     vmean(ind_HgBr2,k) = func(3.61d-1,k)
 
 !#DEFRAD
-         vmean(ind_OH,k) = func(1.7d-2,k)
-         vmean(ind_HO2,k) = func(3.3d-2,k)
-!         vmean(ind_AHO2,k) = func(6.3d-2,k)
-         vmean(ind_MCO3,k) = func(7.5d-2,k)
-         vmean(ind_MO2,k) = func(4.7d-2,k)
-         vmean(ind_ETO2,k) = func(6.1d-2,k)
-!        vmean(ind_KO2,k) = func(,k)
-!        vmean(ind_R3O2,k) = func(,k)
-!        vmean(ind_RAO2,k) = func(,k)
-!        vmean(ind_TO2,k) = func(,k)
-!         vmean(ind_TCO3,k) = func(1.15d-1,k)
-!         vmean(ind_ZO2,k) = func(,k)
-         vmean(ind_EO2,k) = func(7.7d-2,k)
-!         vmean(ind_PO2,k) = func(,k)
-         vmean(ind_CHO2,k) = func(4.6d-2,k)
-!         vmean(ind_CRO2,k) = func(6.d-2,k)
-!         vmean(ind_PRN1,k) = func(,k)
-         vmean(ind_O1D,k) = func(1.6d-2,k)
-         vmean(ind_Cl,k) = func(3.5d-2,k)
-         vmean(ind_ClO,k) = func(5.1d-2,k)
-         vmean(ind_OClO,k) = func(6.7d-2,k)
-         vmean(ind_Br,k) = func(8.d-2,k)
-         vmean(ind_BrO,k) = func(9.6d-2,k)
-         vmean(ind_I,k) = func(1.27d-1,k)
-         vmean(ind_IO,k) = func(1.43d-1,k)
-         vmean(ind_OIO,k) = func(1.59d-1,k)
-         vmean(ind_O3P,k) = func(1.6d-2,k)
-         vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
-         vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
-         vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
+     vmean(ind_OH,k) = func(1.7d-2,k)
+     vmean(ind_HO2,k) = func(3.3d-2,k)
+!     vmean(ind_AHO2,k) = func(6.3d-2,k)
+     vmean(ind_MCO3,k) = func(7.5d-2,k)
+     vmean(ind_MO2,k) = func(4.7d-2,k)
+     vmean(ind_ETO2,k) = func(6.1d-2,k)
+!     vmean(ind_KO2,k) = func(,k)
+!     vmean(ind_R3O2,k) = func(,k)
+!     vmean(ind_RAO2,k) = func(,k)
+!     vmean(ind_TO2,k) = func(,k)
+!     vmean(ind_TCO3,k) = func(1.15d-1,k)
+!     vmean(ind_ZO2,k) = func(,k)
+     vmean(ind_EO2,k) = func(7.7d-2,k)
+!     vmean(ind_PO2,k) = func(,k)
+     vmean(ind_CHO2,k) = func(4.6d-2,k)
+!     vmean(ind_CRO2,k) = func(6.d-2,k)
+!     vmean(ind_PRN1,k) = func(,k)
+     vmean(ind_O1D,k) = func(1.6d-2,k)
+     vmean(ind_Cl,k) = func(3.5d-2,k)
+     vmean(ind_ClO,k) = func(5.1d-2,k)
+     vmean(ind_OClO,k) = func(6.7d-2,k)
+     vmean(ind_Br,k) = func(8.d-2,k)
+     vmean(ind_BrO,k) = func(9.6d-2,k)
+     vmean(ind_I,k) = func(1.27d-1,k)
+     vmean(ind_IO,k) = func(1.43d-1,k)
+     vmean(ind_OIO,k) = func(1.59d-1,k)
+     vmean(ind_O3P,k) = func(1.6d-2,k)
+     vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
+     vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
+     vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
 
 !#DEFFIX
-         vmean(ind_O2,k) = func(3.2d-2,k)
+     vmean(ind_O2,k) = func(3.2d-2,k)
 
-      enddo
+  enddo
 
-      end subroutine v_mean_t
+end subroutine v_mean_t
 
 
 !
 !-----------------------------------------------------
 !
 
-      subroutine v_mean_a (tt,nmaxf)
-! mean molecular speed from Maxwell-Boltzmann distribution:
-! v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+subroutine v_mean_a (tt,nmaxf)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! mean molecular speed from Maxwell-Boltzmann distribution:
+  ! v_mean=sqrt(8*R_gas*T/(M*pi))      (M in kg/mol)
+  ! v_mean in m/s
+
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! jjb vmean SO3 and HOSO2 were missing, HNO4 was wrong (HNO3 mass used instead of HNO4)
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n
+       nf, &
+       n
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
-!      parameter (nf=100,n=nf+50)
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  implicit none
 
-      dimension tt(n)
-! v_mean in m/s
-! sqrt(8*R_gas/pi)=4.60138
-      func(a,k)=dsqrt(tt(k)/a)*4.60138
+  include 'aer_Parameters.h' !additional common blocks and other definitions
+
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: tt(n)
+  integer, intent(in) :: nmaxf
+
+! Local scalars:
+  integer :: k
+
+! Common blocks:
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+
+! Statement function
+  real (kind=dp) :: func, a
+  ! sqrt(8*R_gas/pi)=4.60138
+  func(a,k)=sqrt(tt(k)/a)*4.60138
+
+! == End of declarations =======================================================
 
 ! Initialisation of vmean
-      vmean(:,:) = 0.d0 ! jjb matrix
+  vmean(:,:) = 0._dp
 
-      do k=1,nmaxf
-!        do l=1,NSPEC
-!           vmean(k,l)=0. ! jjb matrix above
-!        enddo
-         vmean(ind_NO,k) = func(3.d-2,k)
-         vmean(ind_NO2,k) = func(4.6d-2,k)
-         vmean(ind_HNO3,k) = func(6.3d-2,k)
-         vmean(ind_NH3,k) = func(1.7d-2,k)
-         vmean(ind_SO2,k) = func(6.4d-2,k)
-         vmean(ind_SO3,k) = func(8.0d-2,k) ! jjb was missing
-         vmean(ind_HOSO2,k) = func(8.1d-2,k) ! jjb was missing
-         vmean(ind_H2SO4,k) = func(9.8d-2,k)
-         vmean(ind_O3,k) = func(4.8d-2,k)
-         vmean(ind_CH4,k) = func(1.6d-2,k)
-         vmean(ind_C2H6,k) = func(3.d-2,k)
-!         vmean(ind_C3H8,k) = func(4.4d-2,k)
-!         vmean(ind_ALKA,k) = func(,k)
-         vmean(ind_ETHE,k) = func(2.8d-2,k)
-!         vmean(ind_ALKE,k) = func(,k)
-!         vmean(ind_AROM,k) = func(,k)
-         vmean(ind_ACO2,k) = func(4.6d-2,k)
-         vmean(ind_ACTA,k) = func(6.d-2,k)
-         vmean(ind_HCHO,k) = func(3.d-2,k)
-         vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
-         vmean(ind_H2O2,k) = func(3.4d-2,k)
-         vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
-         vmean(ind_HONO,k) = func(4.7d-2,k)
-         vmean(ind_PAN,k) = func(1.21d-1,k)
-!         vmean(ind_TPAN,k) = func(1.59d-1,k)
-!        vmean(ind_KET,k) = func(,k)
-!         vmean(ind_CRES,k) = func(1.08d-1,k)
-!         vmean(ind_DIAL,k) = func(8.4d-2,k)
-!         vmean(ind_GLYX,k) = func(5.8d-2,k)
-!         vmean(ind_MGLY,k) = func(7.2d-2,k)
-!        vmean(ind_NH4NO3,k) = func(8.1d-2,k)
-         vmean(ind_HCl,k) = func(3.6d-2,k)
-!        vmean(ind_R3N2,k) = func(,k)
-!        vmean(ind_RAN1,k) = func(,k)
-!        vmean(ind_RAN2,k) = func(,k)
-         vmean(ind_N2O5,k) = func(1.08d-1,k)
-!         vmean(ind_HNO4,k) = func(6.3d-2,k) ! jjb mistake!
-         vmean(ind_HNO4,k) = func(7.9d-2,k)
-         vmean(ind_NO3,k) = func(6.2d-2,k)
-         vmean(ind_DMS,k) = func(6.2d-2,k)
-         vmean(ind_HOCl,k) = func(5.2d-2,k)
-         vmean(ind_ClNO2,k) = func(8.1d-2,k)
-         vmean(ind_ClNO3,k) = func(9.7d-2,k)
-         vmean(ind_Cl2,k) = func(7.1d-2,k)
-         vmean(ind_Cl2O2,k) = func(1.029d-1,k)
-         vmean(ind_HBr,k) = func(8.1d-2,k)
-         vmean(ind_HOBr,k) = func(9.7d-2,k)
-         vmean(ind_BrNO2,k) = func(1.26d-1,k)
-         vmean(ind_BrNO3,k) = func(1.42d-1,k)
-         vmean(ind_Br2,k) = func(1.6d-1,k)
-         vmean(ind_BrCl,k) = func(1.15d-1,k)
-         vmean(ind_HI,k) = func(1.28d-1,k)
-         vmean(ind_HOI,k) = func(1.44d-1,k)
-         vmean(ind_I2O2,k) = func(2.86d-1,k)
-         vmean(ind_INO2,k) = func(1.73d-1,k)
-         vmean(ind_INO3,k) = func(1.89d-1,k)
-         vmean(ind_I2,k) = func(2.54d-1,k)
-         vmean(ind_ICl,k) = func(1.62d-1,k)
-         vmean(ind_IBr,k) = func(2.07d-1,k)
-         vmean(ind_HIO3,k) = func(1.76d-1,k)
-         vmean(ind_CH3I,k) = func(1.42d-1,k)
-         vmean(ind_CH2I2,k) = func(2.68d-1,k)
-         vmean(ind_CH2ClI,k) = func(1.76d-1,k)
-         vmean(ind_C3H7I,k) = func(1.7d-1,k)
-         vmean(ind_CH2BrI,k) = func(2.21d-1,k)
-!         vmean(ind_CHBr2I,k) = func(3.d-1,k)
-         vmean(ind_C2H5I,k) = func(1.56d-1,k)
-         vmean(ind_DMS,k) = func(6.2d-2,k)
-         vmean(ind_DMSO,k) = func(7.8d-2,k)
-         vmean(ind_DMSO2,k) = func(9.4d-2,k)
-         vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
-         vmean(ind_CH3S,k) = func(4.7d-2,k)
-         vmean(ind_CH3SO,k) = func(6.3d-2,k)
-         vmean(ind_CH3SO2,k) = func(7.9d-2,k)
-         vmean(ind_CH3SO3,k) = func(9.5d-2,k)
-         vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
-         vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
-         vmean(ind_CO,k) = func(2.8d-2,k)
-         vmean(ind_CO2,k) = func(4.4d-2,k)
-!         vmean(ind_I2O,k) = func(2.70d-1,k)
-!         vmean(ind_I2O3,k) = func(3.02d-1,k)
-!         vmean(ind_I2O4,k) = func(3.18d-1,k)
-!         vmean(ind_I2O5,k) = func(3.34d-1,k)
-!         vmean(ind_INO,k) = func(1.57d-1,k)
-         vmean(ind_Br2O,k) = func(1.76d-1,k)
-         vmean(ind_ClONO,k) = func(8.15d-2,k)
-         vmean(ind_ClO3,k) = func(8.35d-2,k)
-         vmean(ind_Cl2O3,k) = func(1.19d-1,k)
-         vmean(ind_CH3OH,k) = func(3.2d-2,k)
-         vmean(ind_C2H5OH,k) = func(4.6d-2,k)
-         vmean(ind_H2,k) = func(2.0d-3,k)
-         vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
-         vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
-         vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
-         vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
-         vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
-         vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
-!         vmean(ind_Hg,k)    = func(2.00d-1,k)
-!         vmean(ind_HgO,k)   = func(2.16d-1,k)
-!         vmean(ind_HgCl,k)  = func(2.36d-1,k)
-!         vmean(ind_HgCl2,k) = func(2.72d-1,k)
-!         vmean(ind_HgBr,k)  = func(2.81d-1,k)
-!         vmean(ind_HgBr2,k) = func(3.61d-1,k)
+  do k=1,nmaxf
+     vmean(ind_NO,k) = func(3.d-2,k)
+     vmean(ind_NO2,k) = func(4.6d-2,k)
+     vmean(ind_HNO3,k) = func(6.3d-2,k)
+     vmean(ind_NH3,k) = func(1.7d-2,k)
+     vmean(ind_SO2,k) = func(6.4d-2,k)
+     vmean(ind_SO3,k) = func(8.0d-2,k)
+     vmean(ind_HOSO2,k) = func(8.1d-2,k)
+     vmean(ind_H2SO4,k) = func(9.8d-2,k)
+     vmean(ind_O3,k) = func(4.8d-2,k)
+     vmean(ind_CH4,k) = func(1.6d-2,k)
+     vmean(ind_C2H6,k) = func(3.d-2,k)
+!     vmean(ind_C3H8,k) = func(4.4d-2,k)
+!     vmean(ind_ALKA,k) = func(,k)
+     vmean(ind_ETHE,k) = func(2.8d-2,k)
+!     vmean(ind_ALKE,k) = func(,k)
+!     vmean(ind_AROM,k) = func(,k)
+     vmean(ind_ACO2,k) = func(4.6d-2,k)
+     vmean(ind_ACTA,k) = func(6.d-2,k)
+     vmean(ind_HCHO,k) = func(3.d-2,k)
+     vmean(ind_ALD2,k) = func(4.4d-2,k)  ! value for CH3CHO
+     vmean(ind_H2O2,k) = func(3.4d-2,k)
+     vmean(ind_ROOH,k) = func(4.8d-2,k) ! value for CH3OOH
+     vmean(ind_HONO,k) = func(4.7d-2,k)
+     vmean(ind_PAN,k) = func(1.21d-1,k)
+!     vmean(ind_TPAN,k) = func(1.59d-1,k)
+!     vmean(ind_KET,k) = func(,k)
+!     vmean(ind_CRES,k) = func(1.08d-1,k)
+!     vmean(ind_DIAL,k) = func(8.4d-2,k)
+!     vmean(ind_GLYX,k) = func(5.8d-2,k)
+!     vmean(ind_MGLY,k) = func(7.2d-2,k)
+!     vmean(ind_NH4NO3,k) = func(8.1d-2,k)
+     vmean(ind_HCl,k) = func(3.6d-2,k)
+!     vmean(ind_R3N2,k) = func(,k)
+!     vmean(ind_RAN1,k) = func(,k)
+!     vmean(ind_RAN2,k) = func(,k)
+     vmean(ind_N2O5,k) = func(1.08d-1,k)
+     vmean(ind_HNO4,k) = func(7.9d-2,k)
+     vmean(ind_NO3,k) = func(6.2d-2,k)
+     vmean(ind_DMS,k) = func(6.2d-2,k)
+     vmean(ind_HOCl,k) = func(5.2d-2,k)
+     vmean(ind_ClNO2,k) = func(8.1d-2,k)
+     vmean(ind_ClNO3,k) = func(9.7d-2,k)
+     vmean(ind_Cl2,k) = func(7.1d-2,k)
+     vmean(ind_Cl2O2,k) = func(1.029d-1,k)
+     vmean(ind_HBr,k) = func(8.1d-2,k)
+     vmean(ind_HOBr,k) = func(9.7d-2,k)
+     vmean(ind_BrNO2,k) = func(1.26d-1,k)
+     vmean(ind_BrNO3,k) = func(1.42d-1,k)
+     vmean(ind_Br2,k) = func(1.6d-1,k)
+     vmean(ind_BrCl,k) = func(1.15d-1,k)
+     vmean(ind_HI,k) = func(1.28d-1,k)
+     vmean(ind_HOI,k) = func(1.44d-1,k)
+     vmean(ind_I2O2,k) = func(2.86d-1,k)
+     vmean(ind_INO2,k) = func(1.73d-1,k)
+     vmean(ind_INO3,k) = func(1.89d-1,k)
+     vmean(ind_I2,k) = func(2.54d-1,k)
+     vmean(ind_ICl,k) = func(1.62d-1,k)
+     vmean(ind_IBr,k) = func(2.07d-1,k)
+     vmean(ind_HIO3,k) = func(1.76d-1,k)
+     vmean(ind_CH3I,k) = func(1.42d-1,k)
+     vmean(ind_CH2I2,k) = func(2.68d-1,k)
+     vmean(ind_CH2ClI,k) = func(1.76d-1,k)
+     vmean(ind_C3H7I,k) = func(1.7d-1,k)
+     vmean(ind_CH2BrI,k) = func(2.21d-1,k)
+!     vmean(ind_CHBr2I,k) = func(3.d-1,k)
+     vmean(ind_C2H5I,k) = func(1.56d-1,k)
+     vmean(ind_DMS,k) = func(6.2d-2,k)
+     vmean(ind_DMSO,k) = func(7.8d-2,k)
+     vmean(ind_DMSO2,k) = func(9.4d-2,k)
+     vmean(ind_DMOO,k) = func(9.3d-2,k) ! CH3SCH2OO
+     vmean(ind_CH3S,k) = func(4.7d-2,k)
+     vmean(ind_CH3SO,k) = func(6.3d-2,k)
+     vmean(ind_CH3SO2,k) = func(7.9d-2,k)
+     vmean(ind_CH3SO3,k) = func(9.5d-2,k)
+     vmean(ind_CH3SO2H,k) = func(8.0d-2,k)   ! CH3S(O)OH, MSIA
+     vmean(ind_CH3SO3H,k) = func(9.6d-2,k) ! CH3S(OO)OH, MSA
+     vmean(ind_CO,k) = func(2.8d-2,k)
+     vmean(ind_CO2,k) = func(4.4d-2,k)
+!     vmean(ind_I2O,k) = func(2.70d-1,k)
+!     vmean(ind_I2O3,k) = func(3.02d-1,k)
+!     vmean(ind_I2O4,k) = func(3.18d-1,k)
+!     vmean(ind_I2O5,k) = func(3.34d-1,k)
+!     vmean(ind_INO,k) = func(1.57d-1,k)
+     vmean(ind_Br2O,k) = func(1.76d-1,k)
+     vmean(ind_ClONO,k) = func(8.15d-2,k)
+     vmean(ind_ClO3,k) = func(8.35d-2,k)
+     vmean(ind_Cl2O3,k) = func(1.19d-1,k)
+     vmean(ind_CH3OH,k) = func(3.2d-2,k)
+     vmean(ind_C2H5OH,k) = func(4.6d-2,k)
+     vmean(ind_H2,k) = func(2.0d-3,k)
+     vmean(ind_NHS,k) = func(5.8d-2,k)  ! C+N+S
+     vmean(ind_RCl,k) = func(6.45d-2,k)  ! calculated using C2H5Cl
+     vmean(ind_RBr,k) = func(1.27d-1,k)  ! calculated using CH3SBr
+     vmean(ind_XOR,k) = func(1.09d-1,k)  ! calculated using bromoethanol
+     vmean(ind_SOR,k) = func(9.4d-2,k)  ! calculated using CH3SCH2OOH
+     vmean(ind_SPAN,k) = func(1.39d-1,k)  ! calculated using CH3SCH2OONO2
+!     vmean(ind_Hg,k)    = func(2.00d-1,k)
+!     vmean(ind_HgO,k)   = func(2.16d-1,k)
+!     vmean(ind_HgCl,k)  = func(2.36d-1,k)
+!     vmean(ind_HgCl2,k) = func(2.72d-1,k)
+!     vmean(ind_HgBr,k)  = func(2.81d-1,k)
+!     vmean(ind_HgBr2,k) = func(3.61d-1,k)
 
 !#DEFRAD
-         vmean(ind_OH,k) = func(1.7d-2,k)
-         vmean(ind_HO2,k) = func(3.3d-2,k)
-!         vmean(ind_AHO2,k) = func(6.3d-2,k)
-         vmean(ind_MCO3,k) = func(7.5d-2,k)
-         vmean(ind_MO2,k) = func(4.7d-2,k)
-         vmean(ind_ETO2,k) = func(6.1d-2,k)
-!        vmean(ind_KO2,k) = func(,k)
-!        vmean(ind_R3O2,k) = func(,k)
-!        vmean(ind_RAO2,k) = func(,k)
-!        vmean(ind_TO2,k) = func(,k)
-!         vmean(ind_TCO3,k) = func(1.15d-1,k)
-!         vmean(ind_ZO2,k) = func(,k)
-         vmean(ind_EO2,k) = func(7.7d-2,k)
-!         vmean(ind_PO2,k) = func(,k)
-         vmean(ind_CHO2,k) = func(4.6d-2,k)
-!         vmean(ind_CRO2,k) = func(6.d-2,k)
-!         vmean(ind_PRN1,k) = func(,k)
-         vmean(ind_O1D,k) = func(1.6d-2,k)
-         vmean(ind_Cl,k) = func(3.5d-2,k)
-         vmean(ind_ClO,k) = func(5.1d-2,k)
-         vmean(ind_OClO,k) = func(6.7d-2,k)
-         vmean(ind_Br,k) = func(8.d-2,k)
-         vmean(ind_BrO,k) = func(9.6d-2,k)
-         vmean(ind_I,k) = func(1.27d-1,k)
-         vmean(ind_IO,k) = func(1.43d-1,k)
-         vmean(ind_OIO,k) = func(1.59d-1,k)
-         vmean(ind_O3P,k) = func(1.6d-2,k)
-         vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
-         vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
-         vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
+     vmean(ind_OH,k) = func(1.7d-2,k)
+     vmean(ind_HO2,k) = func(3.3d-2,k)
+!     vmean(ind_AHO2,k) = func(6.3d-2,k)
+     vmean(ind_MCO3,k) = func(7.5d-2,k)
+     vmean(ind_MO2,k) = func(4.7d-2,k)
+     vmean(ind_ETO2,k) = func(6.1d-2,k)
+!     vmean(ind_KO2,k) = func(,k)
+!     vmean(ind_R3O2,k) = func(,k)
+!     vmean(ind_RAO2,k) = func(,k)
+!     vmean(ind_TO2,k) = func(,k)
+!     vmean(ind_TCO3,k) = func(1.15d-1,k)
+!     vmean(ind_ZO2,k) = func(,k)
+     vmean(ind_EO2,k) = func(7.7d-2,k)
+!     vmean(ind_PO2,k) = func(,k)
+     vmean(ind_CHO2,k) = func(4.6d-2,k)
+!     vmean(ind_CRO2,k) = func(6.d-2,k)
+!     vmean(ind_PRN1,k) = func(,k)
+     vmean(ind_O1D,k) = func(1.6d-2,k)
+     vmean(ind_Cl,k) = func(3.5d-2,k)
+     vmean(ind_ClO,k) = func(5.1d-2,k)
+     vmean(ind_OClO,k) = func(6.7d-2,k)
+     vmean(ind_Br,k) = func(8.d-2,k)
+     vmean(ind_BrO,k) = func(9.6d-2,k)
+     vmean(ind_I,k) = func(1.27d-1,k)
+     vmean(ind_IO,k) = func(1.43d-1,k)
+     vmean(ind_OIO,k) = func(1.59d-1,k)
+     vmean(ind_O3P,k) = func(1.6d-2,k)
+     vmean(ind_ClRO2,k) = func(9.64d-2,k)  ! calculated using C2H5ClOO
+     vmean(ind_BrRO2,k) = func(1.58d-1,k)  ! calculated using CH2SBrOO
+     vmean(ind_IRO2,k) = func(1.73d-1,k)  ! calculated using CH2IOO
 
 !#DEFFIX
-         vmean(ind_O2,k) = func(3.2d-2,k)
+     vmean(ind_O2,k) = func(3.2d-2,k)
 
-      enddo
-      end subroutine v_mean_a
+  enddo
+
+end subroutine v_mean_a
 
 !
 !------------------------------------------------------
