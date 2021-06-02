@@ -2102,9 +2102,18 @@ end subroutine henry_a
 !------------------------------------------------------
 !
 
-      subroutine cw_rc (nmaxf)
-! mean radius and LWC for "chemical" particles size bins
+subroutine cw_rc (nmaxf)
 
+! Description :
+! -----------
+  ! mean radius and LWC for "chemical" particles size bins
+
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
 ! jjb work done
 !     cleaning
 !     modules, instead of hard coded parameters
@@ -2112,103 +2121,112 @@ end subroutine henry_a
 !     useless test removed to set cm (case rH>rH_deliq : whatever cloud value is ok to define cm)
 !     inconsistency between .lt. and .gt. : case "==" was thus missing. corrected.
 !     implicit none, and all missing declarations
-!     ial definition only once, out of the main do loop
+!     ial definition only once, out of the main do loop for computing efficiency
 
-      USE config, ONLY : &
-           ifeed
+! == End of header =============================================================
 
-      USE constants, ONLY : &
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+       ifeed
+
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      integer, intent(in) :: nmaxf ! max index for calculation  ! jjb might add a test on it, error if > n, warning if > nf
+  integer, intent(in) :: nmaxf ! max index for calculation  ! jjb might add a test on it, error if > n, warning if > nf
 
 ! Local parameters:
-      real (kind=dp), parameter :: xpi = 4./3.*pi
+  real (kind=dp), parameter :: xpi = 4._dp / 3._dp * pi
 
-      real (kind=dp), parameter :: cwm = 1.d-1 ! Threshold for switching chemistry in bins 1 & 2 ("aerosols")
-      real (kind=dp), parameter :: cwmd = 1.d2 ! Threshold for switching chemistry in bins 3 & 4 ("droplets")
-                                                 !   here "d" stands for droplets, not dry !
+!  real (kind=dp), parameter :: cwm=1.d-05  ! jjb old value, already commented in v741
+  real (kind=dp), parameter :: cwm = 1.d-1 ! Threshold for switching chemistry in bins 1 & 2 ("aerosols")
+  real (kind=dp), parameter :: cwmd = 1.d2 ! Threshold for switching chemistry in bins 3 & 4 ("droplets")
+                                           !   here "d" stands for droplets, not dry !
 
 ! Local scalars:
-      real (kind=dp) :: cm1, cm2, cm3, cm4
-      real (kind=dp) :: cw1, cw2, cw3, cw4
-      real (kind=dp) :: rc1, rc2, rc3, rc4
-      real (kind=dp) :: x0, x1
-      integer :: ia, ial, jt ! loop indexes for 2D particle grid
-      integer :: k  ! index for grid number in do loops
+  real (kind=dp) :: cm1, cm2, cm3, cm4
+  real (kind=dp) :: cw1, cw2, cw3, cw4
+  real (kind=dp) :: rc1, rc2, rc3, rc4
+  real (kind=dp) :: x0, x1
+  integer :: ia, ial, jt ! loop indexes for 2D particle grid
+  integer :: k  ! index for grid number in do loops
 
 ! Common blocks:
-      common /blck06/ kw(nka),ka
-      integer :: kw, ka
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
 
-      common /blck11/ rc(nkc,n)
-      real (kind=dp) :: rc
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real (kind=dp) :: cw, cm
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
 
-      common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
-      real (kind=dp) :: conv2
+  common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
+  real (kind=dp) :: conv2
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! only rq and e are used
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! only rq and e are used
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n) ! only feu is used
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n) ! only feu is used
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
-      common /kpp_l1/ cloud(nkc,n)
-      logical :: cloud
+  common /kpp_l1/ cloud(nkc,n)
+  logical :: cloud
 
-      common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
-      real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
+  common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
+  real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
 
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /kinv_i/ kinv
+  integer :: kinv
+
+! == End of declarations =======================================================
 
 ! rc(nkc,n): mean radius of droplets in m
 ! cw(nkc,n): LWC in given radius range in m^3(aq)g/m^3(air)
-!      cwm=1.d-05
 
 ! Define lower bound depending on nucleation settings
-      if (ifeed.eq.2) then
-         ial = 2
-      else
-         ial = 1
-      endif
+  if (ifeed.eq.2) then
+     ial = 2
+  else
+     ial = 1
+  endif
 
 ! Main loop
-      do k=2,nmaxf
+  do k=2,nmaxf
 
+! OLD options to skip some layers
 !         if (k.lt.lcl.or.k.gt.lct) go to 1000
 !         if (feu(k).lt.xcryssulf.and.feu(k).lt.xcrysss) go to 1000
 ! see SR kon: if rH>0.7 microphysics is calculated, this
 ! is also start for liquid aerosol chemistry
 
 ! Initialisation
-         rc1=0. ; rc2=0. ; rc3=0. ; rc4=0.
-         cw1=0. ; cw2=0. ; cw3=0. ; cw4=0.
-         cm1=0. ; cm2=0. ; cm3=0. ; cm4=0.
+     rc1=0._dp ; rc2=0._dp ; rc3=0._dp ; rc4=0._dp
+     cw1=0._dp ; cw2=0._dp ; cw3=0._dp ; cw4=0._dp
+     cm1=0._dp ; cm2=0._dp ; cm3=0._dp ; cm4=0._dp
 
 ! here TOTAL particle volume is used for calculating LWC
 ! this is correct only for completely soluble aerosol
@@ -2221,41 +2239,41 @@ end subroutine henry_a
 
 
 ! small aerosol
-         do ia=ial,ka
-            do jt=1,kw(ia)
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cw1=cw1+x0
-               rc1=rc1+x0*rq(jt,ia)
-               x1=ff(jt,ia,k)*e(jt)
-               cm1=cm1+x1
-            enddo
+     do ia=ial,ka
+        do jt=1,kw(ia)
+           x0  = ff(jt,ia,k) * xpi * rq(jt,ia)**3
+           cw1 = cw1 + x0
+           rc1 = rc1 + x0 * rq(jt,ia)
+           x1  = ff(jt,ia,k) * e(jt)
+           cm1 = cm1 + x1
+        enddo
 ! small droplets
-            do jt=kw(ia)+1,nkt
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cw3=cw3+x0
-               rc3=rc3+x0*rq(jt,ia)
-               x1=ff(jt,ia,k)*e(jt)
-               cm3=cm3+x1
-            enddo
-         enddo
+        do jt=kw(ia)+1,nkt
+           x0  = ff(jt,ia,k) * xpi * rq(jt,ia)**3
+           cw3 = cw3 + x0
+           rc3 = rc3 + x0 * rq(jt,ia)
+           x1  = ff(jt,ia,k) * e(jt)
+           cm3 = cm3 + x1
+        enddo
+     enddo
 ! large aerosol
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cw2=cw2+x0
-               rc2=rc2+x0*rq(jt,ia)
-               x1=ff(jt,ia,k)*e(jt)
-               cm2=cm2+x1
-            enddo
+     do ia=ka+1,nka
+        do jt=1,kw(ia)
+           x0  = ff(jt,ia,k) * xpi * rq(jt,ia)**3
+           cw2 = cw2 + x0
+           rc2 = rc2 + x0 * rq(jt,ia)
+           x1  = ff(jt,ia,k) * e(jt)
+           cm2 = cm2 + x1
+        enddo
 ! large droplets
-            do jt=kw(ia)+1,nkt
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cw4=cw4+x0
-               rc4=rc4+x0*rq(jt,ia)
-               x1=ff(jt,ia,k)*e(jt)
-               cm4=cm4+x1
-            enddo
-         enddo
+        do jt=kw(ia)+1,nkt
+           x0  = ff(jt,ia,k) * xpi * rq(jt,ia)**3
+           cw4 = cw4 + x0
+           rc4 = rc4 + x0 * rq(jt,ia)
+           x1  = ff(jt,ia,k) * e(jt)
+           cm4 = cm4 + x1
+        enddo
+     enddo
 
 ! conversion: um^3/cm^3 --> m^3(aq)/m^3(air):10^-12
 !           : um        --> m               :10^-6
@@ -2266,31 +2284,31 @@ end subroutine henry_a
 
 ! define rc for all rH because rc is used in calculation of particle
 ! chemistry sedimentation
-         if (cw1.gt.0.) then
-            rc(1,k)=rc1/cw1*1.d-6
-         else
-            rc(1,k) = 0.d0
-         end if
-         if (cw2.gt.0.) then
-            rc(2,k)=rc2/cw2*1.d-6
-         else
-            rc(2,k) = 0.d0
-         end if
-         if (cw3.gt.0.) then
-            rc(3,k)=rc3/cw3*1.d-6
-         else
-            rc(3,k) = 0.d0
-         end if
-         if (cw4.gt.0.) then
-            rc(4,k)=rc4/cw4*1.d-6
-         else
-            rc(4,k) = 0.d0
-         end if
+     if (cw1.gt.0._dp) then
+        rc(1,k) = rc1 / cw1 * 1.d-6
+     else
+        rc(1,k) = 0._dp
+     end if
+     if (cw2.gt.0._dp) then
+        rc(2,k) = rc2 / cw2 * 1.d-6
+     else
+        rc(2,k) = 0._dp
+     end if
+     if (cw3.gt.0._dp) then
+        rc(3,k)=rc3 / cw3 * 1.d-6
+     else
+        rc(3,k) = 0._dp
+     end if
+     if (cw4.gt.0._dp) then
+        rc(4,k) = rc4 / cw4 * 1.d-6
+     else
+        rc(4,k) = 0._dp
+     end if
 
-         cw(1,k)=cw1*1.d-12
-         cw(2,k)=cw2*1.d-12
-         cw(3,k)=cw3*1.d-12
-         cw(4,k)=cw4*1.d-12
+     cw(1,k) = cw1 * 1.d-12
+     cw(2,k) = cw2 * 1.d-12
+     cw(3,k) = cw3 * 1.d-12
+     cw(4,k) = cw4 * 1.d-12
 
 
 ! cm (old:cw) is used as switch for aerosol chemistry therefore:
@@ -2298,55 +2316,55 @@ end subroutine henry_a
 !     on : only if above threshold value and crys rH (if cloud was true) or
 !          deli rH (if cloud was false)
 
-         if (feu(k).lt.min(xcryssulf,xcrysss)) then
-            if (k.le.kinv) print*,k,feu(k),' below both crystal. points'
-            cm(:,k)    = 0.d0
-            conv2(:,k) = 0.d0
+     if (feu(k).lt.min(xcryssulf,xcrysss)) then
+        if (k.le.kinv) print*,k,feu(k),' below both crystal. points'
+        cm(:,k)    = 0._dp
+        conv2(:,k) = 0._dp
 
-         else
+     else
 
-            if ( (cw1.ge.cwm) .and. &                       ! cw1 has to be > cwm, and...
-                ((cloud(1,k).and.feu(k).ge.xcryssulf).or. & !  ... if cloud is true, rH >= rH_crys is enough
-                 (feu(k).ge.xdelisulf)) ) then              !  ... else (if cloud is false), rH >= rH_deliq is necessary
-                                                            !         (cloud can be true as well in the later case)
-               cm(1,k)=cm1*1.d-3
-               conv2(1,k) = 1.d9/cw1 ! 1.d-3/cw(1,k)
-            else
-               cm(1,k)=0.d0
-               conv2(1,k) = 0.d0
-            endif
+        if ( (cw1.ge.cwm) .and. &                        ! cw1 has to be > cwm, and...
+             ((cloud(1,k).and.feu(k).ge.xcryssulf).or. & !  ... if cloud is true, rH >= rH_crys is enough
+             (feu(k).ge.xdelisulf)) ) then               !  ... else (if cloud is false), rH >= rH_deliq is necessary
+                                                         !         (cloud can be true as well in the later case)
+           cm(1,k)    = cm1 * 1.d-3
+           conv2(1,k) = 1.d9 / cw1 ! 1.d-3/cw(1,k)
+        else
+           cm(1,k)    = 0._dp
+           conv2(1,k) = 0._dp
+        endif
 
-            if ( (cw2.ge.cwm) .and. &
-                ((cloud(2,k).and.feu(k).ge.xcrysss).or. &   ! same comments
-                 (feu(k).ge.xdeliss)) ) then
-               cm(2,k)=cm2*1.d-3
-               conv2(2,k) = 1.d9/cw2
-            else
-               cm(2,k)=0.d0
-               conv2(2,k) = 0.d0
-            endif
+        if ( (cw2.ge.cwm) .and. &
+             ((cloud(2,k).and.feu(k).ge.xcrysss).or. &   ! same comments
+             (feu(k).ge.xdeliss)) ) then
+           cm(2,k)    = cm2 * 1.d-3
+           conv2(2,k) = 1.d9 / cw2
+        else
+           cm(2,k)    = 0._dp
+           conv2(2,k) = 0._dp
+        endif
 
-            if (cw3.ge.cwmd) then
-               cm(3,k)=cm3*1.d-3
-               conv2(3,k) = 1.d9/cw3
-            else
-               cm(3,k)=0.d0
-               conv2(3,k) = 0.d0
-            endif
+        if (cw3.ge.cwmd) then
+           cm(3,k)    = cm3 * 1.d-3
+           conv2(3,k) = 1.d9 / cw3
+        else
+           cm(3,k)    = 0._dp
+           conv2(3,k) = 0._dp
+        endif
 
-            if (cw4.ge.cwmd) then
-               cm(4,k)=cm4*1.d-3
-               conv2(4,k) = 1.d9/cw4
-            else
-               cm(4,k)=0.d0
-               conv2(4,k) = 0.d0
-            endif
+        if (cw4.ge.cwmd) then
+           cm(4,k)    = cm4 * 1.d-3
+           conv2(4,k) = 1.d9 / cw4
+        else
+           cm(4,k)    = 0._dp
+           conv2(4,k) = 0._dp
+        endif
 
-         end if
+     end if
 
-      end do
+  end do
 
-      end subroutine cw_rc
+end subroutine cw_rc
 
 
 !
