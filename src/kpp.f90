@@ -1626,12 +1626,20 @@ end subroutine v_mean_a
 !------------------------------------------------------
 !
 
-      subroutine henry_t (tt,nmaxf)
+subroutine henry_t (tt,nmaxf)
 
-! Temp dependent Henry constants
-! inverse dimensionless Henry constant: k_(H,inv)^cc:=1/(k_H^cp*RT)
-! in equilibrium: XXXaq = k_H^cp * LWC * XXXg
+! Description :
+! -----------
+  ! Temp dependent Henry constants
+  ! inverse dimensionless Henry constant: k_(H,inv)^cc:=1/(k_H^cp*RT)
+  ! in equilibrium: XXXaq = k_H^cp * LWC * XXXg
 
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
 ! jjb work done:
 !     - removed pp (pressure) from the argument list: unused
 !     - removed hard coded parameters, use modules instead
@@ -1639,216 +1647,237 @@ end subroutine v_mean_a
 !     - missing declarations and implicit none
 !     - final conversion (inverse if henry /= 0.) optimised
 !     - reindexed henry(NSPEC,nf) instead of (nf,NSPEC) for computing efficiency
-!     - added initialisation of henry!
-!     - added test: nmaxf must be <= nf
+!     - added initialisation of henry(:,:)
 
-      USE global_params, ONLY : &
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nkc
+       nf, &
+       n, &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'tot_Parameters.h'    !additional common blocks and other definitions
+  implicit none
 
-      double precision, intent(in) :: tt(n) ! temperature array
-      integer         , intent(in) :: nmaxf ! max layer index where henry has to be computed
+  include 'tot_Parameters.h'    !additional common blocks and other definitions
 
-      double precision :: func3, a0, b0 ! temperature dependency function, and its arguments
-      double precision :: FCT           ! conversion factor, see below
-      double precision :: Tfact         ! Tfact, local variable [K**-1]
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: tt(n) ! temperature array
+  integer       , intent(in) :: nmaxf ! max layer index where henry has to be computed
 
-      integer :: j,k                    ! loop indexes
+! Local scalars:
+  integer :: j,k                  ! loop indexes
+  real (kind=dp) :: func3, a0, b0 ! temperature dependency function, and its arguments
+  real (kind=dp) :: FCT           ! conversion factor, see below
+  real (kind=dp) :: Tfact         ! Tfact, local variable [K**-1]
+!  real (kind=dp) :: xCO2, x3CO2, xNH3, xhp
 
-      common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      double precision henry, xkmt, xkef, xkeb
+! Common blocks:
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real (kind=dp) henry, xkmt, xkef, xkeb
 
 ! 0.082=8.3145*10^3/101325=R/p_0*10^3 : R includes conversion from M/atm --> mol/(m^3*Pa)
 ! so k_H^cp is taken as M/atm (the most common literature unit): SEE END OF SR
 
-!      func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))*0.082*tt(k0)
-!      func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))
+! func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))*0.082*tt(k0)
+! func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))
 
 ! jjb 11/02/2017 slight improvement in calculation efficiency: compute Tfact only once per layer
-!     Tfact = 1/T - 1/Tref, see below
-      func3(a0,b0)=a0*exp(b0*Tfact)
+!  Tfact = 1/T - 1/Tref, see below
+  func3(a0,b0)=a0*exp(b0*Tfact)
 
-      if (nmaxf > nf) stop 'Error in henry_t: nmaxf must be <= nf'
+! == End of declarations =======================================================
 
-      henry(:,:) = 0.d0
+  henry(:,:) = 0._dp
 
-      do k=1,nmaxf
+  do k=1,nmaxf
 
-!         henry(ind_H2SO4,k)=4.1d-12   !???
-         henry(ind_H2SO4,k)=1.d+16    !NIST --> RS_Gmitro_Vermeulen
-         henry(ind_CH4,k)=1.3d-3    !RS_Mackay
-         henry(ind_C2H6,k)=2.0d-3   !RS_Mackay
-!         henry(ind_C3H8,k)=1.4d-3   !RS_Mackay
-!         henry(ind_ALKA,k)=9.5d-4   !ok
-         henry(ind_ETHE,k)=4.9d-3   !ok
-!         henry(ind_ALKE,k)=4.9d-3   !ok
-!         henry(ind_AROM,k)=1.5d-1   !RS_Mackay: methylbenzene
-!         henry(ind_KET,k)=10.d0     !RS_higher ketone
-!         henry(ind_CRES,k)=8.2d2    !RS_Hine
-!         henry(ind_DIAL,k)=10.0d0   !RS_Snider:propenal #?
-!         henry(ind_GLYX,k)=3.6d5    !RS_Zhou
-!        henry(ind_NH4NO3,k)=4.1d-12  !# was soll dieses Salz in Gasphase??
-!         henry(ind_RAN2,k)=1.2d0    !RS_Kames: pentyl-nitrate
-!         henry(ind_RAN1,k)=1.d0     !RS_hine
-!         henry(ind_N2O5,k)=0.0      !RS_Sander  infinity!
-!         henry(ind_ClNO2,k)=0.0     !  10^-2
-!         henry(ind_ClNO3,k)=0.0     !  infinity
-!         henry(ind_BrNO2,k)=0.0     !  10^-1
-!         henry(ind_BrNO3,k)=0.0     !  infinity
-         henry(ind_HI,k)=0.0d0        !   (dissociation)
-         henry(ind_I2O2,k)=0.0d0      !
-         henry(ind_INO2,k)=0.0d0      !
-         henry(ind_INO3,k)=0.0d0      !
-!         henry(ind_I2O,k)=0.0d0      !
-!         henry(ind_I2O3,k)=0.0d0      !
-!         henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
-!         henry(ind_HIO3,k) =                     -"-
-         henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
-!        henry(ind_CH3SO2,k)= !RS_MOCCA
-!        henry(ind_CH3SO3,k)= !RS_MOCCA
-!         henry(ind_Hg,k)    = 1.3d-1                   ! #233 in #3127
-!         henry(ind_HgO,k)   = 2.69d12                  ! #233 in #3127
-!         henry(ind_HgCl,k)  = 2.75d6                   ! assumed HgCl2 (poss. higher??)
-!         henry(ind_HgCl2,k) = 2.75d6                   ! #233 in #3127
-!         henry(ind_HgBr,k)  = 2.75d6                   ! assumed HgBr2 (poss. higher??)
-!         henry(ind_HgBr2,k) = 2.75d6                   ! #3127
+!     henry(ind_H2SO4,k)=4.1d-12   !???
+     henry(ind_H2SO4,k)=1.d+16  !NIST --> RS_Gmitro_Vermeulen
+     henry(ind_CH4,k)=1.3d-3    !RS_Mackay
+     henry(ind_C2H6,k)=2.0d-3   !RS_Mackay
+!     henry(ind_C3H8,k)=1.4d-3   !RS_Mackay
+!     henry(ind_ALKA,k)=9.5d-4   !ok
+     henry(ind_ETHE,k)=4.9d-3   !ok
+!     henry(ind_ALKE,k)=4.9d-3   !ok
+!     henry(ind_AROM,k)=1.5d-1   !RS_Mackay: methylbenzene
+!     henry(ind_KET,k)=10.d0     !RS_higher ketone
+!     henry(ind_CRES,k)=8.2d2    !RS_Hine
+!     henry(ind_DIAL,k)=10.0d0   !RS_Snider:propenal #?
+!     henry(ind_GLYX,k)=3.6d5    !RS_Zhou
+!     henry(ind_NH4NO3,k)=4.1d-12  !# was soll dieses Salz in Gasphase??
+!     henry(ind_RAN2,k)=1.2d0    !RS_Kames: pentyl-nitrate
+!     henry(ind_RAN1,k)=1.d0     !RS_hine
+!     henry(ind_N2O5,k)=0.0      !RS_Sander  infinity!
+!     henry(ind_ClNO2,k)=0.0     !  10^-2
+!     henry(ind_ClNO3,k)=0.0     !  infinity
+!     henry(ind_BrNO2,k)=0.0     !  10^-1
+!     henry(ind_BrNO3,k)=0.0     !  infinity
+     henry(ind_HI,k)=0.0d0        !   (dissociation)
+     henry(ind_I2O2,k)=0.0d0      !
+     henry(ind_INO2,k)=0.0d0      !
+     henry(ind_INO3,k)=0.0d0      !
+!     henry(ind_I2O,k)=0.0d0      !
+!     henry(ind_I2O3,k)=0.0d0      !
+!     henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
+!     henry(ind_HIO3,k) =                     -"-
+     henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
+!     henry(ind_CH3SO2,k)= !RS_MOCCA
+!     henry(ind_CH3SO3,k)= !RS_MOCCA
+!     henry(ind_Hg,k)    = 1.3d-1                   ! #233 in #3127
+!     henry(ind_HgO,k)   = 2.69d12                  ! #233 in #3127
+!     henry(ind_HgCl,k)  = 2.75d6                   ! assumed HgCl2 (poss. higher??)
+!     henry(ind_HgCl2,k) = 2.75d6                   ! #233 in #3127
+!     henry(ind_HgBr,k)  = 2.75d6                   ! assumed HgBr2 (poss. higher??)
+!     henry(ind_HgBr2,k) = 2.75d6                   ! #3127
 
 ! explicitly Temp dependent
-         ! Tfact = 1/T - 1/Tref  with Tref = 298.15
-         ! 1/298.15 = 3.3540d-3
-         Tfact = 1.d0/tt(k) - 3.3540d-3
+     ! Tfact = 1/T - 1/Tref  with Tref = 298.15 K
+     ! 1/298.15 = 3.3540d-3
+     Tfact = 1.d0/tt(k) - 3.3540d-3
 
-         henry(ind_NO,k)=func3(1.9d-03,1480.d0) !RS_Lide
-!         henry(ind_NO2,k)=func3(1.d-02,2500.d0) !RS_Chameides
-         henry(ind_NO2,k)=func3(6.4d-03,2500.d0) !RS_MOCCA
-!         henry(ind_HNO3,k)=func3(1.66d5,8694.d0) !RS_MOCCA
-         henry(ind_HNO3,k)=func3(2.5d6/1.5d1,8694.d0) !RS_MOCCA_exakt
-!         henry(ind_HNO4,k)=1.4d4     !Goetz, 1996, cited in Warneck, 1999, #695
-         henry(ind_HNO4,k)=func3(1.2d4,6900.d0) !06.04.00
-         henry(ind_NH3,k)=func3(58.d0,4085.d0) !RS_MOCCA
-         henry(ind_SO2,k)=func3(1.2d0,3120.d0) !RS_MOCCA
-         henry(ind_O3,k)=func3(1.2d-02,2560.d0) !RS_MOCCA
-         henry(ind_ACO2,k)=func3(3.7d+03,5700.d0) !RS_MOCCA
-         henry(ind_ACTA,k)=func3(4.1d+03,6300.d0) !RS_Johnson
-         henry(ind_HCHO,k)=func3(7.0d+03,6425.d0) !RS_MOCCA
-         henry(ind_ALD2,k)=func3(1.3d+01,5700.d0) !RS_Benkelberg: acetaldehyde
-         henry(ind_H2O2,k)=func3(1.d+05,6338.d0) !RS_MOCCA
-!         henry(ind_ROOH,k)=func3(7.45d+04,6620.d0) ! # aktualisieren
-         henry(ind_ROOH,k)=func3(3.0d+02,5322.d0) !RS_MOCCA
-!         henry(ind_HONO,k)=func3(5.0d+01,4900.d0) !RS_Becker
-         henry(ind_HONO,k)=func3(4.9d+01,4780.d0) !RS_MOCCA
-         henry(ind_PAN,k)=func3(2.8d0,6500.d0) !RS_Kames
-!         henry(ind_TPAN,k)=henry(22,k)
-!         henry(ind_MGLY,k)=func3(3.7d+03,7553.d0) !RS_Betterton
-!         henry(ind_HCl,k)=func3(1.17d0,9001.d0) !RS_MOCCA
-         henry(ind_HCl,k)=func3(2.d0/1.7d0,9001.d0) !RS_MOCCA_exakt
-!         henry(ind_R3N2,k)=func3(1.d0,5450.d0) !RS_kames: propyl nitrate
-         henry(ind_NO3,k)=func3(2.d0,2000.d0) !RS_MOCCA
-         henry(ind_DMS,k)=func3(4.8d-1,3100.d0) !RS_deBruyn
-!         henry(ind_DMSO,k)=5.d4     !RS_MOCCA
-         henry(ind_DMSO,k)=func3(5.d4,6425.d0)     !RS_MOCCA 06.04.00
-         henry(ind_DMSO2,k)= 1.d+16    !DMSO2=H2SO4, assumed
-         henry(ind_CH3SO2H,k)=1.d+16     !MSIA=H2SO4, assumed
-         henry(ind_CH3SO3H,k)=1.d+16    !MSA=H2SO4, assumed
-         henry(ind_HOCl,k)=func3(6.7d2,5862.d0) !RS_MOCCA
-!         henry(ind_Cl2,k)=9.2d-2    !RS_MOCCA
-         henry(ind_Cl2,k)=func3(9.1d-2,2500.d0)    !RS_MOCCA 06.04.00
-         henry(ind_HBr,k)=func3(1.3d0,10239.d0) !RS_MOCCA
-         henry(ind_Br2,k)=func3(7.6d-1,4094.d0) !RS_MOCCA
-         henry(ind_BrCl,k)=func3(9.4d-1,5600.d0)   !RS_MOCCA
-!         henry(ind_HOBr,k)=9.3d1    !RS_MOCCA
-         henry(ind_HOBr,k)=func3(9.3d1,5862.d0)    !RS_MOCCA 06.04.00
-!!         henry(ind_HI,k)=func3(2.5d9/K_a,9800.d0) !RS_Brimblecombe #K_a
-         henry(ind_I2,k)=func3(3.d0,4431.d0) !RS_MOCCA
-!!         henry(ind_HOI,k)=4.5d2     !RS_MOCCA
-         henry(ind_HOI,k)=func3(4.5d2,5862.d0)     !RS_MOCCA 06.04.00
-!!         henry(ind_ICl,k)=1.1d2     !RS_MOCCA
-         henry(ind_ICl,k)=func3(1.1d2,5600.d0)     !RS_MOCCA 06.04.00
-!!         henry(ind_IBr,k)=2.4d1     !RS_MOCCA
-         henry(ind_IBr,k)=func3(2.4d1,5600.d0)     !RS_MOCCA 06.04.00
-         henry(ind_CH3I,k)=func3(1.4d-1,4300.d0) !RS_Moore
-         henry(ind_CH2I2,k)=func3(2.3d0,5000.d0) !RS_Moore
-         henry(ind_CH2ClI,k)=func3(8.9d-1,4300.d0) !RS_Moore
+     henry(ind_NO,k)=func3(1.9d-03,1480.d0)   !RS_Lide
+!     henry(ind_NO2,k)=func3(1.d-02,2500.d0)  !RS_Chameides
+     henry(ind_NO2,k)=func3(6.4d-03,2500.d0)  !RS_MOCCA
+!     henry(ind_HNO3,k)=func3(1.66d5,8694.d0) !RS_MOCCA
+     henry(ind_HNO3,k)=func3(2.5d6/1.5d1,8694.d0) !RS_MOCCA_exakt
+!     henry(ind_HNO4,k)=1.4d4     !Goetz, 1996, cited in Warneck, 1999, #695
+     henry(ind_HNO4,k)=func3(1.2d4,6900.d0)   !06.04.00
+     henry(ind_NH3,k)=func3(58.d0,4085.d0)    !RS_MOCCA
+     henry(ind_SO2,k)=func3(1.2d0,3120.d0)    !RS_MOCCA
+     henry(ind_O3,k)=func3(1.2d-02,2560.d0)   !RS_MOCCA
+     henry(ind_ACO2,k)=func3(3.7d+03,5700.d0) !RS_MOCCA
+     henry(ind_ACTA,k)=func3(4.1d+03,6300.d0) !RS_Johnson
+     henry(ind_HCHO,k)=func3(7.0d+03,6425.d0) !RS_MOCCA
+     henry(ind_ALD2,k)=func3(1.3d+01,5700.d0)  !RS_Benkelberg: acetaldehyde
+     henry(ind_H2O2,k)=func3(1.d+05,6338.d0)   !RS_MOCCA
+!     henry(ind_ROOH,k)=func3(7.45d+04,6620.d0) ! # aktualisieren
+     henry(ind_ROOH,k)=func3(3.0d+02,5322.d0)  !RS_MOCCA
+!     henry(ind_HONO,k)=func3(5.0d+01,4900.d0) !RS_Becker
+     henry(ind_HONO,k)=func3(4.9d+01,4780.d0)  !RS_MOCCA
+     henry(ind_PAN,k)=func3(2.8d0,6500.d0)     !RS_Kames
+!     henry(ind_TPAN,k)=henry(22,k)
+!     henry(ind_MGLY,k)=func3(3.7d+03,7553.d0) !RS_Betterton
+!     henry(ind_HCl,k)=func3(1.17d0,9001.d0)   !RS_MOCCA
+     henry(ind_HCl,k)=func3(2.d0/1.7d0,9001.d0) !RS_MOCCA_exakt
+!     henry(ind_R3N2,k)=func3(1.d0,5450.d0)    !RS_kames: propyl nitrate
+     henry(ind_NO3,k)=func3(2.d0,2000.d0)      !RS_MOCCA
+     henry(ind_DMS,k)=func3(4.8d-1,3100.d0)    !RS_deBruyn
+!     henry(ind_DMSO,k)=5.d4                   !RS_MOCCA
+     henry(ind_DMSO,k)=func3(5.d4,6425.d0)     !RS_MOCCA 06.04.00
+     henry(ind_DMSO2,k)= 1.d+16                !DMSO2=H2SO4, assumed
+     henry(ind_CH3SO2H,k)=1.d+16               !MSIA=H2SO4, assumed
+     henry(ind_CH3SO3H,k)=1.d+16               !MSA=H2SO4, assumed
+     henry(ind_HOCl,k)=func3(6.7d2,5862.d0)    !RS_MOCCA
+!     henry(ind_Cl2,k)=9.2d-2    !RS_MOCCA
+     henry(ind_Cl2,k)=func3(9.1d-2,2500.d0)    !RS_MOCCA 06.04.00
+     henry(ind_HBr,k)=func3(1.3d0,10239.d0)    !RS_MOCCA
+     henry(ind_Br2,k)=func3(7.6d-1,4094.d0)    !RS_MOCCA
+     henry(ind_BrCl,k)=func3(9.4d-1,5600.d0)   !RS_MOCCA
+!     henry(ind_HOBr,k)=9.3d1    !RS_MOCCA
+     henry(ind_HOBr,k)=func3(9.3d1,5862.d0)    !RS_MOCCA 06.04.00
+!!     henry(ind_HI,k)=func3(2.5d9/K_a,9800.d0) !RS_Brimblecombe #K_a
+     henry(ind_I2,k)=func3(3.d0,4431.d0) !RS_MOCCA
+!!     henry(ind_HOI,k)=4.5d2     !RS_MOCCA
+     henry(ind_HOI,k)=func3(4.5d2,5862.d0)     !RS_MOCCA 06.04.00
+!!     henry(ind_ICl,k)=1.1d2     !RS_MOCCA
+     henry(ind_ICl,k)=func3(1.1d2,5600.d0)     !RS_MOCCA 06.04.00
+!!     henry(ind_IBr,k)=2.4d1     !RS_MOCCA
+     henry(ind_IBr,k)=func3(2.4d1,5600.d0)     !RS_MOCCA 06.04.00
+     henry(ind_CH3I,k)=func3(1.4d-1,4300.d0)   !RS_Moore
+     henry(ind_CH2I2,k)=func3(2.3d0,5000.d0)   !RS_Moore
+     henry(ind_CH2ClI,k)=func3(8.9d-1,4300.d0) !RS_Moore
 
 ! for radicals only OH, HO2, MO2 are defined ! #
-!         henry(ind_OH,k)=25.d0      !RS_MOCCA
-         henry(ind_OH,k)=func3(3.0d1,4300.d0)      !RS_MOCCA 06.04.00
-!         henry(ind_HO2,k)=9.d3      !RS_MOCCA
-         henry(ind_HO2,k)=func3(3.9d3,5900.d0)      !RS_MOCCA 06.04.00
-         henry(ind_MO2,k)=func3(6.d0,5600.d0) !RS_Jacob
-!         henry(ind_MO2,k)=6.d0      !RS_MOCCA
-!!         henry(ind_IO,k)=4.5d2      !RS_MOCCA
-         henry(ind_IO,k)=func3(4.5d2,5862.d0)      !RS_MOCCA 06.04.00
-         henry(ind_CO2,k)=func3(3.1d-02,2423.d0) !RS_MOCCA
-         henry(ind_CO,k)=func3(9.9d-04,1300.d0) !RS_MOCCA
-         henry(ind_O2,k)=func3(1.3d-3,1500.d0) !RS_Lide95 06.04.00
-!         henry(ind_O2,k)=1.7d-3     !RS_MOCCA
-!         henry(ind_I2O4,k)=func3()
-!         henry(ind_I2O5,k)=func3()
-!         henry(ind_INO,k)=func3()
-!         henry(ind_Br2O,k)=func3()
-         henry(ind_ClONO,k)=4.6d-2  !RS_MOCCA, same as ClNO2
-!         henry(ind_ClO3,k)=func3()
-!         henry(ind_Cl2O3,k)=func3()
-         henry(ind_CH3OH,k)=func3(1.6d2,5600.d0)  !RS_MOCCA
-         henry(ind_C2H5OH,k)=func3(1.5d2,6400.d0)  !RS_MOCCA
-         henry(ind_H2,k)=func3(7.8d-4,500.d0)  !RS_MOCCA
-!         henry(ind_NHS,k)=func3()
-!         henry(ind_RCl,k)=func3()
-!         henry(ind_RBr,k)=func3()
-         henry(ind_XOR,k)=func3(1.5d2,6400.d0) ! same as ethanol
-         henry(ind_SOR,k)=func3(1.5d2,6400.d0) !  same as ethanol
-!         henry(ind_SPAN,k)=func3()
+!     henry(ind_OH,k)=25.d0      !RS_MOCCA
+     henry(ind_OH,k)=func3(3.0d1,4300.d0)      !RS_MOCCA 06.04.00
+!     henry(ind_HO2,k)=9.d3      !RS_MOCCA
+     henry(ind_HO2,k)=func3(3.9d3,5900.d0)     !RS_MOCCA 06.04.00
+     henry(ind_MO2,k)=func3(6.d0,5600.d0) !RS_Jacob
+!     henry(ind_MO2,k)=6.d0      !RS_MOCCA
+!!     henry(ind_IO,k)=4.5d2      !RS_MOCCA
+     henry(ind_IO,k)=func3(4.5d2,5862.d0)      !RS_MOCCA 06.04.00
+     henry(ind_CO2,k)=func3(3.1d-02,2423.d0)   !RS_MOCCA
+     henry(ind_CO,k)=func3(9.9d-04,1300.d0)    !RS_MOCCA
+     henry(ind_O2,k)=func3(1.3d-3,1500.d0)     !RS_Lide95 06.04.00
+!     henry(ind_O2,k)=1.7d-3                   !RS_MOCCA
+!     henry(ind_I2O4,k)=func3()
+!     henry(ind_I2O5,k)=func3()
+!     henry(ind_INO,k)=func3()
+!     henry(ind_Br2O,k)=func3()
+     henry(ind_ClONO,k)=4.6d-2  !RS_MOCCA, same as ClNO2
+!     henry(ind_ClO3,k)=func3()
+!     henry(ind_Cl2O3,k)=func3()
+     henry(ind_CH3OH,k)=func3(1.6d2,5600.d0)   !RS_MOCCA
+     henry(ind_C2H5OH,k)=func3(1.5d2,6400.d0)  !RS_MOCCA
+     henry(ind_H2,k)=func3(7.8d-4,500.d0)      !RS_MOCCA
+!     henry(ind_NHS,k)=func3()
+!     henry(ind_RCl,k)=func3()
+!     henry(ind_RBr,k)=func3()
+     henry(ind_XOR,k)=func3(1.5d2,6400.d0) ! same as ethanol
+     henry(ind_SOR,k)=func3(1.5d2,6400.d0) !  same as ethanol
+!     henry(ind_SPAN,k)=func3()
 
 
 ! include HERE call to get effective henry coeffs (if needed),
 ! before inverse k_H are calculated
-!         xCO2=func3(4.3d-7,-919.d0)
-!         x3CO2=xCO2*func3(4.7d-11,-1787.d0)
-!         xNH3=func3(1.71d-5,-4325.d0)/func3(1.d-14,-6716.d0)
-!         if (sion1(1,1,k).gt.0.) then         !anhaengig von tropfenklasse! (--> pH)
-!            xhp=(dmax(sion1(1,1,k),1.d-6))*1.d-3                   ! in mol/l !
-!            henry(ind_CO2,k)=henry(ind_CO2,k)*(1+xCO2/xhp+x3CO2/(xhp**2))
-!            henry(ind_NH3,k)=henry(ind_NH3,k)*(1+xNH3*xhp)
-!         endif
+!     xCO2=func3(4.3d-7,-919.d0)
+!     x3CO2=xCO2*func3(4.7d-11,-1787.d0)
+!     xNH3=func3(1.71d-5,-4325.d0)/func3(1.d-14,-6716.d0)
+!     if (sion1(1,1,k).gt.0.) then         !anhaengig von tropfenklasse! (--> pH)
+!        xhp=(dmax(sion1(1,1,k),1.d-6))*1.d-3                   ! in mol/l !
+!        henry(ind_CO2,k)=henry(ind_CO2,k)*(1+xCO2/xhp+x3CO2/(xhp**2))
+!        henry(ind_NH3,k)=henry(ind_NH3,k)*(1+xNH3*xhp)
+!     endif
 
-      enddo
+  enddo
 
 ! unit: mol/(l*atm) --> mol(aq)/m3(aq) / mol(g)/m3(g) (i.e. dimensionless)
 ! FCT=1.d3*8.3145*T/p_0=0.082*T
 ! PLUS conversion to inverse Henry constant:  h_(H,inv)^cc = 1/k_H^cc
 ! i.e. mol(aq)/m3(aq) / mol(g)/m3(air) -->  mol(g)/m3(air) / mol(aq)/m3(aq)
 
-      do k=1,nmaxf
-         FCT=0.0820577d0*tt(k)
-         do j=1,NSPEC
-            if (henry(j,k).ne.0.d0) then
-               henry(j,k)=1.d0/(henry(j,k)*FCT)
+  do k=1,nmaxf
+     FCT = 0.0820577_dp * tt(k)
+     do j=1,NSPEC
+        if (henry(j,k).gt.0._dp) then
+           henry(j,k) = 1._dp / (henry(j,k)*FCT)
 ! "else": henry=0 <=> k_H^cc=infinity
-            end if
-         end do
-      end do
+        end if
+     end do
+  end do
 
-      end subroutine henry_t
+end subroutine henry_t
 
 
 !
 !------------------------------------------------------
 !
 
-      subroutine henry_a (tt,nmaxf)
+subroutine henry_a (tt,nmaxf)
 
-! Temp dependent Henry constants
-! inverse dimensionless Henry constant: k_(H,inv)^cc:=1/(k_H^cp*RT)
-! in equilibrium: XXXaq = k_H^cp * LWC * XXXg
+! Description :
+! -----------
+  ! Temp dependent Henry constants
+  ! inverse dimensionless Henry constant: k_(H,inv)^cc:=1/(k_H^cp*RT)
+  ! in equilibrium: XXXaq = k_H^cp * LWC * XXXg
 
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
 ! jjb work done:
 !     - removed pp (pressure) from the argument list: unused
 !     - removed hard coded parameters, use modules instead
@@ -1856,205 +1885,217 @@ end subroutine v_mean_a
 !     - missing declarations and implicit none
 !     - final conversion (inverse if henry /= 0.) optimised
 !     - reindexed henry(NSPEC,nf) instead of (nf,NSPEC) for computing efficiency
-!     - added initialisation of henry!
-!     - added test: nmaxf must be <= nf
+!     - added initialisation of henry(:,:)
 
-      USE global_params, ONLY : &
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nkc
+       nf, &
+       n, &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'aer_Parameters.h'    !additional common blocks and other definitions
+  implicit none
 
-      double precision, intent(in) :: tt(n) ! temperature array
-      integer         , intent(in) :: nmaxf ! max layer index where henry has to be computed
+  include 'aer_Parameters.h'    !additional common blocks and other definitions
 
-      double precision :: func3, a0, b0 ! temperature dependency function, and its arguments
-      double precision :: FCT           ! conversion factor, see below
-      double precision :: Tfact         ! Tfact, local variable [K**-1]
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: tt(n) ! temperature array
+  integer       , intent(in) :: nmaxf ! max layer index where henry has to be computed
 
-      integer :: j,k                    ! loop indexes
+! Local scalars:
+  integer :: j,k                  ! loop indexes
+  real (kind=dp) :: func3, a0, b0 ! temperature dependency function, and its arguments
+  real (kind=dp) :: FCT           ! conversion factor, see below
+  real (kind=dp) :: Tfact         ! Tfact, local variable [K**-1]
+!  real (kind=dp) :: xCO2, x3CO2, xNH3, xhp
 
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      double precision henry, xkmt, xkef, xkeb
+! Common blocks:
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real (kind=dp) henry, xkmt, xkef, xkeb
 
 ! 0.082=8.3145*10^3/101325=R/p_0*10^3 : R includes conversion from M/atm --> mol/(m^3*Pa)
 ! so k_H^cp is taken as M/atm (the most common literature unit): SEE END OF SR
 
-!      func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))*0.082*tt(k0)
-!      func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))
+! func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))*0.082*tt(k0)
+! func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))
 
 ! jjb 11/02/2017 slight improvement in calculation efficiency: compute Tfact only once per layer
-!     Tfact = 1/T - 1/Tref, see below
-      func3(a0,b0)=a0*exp(b0*Tfact)
+!  Tfact = 1/T - 1/Tref, see below
+  func3(a0,b0)=a0*exp(b0*Tfact)
 
-      if (nmaxf > nf) stop 'Error in henry_t: nmaxf must be <= nf'
+! == End of declarations =======================================================
 
-      henry(:,:) = 0.d0
+  henry(:,:) = 0._dp
 
-      do k=1,nmaxf
+  do k=1,nmaxf
 
-!         henry(ind_H2SO4,k)=4.1d-12   !???
-         henry(ind_H2SO4,k)=1.d+16    !NIST --> RS_Gmitro_Vermeulen
-         henry(ind_CH4,k)=1.3d-3    !RS_Mackay
-         henry(ind_C2H6,k)=2.0d-3   !RS_Mackay
-!         henry(ind_C3H8,k)=1.4d-3   !RS_Mackay
-!         henry(ind_ALKA,k)=9.5d-4   !ok
-         henry(ind_ETHE,k)=4.9d-3   !ok
-!         henry(ind_ALKE,k)=4.9d-3   !ok
-!         henry(ind_AROM,k)=1.5d-1   !RS_Mackay: methylbenzene
-!         henry(ind_KET,k)=10.d0     !RS_higher ketone
-!         henry(ind_CRES,k)=8.2d2    !RS_Hine
-!         henry(ind_DIAL,k)=10.0d0   !RS_Snider:propenal #?
-!         henry(ind_GLYX,k)=3.6d5    !RS_Zhou
-!        henry(ind_NH4NO3,k)=4.1d-12  !# was soll dieses Salz in Gasphase??
-!         henry(ind_RAN2,k)=1.2d0    !RS_Kames: pentyl-nitrate
-!         henry(ind_RAN1,k)=1.d0     !RS_hine
-!         henry(ind_N2O5,k)=0.0      !RS_Sander  infinity!
-!         henry(ind_ClNO2,k)=0.0     !  10^-2
-!         henry(ind_ClNO3,k)=0.0     !  infinity
-!         henry(ind_BrNO2,k)=0.0     !  10^-1
-!         henry(ind_BrNO3,k)=0.0     !  infinity
-         henry(ind_HI,k)=0.0d0        !   (dissociation)
-         henry(ind_I2O2,k)=0.0d0      !
-         henry(ind_INO2,k)=0.0d0      !
-         henry(ind_INO3,k)=0.0d0      !
-!         henry(ind_I2O,k)=0.0d0      !
-!         henry(ind_I2O3,k)=0.0d0      !
-!         henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
-!         henry(ind_HIO3,k) =                     -"-
-         henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
-!        henry(ind_CH3SO2,k)= !RS_MOCCA
-!        henry(ind_CH3SO3,k)= !RS_MOCCA
-!         henry(ind_Hg,k)    = 1.3d-1                   ! #233 in #3127
-!         henry(ind_HgO,k)   = 2.69d12                  ! #233 in #3127
-!         henry(ind_HgCl,k)  = 2.75d6                   ! assumed HgCl2 (poss. higher??)
-!         henry(ind_HgCl2,k) = 2.75d6                   ! #233 in #3127
-!         henry(ind_HgBr,k)  = 2.75d6                   ! assumed HgBr2 (poss. higher??)
-!         henry(ind_HgBr2,k) = 2.75d6                   ! #3127
+!     henry(ind_H2SO4,k)=4.1d-12   !???
+     henry(ind_H2SO4,k)=1.d+16  !NIST --> RS_Gmitro_Vermeulen
+     henry(ind_CH4,k)=1.3d-3    !RS_Mackay
+     henry(ind_C2H6,k)=2.0d-3   !RS_Mackay
+!     henry(ind_C3H8,k)=1.4d-3   !RS_Mackay
+!     henry(ind_ALKA,k)=9.5d-4   !ok
+     henry(ind_ETHE,k)=4.9d-3   !ok
+!     henry(ind_ALKE,k)=4.9d-3   !ok
+!     henry(ind_AROM,k)=1.5d-1   !RS_Mackay: methylbenzene
+!     henry(ind_KET,k)=10.d0     !RS_higher ketone
+!     henry(ind_CRES,k)=8.2d2    !RS_Hine
+!     henry(ind_DIAL,k)=10.0d0   !RS_Snider:propenal #?
+!     henry(ind_GLYX,k)=3.6d5    !RS_Zhou
+!     henry(ind_NH4NO3,k)=4.1d-12  !# was soll dieses Salz in Gasphase??
+!     henry(ind_RAN2,k)=1.2d0    !RS_Kames: pentyl-nitrate
+!     henry(ind_RAN1,k)=1.d0     !RS_hine
+!     henry(ind_N2O5,k)=0.0      !RS_Sander  infinity!
+!     henry(ind_ClNO2,k)=0.0     !  10^-2
+!     henry(ind_ClNO3,k)=0.0     !  infinity
+!     henry(ind_BrNO2,k)=0.0     !  10^-1
+!     henry(ind_BrNO3,k)=0.0     !  infinity
+     henry(ind_HI,k)=0.0d0        !   (dissociation)
+     henry(ind_I2O2,k)=0.0d0      !
+     henry(ind_INO2,k)=0.0d0      !
+     henry(ind_INO3,k)=0.0d0      !
+!     henry(ind_I2O,k)=0.0d0      !
+!     henry(ind_I2O3,k)=0.0d0      !
+!     henry(ind_OIO,k)  =  unknown but not needed as only surface reaction and no reversible uptake
+!     henry(ind_HIO3,k) =                     -"-
+     henry(ind_C3H7I,k)=1.1d-1  !RS_Hine
+!     henry(ind_CH3SO2,k)= !RS_MOCCA
+!     henry(ind_CH3SO3,k)= !RS_MOCCA
+!     henry(ind_Hg,k)    = 1.3d-1                   ! #233 in #3127
+!     henry(ind_HgO,k)   = 2.69d12                  ! #233 in #3127
+!     henry(ind_HgCl,k)  = 2.75d6                   ! assumed HgCl2 (poss. higher??)
+!     henry(ind_HgCl2,k) = 2.75d6                   ! #233 in #3127
+!     henry(ind_HgBr,k)  = 2.75d6                   ! assumed HgBr2 (poss. higher??)
+!     henry(ind_HgBr2,k) = 2.75d6                   ! #3127
 
 ! explicitly Temp dependent
-         ! Tfact = 1/T - 1/Tref  with Tref = 298.15 K
-         ! 1/298.15 = 3.3540d-3
-         Tfact = 1.d0/tt(k) - 3.3540d-3
+     ! Tfact = 1/T - 1/Tref  with Tref = 298.15 K
+     ! 1/298.15 = 3.3540d-3
+     Tfact = 1.d0/tt(k) - 3.3540d-3
 
-         henry(ind_NO,k)=func3(1.9d-03,1480.d0) !RS_Lide
-!         henry(ind_NO2,k)=func3(1.d-02,2500.d0) !RS_Chameides
-         henry(ind_NO2,k)=func3(6.4d-03,2500.d0) !RS_MOCCA
-!         henry(ind_HNO3,k)=func3(1.66d5,8694.d0) !RS_MOCCA
-         henry(ind_HNO3,k)=func3(2.5d6/1.5d1,8694.d0) !RS_MOCCA_exakt
-!         henry(ind_HNO4,k)=1.4d4     !Goetz, 1996, cited in Warneck, 1999, #695
-         henry(ind_HNO4,k)=func3(1.2d4,6900.d0) !06.04.00
-         henry(ind_NH3,k)=func3(58.d0,4085.d0) !RS_MOCCA
-         henry(ind_SO2,k)=func3(1.2d0,3120.d0) !RS_MOCCA
-         henry(ind_O3,k)=func3(1.2d-02,2560.d0) !RS_MOCCA
-         henry(ind_ACO2,k)=func3(3.7d+03,5700.d0) !RS_MOCCA
-         henry(ind_ACTA,k)=func3(4.1d+03,6300.d0) !RS_Johnson
-         henry(ind_HCHO,k)=func3(7.0d+03,6425.d0) !RS_MOCCA
-         henry(ind_ALD2,k)=func3(1.3d+01,5700.d0) !RS_Benkelberg: acetaldehyde
-         henry(ind_H2O2,k)=func3(1.d+05,6338.d0) !RS_MOCCA
-!         henry(ind_ROOH,k)=func3(7.45d+04,6620.d0) ! # aktualisieren
-         henry(ind_ROOH,k)=func3(3.0d+02,5322.d0) !RS_MOCCA
-!         henry(ind_HONO,k)=func3(5.0d+01,4900.d0) !RS_Becker
-         henry(ind_HONO,k)=func3(4.9d+01,4780.d0) !RS_MOCCA
-         henry(ind_PAN,k)=func3(2.8d0,6500.d0) !RS_Kames
-!         henry(ind_TPAN,k)=henry(22,k)
-!         henry(ind_MGLY,k)=func3(3.7d+03,7553.d0) !RS_Betterton
-!         henry(ind_HCl,k)=func3(1.17d0,9001.d0) !RS_MOCCA
-         henry(ind_HCl,k)=func3(2.d0/1.7d0,9001.d0) !RS_MOCCA_exakt
-!         henry(ind_R3N2,k)=func3(1.d0,5450.d0) !RS_kames: propyl nitrate
-         henry(ind_NO3,k)=func3(2.d0,2000.d0) !RS_MOCCA
-         henry(ind_DMS,k)=func3(4.8d-1,3100.d0) !RS_deBruyn
-!         henry(ind_DMSO,k)=5.d4     !RS_MOCCA
-         henry(ind_DMSO,k)=func3(5.d4,6425.d0)     !RS_MOCCA 06.04.00
-         henry(ind_DMSO2,k)= 1.d+16    !DMSO2=H2SO4, assumed
-         henry(ind_CH3SO2H,k)=1.d+16     !MSIA=H2SO4, assumed
-         henry(ind_CH3SO3H,k)=1.d+16    !MSA=H2SO4, assumed
-         henry(ind_HOCl,k)=func3(6.7d2,5862.d0) !RS_MOCCA
-!         henry(ind_Cl2,k)=9.2d-2    !RS_MOCCA
-         henry(ind_Cl2,k)=func3(9.1d-2,2500.d0)    !RS_MOCCA 06.04.00
-         henry(ind_HBr,k)=func3(1.3d0,10239.d0) !RS_MOCCA
-         henry(ind_Br2,k)=func3(7.6d-1,4094.d0) !RS_MOCCA
-         henry(ind_BrCl,k)=func3(9.4d-1,5600.d0)   !RS_MOCCA
-!         henry(ind_HOBr,k)=9.3d1    !RS_MOCCA
-         henry(ind_HOBr,k)=func3(9.3d1,5862.d0)    !RS_MOCCA 06.04.00
-!!         henry(ind_HI,k)=func3(2.5d9/K_a,9800.d0) !RS_Brimblecombe #K_a
-         henry(ind_I2,k)=func3(3.d0,4431.d0) !RS_MOCCA
-!!         henry(ind_HOI,k)=4.5d2     !RS_MOCCA
-         henry(ind_HOI,k)=func3(4.5d2,5862.d0)     !RS_MOCCA 06.04.00
-!!         henry(ind_ICl,k)=1.1d2     !RS_MOCCA
-         henry(ind_ICl,k)=func3(1.1d2,5600.d0)     !RS_MOCCA 06.04.00
-!!         henry(ind_IBr,k)=2.4d1     !RS_MOCCA
-         henry(ind_IBr,k)=func3(2.4d1,5600.d0)     !RS_MOCCA 06.04.00
-         henry(ind_CH3I,k)=func3(1.4d-1,4300.d0) !RS_Moore
-         henry(ind_CH2I2,k)=func3(2.3d0,5000.d0) !RS_Moore
-         henry(ind_CH2ClI,k)=func3(8.9d-1,4300.d0) !RS_Moore
+     henry(ind_NO,k)=func3(1.9d-03,1480.d0)   !RS_Lide
+!     henry(ind_NO2,k)=func3(1.d-02,2500.d0)  !RS_Chameides
+     henry(ind_NO2,k)=func3(6.4d-03,2500.d0)  !RS_MOCCA
+!     henry(ind_HNO3,k)=func3(1.66d5,8694.d0) !RS_MOCCA
+     henry(ind_HNO3,k)=func3(2.5d6/1.5d1,8694.d0) !RS_MOCCA_exakt
+!     henry(ind_HNO4,k)=1.4d4     !Goetz, 1996, cited in Warneck, 1999, #695
+     henry(ind_HNO4,k)=func3(1.2d4,6900.d0)   !06.04.00
+     henry(ind_NH3,k)=func3(58.d0,4085.d0)    !RS_MOCCA
+     henry(ind_SO2,k)=func3(1.2d0,3120.d0)    !RS_MOCCA
+     henry(ind_O3,k)=func3(1.2d-02,2560.d0)   !RS_MOCCA
+     henry(ind_ACO2,k)=func3(3.7d+03,5700.d0) !RS_MOCCA
+     henry(ind_ACTA,k)=func3(4.1d+03,6300.d0) !RS_Johnson
+     henry(ind_HCHO,k)=func3(7.0d+03,6425.d0) !RS_MOCCA
+     henry(ind_ALD2,k)=func3(1.3d+01,5700.d0)  !RS_Benkelberg: acetaldehyde
+     henry(ind_H2O2,k)=func3(1.d+05,6338.d0)   !RS_MOCCA
+!     henry(ind_ROOH,k)=func3(7.45d+04,6620.d0) ! # aktualisieren
+     henry(ind_ROOH,k)=func3(3.0d+02,5322.d0)  !RS_MOCCA
+!     henry(ind_HONO,k)=func3(5.0d+01,4900.d0) !RS_Becker
+     henry(ind_HONO,k)=func3(4.9d+01,4780.d0)  !RS_MOCCA
+     henry(ind_PAN,k)=func3(2.8d0,6500.d0)     !RS_Kames
+!     henry(ind_TPAN,k)=henry(22,k)
+!     henry(ind_MGLY,k)=func3(3.7d+03,7553.d0) !RS_Betterton
+!     henry(ind_HCl,k)=func3(1.17d0,9001.d0)   !RS_MOCCA
+     henry(ind_HCl,k)=func3(2.d0/1.7d0,9001.d0) !RS_MOCCA_exakt
+!     henry(ind_R3N2,k)=func3(1.d0,5450.d0)    !RS_kames: propyl nitrate
+     henry(ind_NO3,k)=func3(2.d0,2000.d0)      !RS_MOCCA
+     henry(ind_DMS,k)=func3(4.8d-1,3100.d0)    !RS_deBruyn
+!     henry(ind_DMSO,k)=5.d4                   !RS_MOCCA
+     henry(ind_DMSO,k)=func3(5.d4,6425.d0)     !RS_MOCCA 06.04.00
+     henry(ind_DMSO2,k)= 1.d+16                !DMSO2=H2SO4, assumed
+     henry(ind_CH3SO2H,k)=1.d+16               !MSIA=H2SO4, assumed
+     henry(ind_CH3SO3H,k)=1.d+16               !MSA=H2SO4, assumed
+     henry(ind_HOCl,k)=func3(6.7d2,5862.d0)    !RS_MOCCA
+!     henry(ind_Cl2,k)=9.2d-2    !RS_MOCCA
+     henry(ind_Cl2,k)=func3(9.1d-2,2500.d0)    !RS_MOCCA 06.04.00
+     henry(ind_HBr,k)=func3(1.3d0,10239.d0)    !RS_MOCCA
+     henry(ind_Br2,k)=func3(7.6d-1,4094.d0)    !RS_MOCCA
+     henry(ind_BrCl,k)=func3(9.4d-1,5600.d0)   !RS_MOCCA
+!     henry(ind_HOBr,k)=9.3d1    !RS_MOCCA
+     henry(ind_HOBr,k)=func3(9.3d1,5862.d0)    !RS_MOCCA 06.04.00
+!!     henry(ind_HI,k)=func3(2.5d9/K_a,9800.d0) !RS_Brimblecombe #K_a
+     henry(ind_I2,k)=func3(3.d0,4431.d0) !RS_MOCCA
+!!     henry(ind_HOI,k)=4.5d2     !RS_MOCCA
+     henry(ind_HOI,k)=func3(4.5d2,5862.d0)     !RS_MOCCA 06.04.00
+!!     henry(ind_ICl,k)=1.1d2     !RS_MOCCA
+     henry(ind_ICl,k)=func3(1.1d2,5600.d0)     !RS_MOCCA 06.04.00
+!!     henry(ind_IBr,k)=2.4d1     !RS_MOCCA
+     henry(ind_IBr,k)=func3(2.4d1,5600.d0)     !RS_MOCCA 06.04.00
+     henry(ind_CH3I,k)=func3(1.4d-1,4300.d0)   !RS_Moore
+     henry(ind_CH2I2,k)=func3(2.3d0,5000.d0)   !RS_Moore
+     henry(ind_CH2ClI,k)=func3(8.9d-1,4300.d0) !RS_Moore
 
 ! for radicals only OH, HO2, MO2 are defined ! #
-!         henry(ind_OH,k)=25.d0      !RS_MOCCA
-         henry(ind_OH,k)=func3(3.0d1,4300.d0)      !RS_MOCCA 06.04.00
-!         henry(ind_HO2,k)=9.d3      !RS_MOCCA
-         henry(ind_HO2,k)=func3(3.9d3,5900.d0)      !RS_MOCCA 06.04.00
-         henry(ind_MO2,k)=func3(6.d0,5600.d0) !RS_Jacob
-!         henry(ind_MO2,k)=6.d0      !RS_MOCCA
-!!         henry(ind_IO,k)=4.5d2      !RS_MOCCA
-         henry(ind_IO,k)=func3(4.5d2,5862.d0)      !RS_MOCCA 06.04.00
-         henry(ind_CO2,k)=func3(3.1d-02,2423.d0) !RS_MOCCA
-         henry(ind_CO,k)=func3(9.9d-04,1300.d0) !RS_MOCCA
-         henry(ind_O2,k)=func3(1.3d-3,1500.d0) !RS_Lide95 06.04.00
-!         henry(ind_O2,k)=1.7d-3     !RS_MOCCA
-!         henry(ind_I2O4,k)=func3()
-!         henry(ind_I2O5,k)=func3()
-!         henry(ind_INO,k)=func3()
-!         henry(ind_Br2O,k)=func3()
-         henry(ind_ClONO,k)=4.6d-2  !RS_MOCCA, same as ClNO2
-!         henry(ind_ClO3,k)=func3()
-!         henry(ind_Cl2O3,k)=func3()
-         henry(ind_CH3OH,k)=func3(1.6d2,5600.d0)  !RS_MOCCA
-         henry(ind_C2H5OH,k)=func3(1.5d2,6400.d0)  !RS_MOCCA
-         henry(ind_H2,k)=func3(7.8d-4,500.d0)  !RS_MOCCA
-!         henry(ind_NHS,k)=func3()
-!         henry(ind_RCl,k)=func3()
-!         henry(ind_RBr,k)=func3()
-         henry(ind_XOR,k)=func3(1.5d2,6400.d0) ! same as ethanol
-         henry(ind_SOR,k)=func3(1.5d2,6400.d0) !  same as ethanol
-!         henry(ind_SPAN,k)=func3()
+!     henry(ind_OH,k)=25.d0      !RS_MOCCA
+     henry(ind_OH,k)=func3(3.0d1,4300.d0)      !RS_MOCCA 06.04.00
+!     henry(ind_HO2,k)=9.d3      !RS_MOCCA
+     henry(ind_HO2,k)=func3(3.9d3,5900.d0)     !RS_MOCCA 06.04.00
+     henry(ind_MO2,k)=func3(6.d0,5600.d0) !RS_Jacob
+!     henry(ind_MO2,k)=6.d0      !RS_MOCCA
+!!     henry(ind_IO,k)=4.5d2      !RS_MOCCA
+     henry(ind_IO,k)=func3(4.5d2,5862.d0)      !RS_MOCCA 06.04.00
+     henry(ind_CO2,k)=func3(3.1d-02,2423.d0)   !RS_MOCCA
+     henry(ind_CO,k)=func3(9.9d-04,1300.d0)    !RS_MOCCA
+     henry(ind_O2,k)=func3(1.3d-3,1500.d0)     !RS_Lide95 06.04.00
+!     henry(ind_O2,k)=1.7d-3                   !RS_MOCCA
+!     henry(ind_I2O4,k)=func3()
+!     henry(ind_I2O5,k)=func3()
+!     henry(ind_INO,k)=func3()
+!     henry(ind_Br2O,k)=func3()
+     henry(ind_ClONO,k)=4.6d-2  !RS_MOCCA, same as ClNO2
+!     henry(ind_ClO3,k)=func3()
+!     henry(ind_Cl2O3,k)=func3()
+     henry(ind_CH3OH,k)=func3(1.6d2,5600.d0)   !RS_MOCCA
+     henry(ind_C2H5OH,k)=func3(1.5d2,6400.d0)  !RS_MOCCA
+     henry(ind_H2,k)=func3(7.8d-4,500.d0)      !RS_MOCCA
+!     henry(ind_NHS,k)=func3()
+!     henry(ind_RCl,k)=func3()
+!     henry(ind_RBr,k)=func3()
+     henry(ind_XOR,k)=func3(1.5d2,6400.d0) ! same as ethanol
+     henry(ind_SOR,k)=func3(1.5d2,6400.d0) !  same as ethanol
+!     henry(ind_SPAN,k)=func3()
 
 
 ! include HERE call to get effective henry coeffs (if needed),
 ! before inverse k_H are calculated
-!         xCO2=func3(4.3d-7,-919.d0)
-!         x3CO2=xCO2*func3(4.7d-11,-1787.d0)
-!         xNH3=func3(1.71d-5,-4325.d0)/func3(1.d-14,-6716.d0)
-!         if (sion1(1,1,k).gt.0.) then         !anhaengig von tropfenklasse! (--> pH)
-!            xhp=(dmax(sion1(1,1,k),1.d-6))*1.d-3                   ! in mol/l !
-!            henry(ind_CO2,k)=henry(ind_CO2,k)*(1+xCO2/xhp+x3CO2/(xhp**2))
-!            henry(ind_NH3,k)=henry(ind_NH3,k)*(1+xNH3*xhp)
-!         endif
+!     xCO2=func3(4.3d-7,-919.d0)
+!     x3CO2=xCO2*func3(4.7d-11,-1787.d0)
+!     xNH3=func3(1.71d-5,-4325.d0)/func3(1.d-14,-6716.d0)
+!     if (sion1(1,1,k).gt.0.) then         !anhaengig von tropfenklasse! (--> pH)
+!        xhp=(dmax(sion1(1,1,k),1.d-6))*1.d-3                   ! in mol/l !
+!        henry(ind_CO2,k)=henry(ind_CO2,k)*(1+xCO2/xhp+x3CO2/(xhp**2))
+!        henry(ind_NH3,k)=henry(ind_NH3,k)*(1+xNH3*xhp)
+!     endif
 
-      enddo
+  enddo
 
 ! unit: mol/(l*atm) --> mol(aq)/m3(aq) / mol(g)/m3(g) (i.e. dimensionless)
 ! FCT=1.d3*8.3145*T/p_0=0.082*T
 ! PLUS conversion to inverse Henry constant:  h_(H,inv)^cc = 1/k_H^cc
 ! i.e. mol(aq)/m3(aq) / mol(g)/m3(air) -->  mol(g)/m3(air) / mol(aq)/m3(aq)
 
-      do k=1,nmaxf
-         FCT=0.0820577d0*tt(k)
-         do j=1,NSPEC
-            if (henry(j,k).ne.0.d0) then
-               henry(j,k)=1.d0/(henry(j,k)*FCT)
+  do k=1,nmaxf
+     FCT = 0.0820577_dp * tt(k)
+     do j=1,NSPEC
+        if (henry(j,k).gt.0._dp) then
+           henry(j,k) = 1._dp / (henry(j,k)*FCT)
 ! "else": henry=0 <=> k_H^cc=infinity
-            end if
-         end do
-      end do
+        end if
+     end do
+  end do
 
-      end subroutine henry_a
-
+end subroutine henry_a
 
 
 !
