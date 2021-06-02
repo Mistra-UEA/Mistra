@@ -2371,24 +2371,42 @@ end subroutine cw_rc
 !--------------------------------------------------------
 !
 
-      subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
-! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
-! but no mean values used (like in SR k_mt_a/t) but integrated values
+subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
 
-      USE config, ONLY : &
-           ifeed
+! Description :
+! -----------
+  ! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
+  ! but no mean values used (like in SR k_mt_a/t) but integrated values
 
-      USE constants, ONLY : &
+  ! transfer coefficients (variable xkmt) computed only if LWC above threshold for each layer and each chemical bin (with cm used as switch)
+  ! sedimentation velocity (variable vt) computed whatever LWC
+
+! Modifications :
+! -------------
+  ! jjb: added all missing declarations and implicit none
+  !      shorten the code by introducing lmax and llchem, to avoid duplicated part of code
+  !       for vt calculation ("dry" case, meaning cm=0)
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+       ifeed
+
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !      USE gas_common, ONLY : &
@@ -2403,44 +2421,62 @@ end subroutine cw_rc
 !      USE kpp_tot_Global, ONLY : &
 !           SPC_NAMES
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit double precision (a-h,o-z)
+  include 'tot_Parameters.h' !additional common blocks and other definitions
 
-      include 'tot_Parameters.h' !additional common blocks and other definitions
-      parameter (nx=50)
-      logical box
-      common /blck06/ kw(nka),ka
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
+! Subroutine arguments:
+  real(kind=dp), intent(in) :: freep(nf)
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
-!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-!      real (kind=dp) :: time
-!      integer :: lday, lst, lmin, it, lcl, lct
+! Local parameters:
+  integer, parameter :: nx=50                      ! number of exchanged chemical species
+  real (kind=dp), parameter :: z4pi3 = 4._dp * pi / 3._dp
+! Local scalars:
+  integer :: ia, iia_0, iia_e, jt, jjt_0, jjt_e    ! running indexes and limits for ia, jt
+  integer :: k, kc, l, lmax, nmin, nmax            ! running indexes, and limits for k
+  logical :: llchem                                ! switch to compute xkmt (cm>0) or not (cm=0)
+  real (kind=dp) :: rqq, x1, xk1, xx1, x2, xvs
+  real (kind=dp), external :: vterm                ! terminal velocity (m/s) computed as a function of r, t, p
+  ! Local arrays:
+  integer :: lex(nx)
+  real (kind=dp) :: rqm(nkt,nka)
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw, ew, rn, rw, en, e, dew, rq
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Common blocks:
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+!  common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
+!  real (kind=dp) :: time
+!  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real(kind=dp) :: alpha, vmean
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real(kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real(kind=dp) :: vt, vd, vdm
 
-!     dimension cw(nf,nkc),freep(nf),dndlogr(nkt),rqm(nkt,nka),lex(nx) ! jjb dndlogr not used
-!     dimension cw(nf,nkc),freep(nf),rqm(nkt,nka),lex(nx)              ! jjb thus removed
-      dimension freep(nf),rqm(nkt,nka),lex(nx)              ! jjb cw removed from argument list
+! == End of declarations =======================================================
 
-      data lex /ind_NO2,ind_HNO3,ind_NH3,ind_SO2,ind_H2SO4,ind_O3, &
+! Define the list of species indexes that are exchanged
+  data lex /ind_NO2,ind_HNO3,ind_NH3,ind_SO2,ind_H2SO4,ind_O3, &
           ind_ACO2,ind_HCHO,ind_H2O2,ind_HONO,ind_HCl,ind_N2O5,ind_HNO4, &
           ind_NO3,ind_OH,ind_HO2,ind_MO2,ind_CO2,ind_O2,ind_ROOH, &
           ind_HOCl,ind_Cl2,ind_HBr,ind_HOBr,ind_Br2,ind_BrCl,ind_DMSO, &
@@ -2452,26 +2488,33 @@ end subroutine cw_rc
 ! ind_Hg,ind_HgO,ind_HgCl,ind_HgCl2,ind_HgBr,ind_HgBr2; also change/check nx
 
 ! change rq in um to rqm in m
-!     do ia=1,nka
-!        do jt=1,nkt
-!           rqm(jt,ia)=rq(jt,ia)*1.d-6  ! jjb matrix below
-!        enddo
-!     enddo
-      rqm(:,:) = rq(:,:) * 1.d-6        ! jjb matrix
+  rqm(:,:) = rq(:,:) * 1.d-6
 
-      nmin=2
-      nmax=nf
-      if (box) then
-         nmin=n_bl
-         nmax=n_bl
-      endif
+! Define min/max layer index where transfer coefficients are computed
+  if (box) then
+     nmin=n_bl
+     nmax=n_bl
+  else
+     nmin=2
+     nmax=nf     
+  endif
+
 ! loop over vertical grid
-      do 1000 k=nmin,nmax
+  do k=nmin,nmax
 ! loop over the nkc different chemical bins
-         do kc=1,nkc
-            if (cm(kc,k).eq.0.) goto 1001  ! switch changed from cw
+     do kc=1,nkc
+
+        ! Compute xkmt and vt (if cm > 0) or vt only (if cm = 0)
+        if (cm(kc,k).gt.0._dp) then  ! switch changed from cw
+           lmax = nx
+           llchem = .true.
+        else
+           lmax = 1
+           llchem = .false.
+        end if
+
 ! loop over the species to be exchanged between gas and aqueous phase---
-            do l=1,nx
+        do l=1,lmax
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !! jjb search for desired species index, from lex table, in gas_m2k_t table
@@ -2507,140 +2550,122 @@ end subroutine cw_rc
 !! end jjb
 
 ! define summation limits (1) ---
-               if (kc.eq.1.or.kc.eq.3) then
-                  if (ifeed.eq.2) then
-                    iia_0=2
-                  else
-                    iia_0=1
-                  endif
-                  iia_e=ka
-               endif
-               if (kc.eq.2.or.kc.eq.4) then
-                  iia_0=ka+1
-                  iia_e=nka
-               endif
+           if (kc.eq.1.or.kc.eq.3) then
+              if (ifeed.eq.2) then
+                 iia_0 = 2
+              else
+                 iia_0 = 1
+              endif
+              iia_e = ka
+           endif
+           if (kc.eq.2.or.kc.eq.4) then
+              iia_0 = ka+1
+              iia_e = nka
+           endif
 
 ! fast version without logarithmic integration
-! Initialisation of local variables
-               x1=0.
-               xk1=0.
-               if (l.eq.1) xx1=0.
-               if (alpha(lex(l),k).gt.0.) x1=4./(3.*alpha(lex(l),k))
+           ! Initialisation of local variables
+           if (llchem) then
+              x1  = 0._dp
+              xk1 = 0._dp
+           end if
+           if (l.eq.1) xx1 = 0._dp
+           if (alpha(lex(l),k).gt.0._dp) x1=4./(3.*alpha(lex(l),k))
 
-               do ia=iia_0,iia_e
+           do ia=iia_0,iia_e
 ! define summation limits (2)
-                  if (kc.eq.1.or.kc.eq.2) then
-                     jjt_0=1
-                     jjt_e=kw(ia)
-                  endif
-                  if (kc.eq.3.or.kc.eq.4) then
-                     jjt_0=kw(ia)+1
-                     jjt_e=nkt
-                  endif
+              if (kc.eq.1.or.kc.eq.2) then
+                 jjt_0 = 1
+                 jjt_e = kw(ia)
+              endif
+              if (kc.eq.3.or.kc.eq.4) then
+                 jjt_0 = kw(ia)+1
+                 jjt_e = nkt
+              endif
 
-                  do jt=jjt_0,jjt_e
+              do jt=jjt_0,jjt_e
 ! conversion: um      --> m               :10^-6
-                     rqq=rqm(jt,ia)
+                 rqq = rqm(jt,ia)
 ! kt=1./(r^2/(3*D_g)+4*r/(3*vmean*alpha))=vmean/r*1/(r/lambda+4/(3*alpha))
 !     with D_g=lambda*vmean/3.
 ! here a volume weighted value is calculated, therefore weighting with r^3:
 ! kmt=4/3*pi/L*sum(a)*sum(r){r^3*N*kt}
 
 ! < jjb 21-12-2016
-                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
+                 if (llchem) then
+                    x2 = vmean(lex(l),k) / (rqq/freep(k)+x1) ![1/s]
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
 ! jjb 21-12-2016 >
 
 ! conversion: 1/cm^3 --> 1/m^3(air):10^6
-                     xk1=xk1+x2*rqq*rqq*ff(jt,ia,k)*1.d6
+                    xk1 = xk1 + x2 * rqq*rqq * ff(jt,ia,k) * 1.d6
+                 end if
 ! LWC weighted sedimentation velocity
-                     if (l.eq.1) then
-                        xvs=vterm(rqq,t(k),p(k))
-                        xx1=xx1+rqq*rqq*rqq*xvs*ff(jt,ia,k)*1.d6
-                     endif
-                  enddo !jt
-               enddo !ia
+                 if (l.eq.1) then
+                    xvs = vterm(rqq,t(k),p(k))
+                    xx1 = xx1 + rqq*rqq*rqq * xvs * ff(jt,ia,k) * 1.e6_dp
+                 endif
+              enddo !jt
+           enddo !ia
+
 ! k_mt=4*pi/(3*LWC)*sum
-               if (cw(kc,k).gt.0.d0) then
-!                  xkmt(k,kc,lex(l))=4.*3.1415927/(3.*cw(kc,k))*xk1 ![1/s]
-                  xkmt(k,kc,lex(l))=4.*pi/(3.*cw(kc,k))*xk1 ![1/s]
+           if (cw(kc,k).gt.0._dp) then
+              if (llchem) xkmt(k,kc,lex(l)) = z4pi3 / cw(kc,k) * xk1 ![1/s]
 ! sedimentation velocity:
-!                  if (l.eq.1) vt(kc,k)=4.*3.1415927/(3.*cw(kc,k))*xx1
-                  if (l.eq.1) vt(kc,k)=4.*pi/(3.*cw(kc,k))*xx1
-               end if
-            enddo !l
+              if (l.eq.1) vt(kc,k) = z4pi3 / cw(kc,k) * xx1
+           end if
 
-            goto 1002
+        enddo ! l
 
-! this part only for calculation of sedimentation velocity in "dry" layers
- 1001       continue
-            xx1=0.
-! define summation limits (1) ---
-            if (kc.eq.1.or.kc.eq.3) then
-               if (ifeed.eq.2) then
-                 iia_0=2
-               else
-                 iia_0=1
-               endif
-               iia_e=ka
-            endif
-            if (kc.eq.2.or.kc.eq.4) then
-               iia_0=ka+1
-               iia_e=nka
-            endif
-            do ia=iia_0,iia_e
-! define summation limits (2)
-               if (kc.eq.1.or.kc.eq.2) then
-                  jjt_0=1
-                  jjt_e=kw(ia)
-               endif
-               if (kc.eq.3.or.kc.eq.4) then
-                  jjt_0=kw(ia)+1
-                  jjt_e=nkt
-               endif
-               do jt=jjt_0,jjt_e
-! conversion: um      --> m               :10^-6
-                  rqq=rqm(jt,ia)
-                  xvs=vterm(rqq,t(k),p(k))
-                  xx1=xx1+rqq*rqq*rqq*xvs*ff(jt,ia,k)*1.d6
-               enddo            !jt
-            enddo               !ia
-! sedimentation velocity:
-!            if (cw(kc,k).gt.0.) vt(kc,k)=4.*3.1415927/(3.*cw(kc,k))*xx1
-            if (cw(kc,k).gt.0.) vt(kc,k)=4.*pi/(3.*cw(kc,k))*xx1
+     enddo    ! kc
+  end do      ! k
 
- 1002       continue
-         enddo                  ! kc
-
- 1000 continue  !k
-
-      end subroutine fast_k_mt_t
+end subroutine fast_k_mt_t
 
 
 !
 !--------------------------------------------------------
 !
 
-!     subroutine fast_k_mt_a (freep,cw,box,n_bl)  !_1D ! jjb cw now in /blck12/
-      subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
-! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
-! but no mean values used (like in SR k_mt_a/t) but integrated values
+subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
 
-      USE config, ONLY : &
-           ifeed
+! Description :
+! -----------
+  ! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
+  ! but no mean values used (like in SR k_mt_a/t) but integrated values
 
-      USE constants, ONLY : &
+  ! transfer coefficients (variable xkmt) computed only if LWC above threshold for each layer and each chemical bin (with cm used as switch)
+  ! sedimentation velocity (variable vt) computed whatever LWC
+
+! Modifications :
+! -------------
+  ! jjb: added all missing declarations and implicit none
+  !      shorten the code by introducing lmax and llchem, to avoid duplicated part of code
+  !       for vt calculation ("dry" case, meaning cm=0)
+  ! jjb: bugfix with kc, must compute vt up to nkc_l (for use in SR sedl), not only 1,2
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE config, ONLY : &
+       ifeed,        &
+       nkc_l
+
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !      USE gas_common, ONLY : &
@@ -2655,45 +2680,62 @@ end subroutine cw_rc
 !      USE kpp_aer_Global, ONLY : &
 !           SPC_NAMES
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  include 'aer_Parameters.h' !additional common blocks and other definitions
 
-      parameter (nx=50)
-      logical box
-      common /blck06/ kw(nka),ka
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
+! Subroutine arguments:
+  real(kind=dp), intent(in) :: freep(nf)
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
-!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
-!      real (kind=dp) :: time
-!      integer :: lday, lst, lmin, it, lcl, lct
+! Local parameters:
+  integer, parameter :: nx=50                      ! number of exchanged chemical species
+  real (kind=dp), parameter :: z4pi3 = 4._dp * pi / 3._dp
+! Local scalars:
+  integer :: ia, iia_0, iia_e, jt, jjt_0, jjt_e    ! running indexes and limits for ia, jt
+  integer :: k, kc, l, lmax, nmin, nmax            ! running indexes, and limits for k
+  logical :: llchem                                ! switch to compute xkmt (cm>0) or not (cm=0)
+  real (kind=dp) :: rqq, x1, xk1, xx1, x2, xvs
+  real (kind=dp), external :: vterm                ! terminal velocity (m/s) computed as a function of r, t, p
+  ! Local arrays:
+  integer :: lex(nx)
+  real (kind=dp) :: rqm(nkt,nka)
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw, ew, rn, rw, en, e, dew, rq
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Common blocks:
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
-!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
-!     dimension cw(nf,nkc),freep(nf),dndlogr(nkt),rqm(nkt,nka),lex(nx) ! jjb dndlogr not used
-!     dimension cw(nf,nkc),freep(nf),rqm(nkt,nka),lex(nx)              ! jjb thus removed
-      dimension freep(nf),rqm(nkt,nka),lex(nx)              ! jjb cw removed from argument list
+!  common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb only time is used, for potential error message
+!  real (kind=dp) :: time
+!  integer :: lday, lst, lmin, it, lcl, lct
 
-      data lex /ind_NO2,ind_HNO3,ind_NH3,ind_SO2,ind_H2SO4,ind_O3, &
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real(kind=dp) :: alpha, vmean
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real(kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real(kind=dp) :: vt, vd, vdm
+
+! == End of declarations =======================================================
+
+! Define the list of species indexes that are exchanged
+  data lex /ind_NO2,ind_HNO3,ind_NH3,ind_SO2,ind_H2SO4,ind_O3, &
           ind_ACO2,ind_HCHO,ind_H2O2,ind_HONO,ind_HCl,ind_N2O5,ind_HNO4, &
           ind_NO3,ind_OH,ind_HO2,ind_MO2,ind_CO2,ind_O2,ind_ROOH, &
           ind_HOCl,ind_Cl2,ind_HBr,ind_HOBr,ind_Br2,ind_BrCl,ind_DMSO, &
@@ -2705,27 +2747,33 @@ end subroutine cw_rc
 ! ind_Hg,ind_HgO,ind_HgCl,ind_HgCl2,ind_HgBr,ind_HgBr2; also change/check nx
 
 ! change rq in um to rqm in m
-!     do ia=1,nka
-!        do jt=1,nkt
-!           rqm(jt,ia)=rq(jt,ia)*1.d-6  ! jjb matrix below
-!        enddo
-!     enddo
-      rqm(:,:) = rq(:,:) * 1.d-6        ! jjb matrix
+  rqm(:,:) = rq(:,:) * 1.d-6
 
-      nmin=2
-      nmax=nf
-      if (box) then
-         nmin=n_bl
-         nmax=n_bl
-      endif
+! Define min/max layer index where transfer coefficients are computed
+  if (box) then
+     nmin=n_bl
+     nmax=n_bl
+  else
+     nmin=2
+     nmax=nf     
+  endif
 
 ! loop over vertical grid
-      do 1000 k=nmin,nmax
+  do k=nmin,nmax
 ! loop over the nkc different chemical bins
-         do kc=1,2!nkc
-            if (cm(kc,k).eq.0.) goto 1001 ! switch changed from cw
+     do kc=1,nkc_l
+
+        ! Compute xkmt and vt (if cm > 0) or vt only (if cm = 0)
+        if (cm(kc,k).gt.0._dp) then  ! switch changed from cw
+           lmax = nx
+           llchem = .true.
+        else
+           lmax = 1
+           llchem = .false.
+        end if
+
 ! loop over the species to be exchanged between gas and aqueous phase---
-            do l=1,nx
+        do l=1,lmax
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !! jjb search for desired species index, from lex table, in gas_m2k_a table
@@ -2764,120 +2812,78 @@ end subroutine cw_rc
 !! end jjb
 
 ! define summation limits (1) ---
-               if (kc.eq.1) then
-                  if (ifeed.eq.2) then
-                    iia_0=2
-                  else
-                    iia_0=1
-                  endif
-                  iia_e=ka
-               endif
-               if (kc.eq.2) then
-                  iia_0=ka+1
-                  iia_e=nka
-               endif
+           if (kc.eq.1.or.kc.eq.3) then
+              if (ifeed.eq.2) then
+                 iia_0 = 2
+              else
+                 iia_0 = 1
+              endif
+              iia_e = ka
+           endif
+           if (kc.eq.2.or.kc.eq.4) then
+              iia_0 = ka+1
+              iia_e = nka
+           endif
+
 ! fast version without logarithmic integration
-               x1=0.
-               xk1=0.
-               if (l.eq.1) xx1=0.
-               if (alpha(lex(l),k).gt.0.) x1=4./(3.*alpha(lex(l),k))
-               do ia=iia_0,iia_e
+           ! Initialisation of local variables
+           if (llchem) then
+              x1  = 0._dp
+              xk1 = 0._dp
+           end if
+           if (l.eq.1) xx1 = 0._dp
+           if (alpha(lex(l),k).gt.0._dp) x1=4./(3.*alpha(lex(l),k))
+
+           do ia=iia_0,iia_e
 ! define summation limits (2)
-                  if (kc.eq.1) then
-                     jjt_0=1
-                     jjt_e=kw(ia)
-                  endif
-                  if (kc.eq.2) then
-                     jjt_0=1
-                     jjt_e=kw(ia)
-                  endif
-                  do jt=jjt_0,jjt_e
+              if (kc.eq.1.or.kc.eq.2) then
+                 jjt_0 = 1
+                 jjt_e = kw(ia)
+              endif
+              if (kc.eq.3.or.kc.eq.4) then
+                 jjt_0 = kw(ia)+1
+                 jjt_e = nkt
+              endif
+
+              do jt=jjt_0,jjt_e
 ! conversion: um      --> m               :10^-6
-                     rqq=rqm(jt,ia)
+                 rqq = rqm(jt,ia)
 ! kt=1./(r^2/(3*D_g)+4*r/(3*vmean*alpha))=vmean/r*1/(r/lambda+4/(3*alpha))
 !     with D_g=lambda*vmean/3.
 ! here a volume weighted value is calculated, therefore weighting with r^3:
 ! kmt=4/3*pi/L*sum(a)*sum(r){r^3*N*kt}
 
 ! < jjb 21-12-2016
-                     x2=vmean(lex(l),k)/(rqq/freep(k)+x1) ![1/s]
+                 if (llchem) then
+                    x2 = vmean(lex(l),k) / (rqq/freep(k)+x1) ![1/s]
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !                     x2=vm(jspec,k)/(rqq/freep(k)+x1) ![1/s]
 ! jjb 21-12-2016 >
 
 ! conversion: 1/cm^3 --> 1/m^3(air):10^6
-                     xk1=xk1+x2*rqq*rqq*ff(jt,ia,k)*1.d6
+                    xk1 = xk1 + x2 * rqq*rqq * ff(jt,ia,k) * 1.d6
+                 end if
 ! LWC weighted sedimentation velocity
-                     if (l.eq.1) then
-                        xvs=vterm(rqq,t(k),p(k))
-                        xx1=xx1+rqq*rqq*rqq*xvs*ff(jt,ia,k)*1.d6
-                     endif
-                  enddo !jt
-               enddo !ia
+                 if (l.eq.1) then
+                    xvs = vterm(rqq,t(k),p(k))
+                    xx1 = xx1 + rqq*rqq*rqq * xvs * ff(jt,ia,k) * 1.e6_dp
+                 endif
+              enddo !jt
+           enddo !ia
+
 ! k_mt=4*pi/(3*LWC)*sum
-               if (cw(kc,k).gt.0.d0) then
-!                  xkmt(k,kc,lex(l))=4.*3.1415927/(3.*cw(kc,k))*xk1 ![1/s]
-                  xkmt(k,kc,lex(l))=4.*pi/(3.*cw(kc,k))*xk1 ![1/s]
+           if (cw(kc,k).gt.0._dp) then
+              if (llchem) xkmt(k,kc,lex(l)) = z4pi3 / cw(kc,k) * xk1 ![1/s]
 ! sedimentation velocity:
-!                  if (l.eq.1) vt(kc,k)=4.*3.1415927/(3.*cw(kc,k))*xx1
-                  if (l.eq.1) vt(kc,k)=4.*pi/(3.*cw(kc,k))*xx1
-               end if
-            enddo !l
+              if (l.eq.1) vt(kc,k) = z4pi3 / cw(kc,k) * xx1
+           end if
 
-            goto 1002
+        enddo ! l
 
-! this part only for calculation of sedimentation velocity in "dry" layers
- 1001       continue
-            xx1=0.
-! define summation limits (1) ---
-            if (kc.eq.1) then
-               if (ifeed.eq.2) then
-                 iia_0=2
-               else
-                 iia_0=1
-               endif
-               iia_e=ka
-            endif
-            if (kc.eq.2) then
-               iia_0=ka+1
-               iia_e=nka
-            endif
-            do ia=iia_0,iia_e
-! define summation limits (2)
-               if (kc.eq.1) then
-                  jjt_0=1
-                  jjt_e=kw(ia)
-               endif
-               if (kc.eq.2) then
-                  jjt_0=1
-                  jjt_e=kw(ia)
-               endif
+     enddo    ! kc
+  end do      ! k
 
-               do jt=jjt_0,jjt_e
-! conversion: um      --> m               :10^-6
-                  rqq=rqm(jt,ia)
-                  xvs=vterm(rqq,t(k),p(k))
-                  xx1=xx1+rqq*rqq*rqq*xvs*ff(jt,ia,k)*1.d6
-               enddo            !jt
-            enddo               !ia
-! sedimentation velocity:
-!            if (cw(kc,k).gt.0.) vt(kc,k)=4.*3.1415927/(3.*cw(kc,k))*xx1
-            if (cw(kc,k).gt.0.) vt(kc,k)=4.*pi/(3.*cw(kc,k))*xx1
-
- 1002       continue
-         enddo                  ! kc
-
- 1000 continue                  !k
-
-
-!      do k=2,nf
-!            write (534, 1101) k,xkmt(k,1,ind_HNO3),1./xkmt(k,1,ind_HNO3), &
-!              xkmt(k,2,ind_HNO3),1./xkmt(k,2,ind_HNO3), &
-!              xkmt(k,1,ind_HNO3)*cw(1,k),xkmt(k,2,ind_HNO3)*cw(2,k)
-!      enddo
-! 1101 format(i4, 6d16.8)
-
-      end subroutine fast_k_mt_a
+end subroutine fast_k_mt_a
 
 
 !
@@ -2911,6 +2917,7 @@ end subroutine cw_rc
       include 'tot_Parameters.h' !additional common blocks and other definitions
 
       common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
+  real (kind=dp) :: conv2
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
@@ -3329,6 +3336,7 @@ end subroutine cw_rc
       implicit double precision (a-h,o-z)
 
       common /blck06/ kw(nka),ka
+  integer :: kw, ka
       common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &
                    part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1)
       common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
@@ -3507,6 +3515,7 @@ end subroutine cw_rc
       implicit double precision (a-h,o-z)
 
       common /blck06/ kw(nka),ka
+  integer :: kw, ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       common /blck78/ sa1(nka,j2),sac1(nka,j2)
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
@@ -6381,12 +6390,14 @@ end subroutine cw_rc
 !$$$      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
 !$$$      real(kind=dp) :: theta, thetl, t, talt, p, rho
 !$$$      common /blck06/ kw(nka),ka
+!$$$      integer :: kw, ka
 !$$$      common /blck12/ cw(nkc,n),cm(nkc,n)
 !$$$      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
 !$$$!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
 !$$$!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !$$$!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
 !$$$!     common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc) ! jjb none of the objects of the common block is used
+!$$$!     real (kind=dp) :: vt, vd, vdm
 !$$$!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
 !$$$      common /k_surf/ xkmt_OHClm(nf,nkc)
 !$$$
