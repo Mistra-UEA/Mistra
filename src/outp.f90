@@ -1711,7 +1711,9 @@ subroutine constc
   USE gas_common, ONLY : &
 ! Imported Parameters:
        j1, &
-       j5
+       j5, &
+       nadvmax, nindadv, xadv ! for Eulerian advection
+
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -1726,15 +1728,10 @@ subroutine constc
 ! Local scalars:
   integer :: j
 
-! Common blocks:
-  common /kpp_eul/ xadv(10),nspec(10)
-  real (kind=dp) :: xadv
-  integer :: nspec
-
 ! == End of declarations =======================================================
 
   write (jpfunprofc,5900) neula
-  write (jpfunprofc,5910) (nspec(j),xadv(j),j=1,10)
+  write (jpfunprofc,5910) (nindadv(j),xadv(j),j=1,nadvmax)
 5900 format ('euler (=0) or lagrangean view (=1): ',i3,' the following' &
           ,' species are advected only if neula=0')
 5910 format (i3,d12.3)

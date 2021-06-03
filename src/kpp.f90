@@ -47,6 +47,7 @@ subroutine initc (box,n_bl)
 ! Modules used:
 
   USE config, ONLY : &
+       cmechdir,     &
        iaertyp,      &
        iod,          &
        lpJoyce14bc,  &
@@ -58,6 +59,7 @@ subroutine initc (box,n_bl)
        m_air
 
   USE file_unit, ONLY : &
+       jpfunerr,   &
        jpfuneul,   &
        jpfunout,   &
        jpfunprofc, &
@@ -69,7 +71,7 @@ subroutine initc (box,n_bl)
        j1, &
        j5, &
 ! Imported Array Variables with intent(in):
-       ind_gas, &
+       ind_gas, ind_gas_rev, &
        gas_is_halo, &
        gas_name, &
 ! Imported Array Variables with intent(inout):
@@ -79,7 +81,8 @@ subroutine initc (box,n_bl)
        es1, &
 ! Imported Array Variables with intent (out):
        s3, &
-       vg
+       vg, &
+       nadvmax, nindadv, xadv ! for Eulerian advection
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -156,9 +159,6 @@ subroutine initc (box,n_bl)
   logical :: cloudt
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
-  common /kpp_eul/ xadv(10),nspec(10)
-  real (kind=dp) :: xadv
-  integer :: nspec
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
        xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
   real (kind=dp) :: henry_la, xkmt_la, xkef_la, xkeb_la
@@ -281,13 +281,25 @@ subroutine initc (box,n_bl)
 
 ! Eulerian configuration: read input file
   if (neula.eq.0) then
-     open (jpfuneul,file='euler_in.dat',status='old')
-     do j=1,10
-        read (jpfuneul,5100) nspec(j),xadv(j)
+     open (jpfuneul,file=trim(cmechdir)//'euler_in.dat',status='old')
+     ! First line = number of advected species
+     read (jpfuneul,'(i3)') nadvmax
+     allocate (nindadv(nadvmax), xadv(nadvmax))
+     do j=1,nadvmax
+        read (jpfuneul,5100) nindadv(j),xadv(j)
+        ! Gas index = 0 is ignored
+        ! If not zero, it must exist in the user list of gases, check:
+        if (nindadv(j) /= 0 .and. ind_gas_rev(nindadv(j)) == 0) then
+           write (jpfunerr,*) 'Error when reading euler_in.dat'
+           write (jpfunerr,5101) '  gas index ',nindadv(j),' not found in gas list'
+           write (jpfunerr,*) '  it will be ignored'
+           nindadv(j) = 0 ! the gas will be ignored
+        end if
      enddo
      close (jpfuneul)
   endif
-5100 format (i3,d8.2)
+5100 format (i3,d9.2)
+5101 format (a,i3,a)
 
 
 ! define crystallization and deliquescene rel humidities (Seinfeld and Pandis,
@@ -3940,7 +3952,9 @@ end subroutine fast_k_mt_a
       USE gas_common, ONLY : &
 ! Imported Array Variables with intent (inout):
            s1, &
-           s3
+           s3, &
+           ind_gas_rev, nadvmax, nindadv, xadv ! for Eulerian advection
+
 
       USE global_params, ONLY : &
 ! Imported Parameters:
@@ -3985,7 +3999,6 @@ end subroutine fast_k_mt_a
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
 !     common /ph_r/ ph_rat(47) ! jjb ! jjb test include in _a_g_t common blocks
       dimension ph_rat(nphrxn)
-      common /kpp_eul/ xadv(10),nspec(10)
 
       airmolec=6.022d+20/18.0
 ! calculate u0 for prelim photolysis
@@ -4118,9 +4131,9 @@ end subroutine fast_k_mt_a
 
          if (neula.eq.0) then
             if (k.le.kinv) then
-               do nisp=1,10
-                  if (nspec(nisp).ne.0) &
-         s1(nspec(nisp),k)=s1(nspec(nisp),k)+xadv(nisp)*dt_ch*air/86400.
+               do j=1,nadvmax
+                  if (nindadv(j).ne.0) &
+         s1(ind_gas_rev(nindadv(j)),k)=s1(ind_gas_rev(nindadv(j)),k)+xadv(j)*dt_ch*air/86400.
                enddo
             endif
          endif
