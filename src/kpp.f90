@@ -139,8 +139,8 @@ subroutine initc (box,n_bl)
   real (kind=dp) :: conv2
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /blck78/ sa1(nka,j2),sac1(nka,j2)
-  real (kind=dp) :: sa1,sac1
+  common /blck78/ sa1(j2,nka)
+  real (kind=dp) :: sa1
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
@@ -328,7 +328,7 @@ subroutine initc (box,n_bl)
   enddo
 
 ! initial loading of aerosols with nh3,so4,fe(3),mn(2) (x0=mole/particle)
-! watch out: sa1 is defined as sa1(..,j2) but addressed in j6 (=ion, sion1) terms
+! watch out: sa1 is defined as sa1(j2,..) but addressed in j6 (=ion, sion1) terms
 !            except for DOM which is in sl1 (therefore it is in j2)!!
   sa1(:,:) = 0._dp
   do ia=1,nka
@@ -338,11 +338,11 @@ subroutine initc (box,n_bl)
 ! ocean aerosol: particles with rn(ia)<.5 mum: 34% (NH4)2SO4, 65.6% NH4HSO4, 0.4% NH4NO3
      if (iaertyp == 3) then
         if (rn(ia).lt.0.5_dp) then
-!           sa1(ia,13) = x0 * 0.04_dp   !NO3-
-           sa1(ia,13) = x0 * 0.004_dp  !NO3-
-           sa1(ia,2)  = x0 * 1.34_dp   !NH4+
-           sa1(ia,8)  = x0 * 0.34_dp   !SO4=
-           sa1(ia,19) = x0 * 0.656_dp  !HSO4-
+           sa1(2,ia)  = x0 * 1.34_dp   !NH4+
+           sa1(8,ia)  = x0 * 0.34_dp   !SO4=
+!           sa1(13,ia) = x0 * 0.04_dp   !NO3-
+           sa1(13,ia) = x0 * 0.004_dp  !NO3-
+           sa1(19,ia) = x0 * 0.656_dp  !HSO4-
 ! larger particles: pure nacl
         else
 ! sea salt particle
@@ -357,15 +357,15 @@ subroutine initc (box,n_bl)
            xim    = 7.4e-8_dp / .545_dp * xiod
            xio3m  = 2.64e-7_dp / .545_dp * xiod
            xclm   = 1._dp - (xso42m+xhco3m+xno3m+xbrm+xim+xio3m)
-           sa1(ia, 8) = xso42m * x0 ! SO4=
-           sa1(ia, 9) = xhco3m * x0 ! HCO3-
-           sa1(ia,13) = xno3m * x0  ! NO3-
-           sa1(ia,14) = xclm * x0   ! Cl-
-           sa1(ia,20) = x0          ! "Na+" -  eletronegativity
-           sa1(ia,24) = xbrm * x0   ! Br-
-           sa1(ia,34) = xim * x0    ! I-
-           sa1(ia,36) = xio3m * x0  ! IO3-
-           sa1(ia,j2-j3+4) = 0.27_dp * xbrm * x0 ! unspecified DOM
+           sa1( 8,ia) = xso42m * x0 ! SO4=
+           sa1( 9,ia) = xhco3m * x0 ! HCO3-
+           sa1(13,ia) = xno3m * x0  ! NO3-
+           sa1(14,ia) = xclm * x0   ! Cl-
+           sa1(20,ia) = x0          ! "Na+" -  eletronegativity
+           sa1(24,ia) = xbrm * x0   ! Br-
+           sa1(34,ia) = xim * x0    ! I-
+           sa1(36,ia) = xio3m * x0  ! IO3-
+           sa1(j2-j3+4,ia) = 0.27_dp * xbrm * x0 ! unspecified DOM
                                                  ! according to #2210: 0.27*[Br-]; enriched compared to ocean water ratio
         endif
 
@@ -376,9 +376,9 @@ subroutine initc (box,n_bl)
 !! --> 4/3*xm mole nh3, 2/3*xm mole no3, 1/3*xm mole so4
 !        if (xmol3(ia).lt.130.) then
 !           x0=en(ia)*1.d-03 * fcs(ia)/(3. * xmol3(ia))
-!           sa1(ia,3)=x0 * 2.
-!           sa1(ia,4)=x0 * 4.
-!           sa1(ia,6)=x0
+!           sa1(3,ia)=x0 * 2.
+!           sa1(4,ia)=x0 * 4.
+!           sa1(6,ia)=x0
 !        else
 
         ! Joyce et al 2014 case
@@ -386,20 +386,20 @@ subroutine initc (box,n_bl)
 ! soluble part of urban aerosol: pure H2SO4   PJ
 ! x0 = mol / particle
 ! molar ratios  "aeroPJ"  SR inic
-           sa1(ia,1)  = x0 * 0.1868 * 2._dp !H+       PJ  (2*SO4=)
-           sa1(ia,2)  = x0 * 0._dp          !NH4+     PJ
-           sa1(ia,8)  = x0 * 0.1868_dp      !SO4=     PJ
-           sa1(ia,13) = x0 * 0._dp          !NO3-     PJ
+           sa1(1,ia)  = x0 * 0.1868 * 2._dp !H+       PJ  (2*SO4=)
+           sa1(2,ia)  = x0 * 0._dp          !NH4+     PJ
+           sa1(8,ia)  = x0 * 0.1868_dp      !SO4=     PJ
+           sa1(13,ia) = x0 * 0._dp          !NO3-     PJ
            if(rn(ia).le.0.5_dp)then         ! Cl-
-!              sa1(ia,14)=x0 * 0.0356_dp     !Cl-      PJ (cl_b23c)
-              sa1(ia,14) = x0 * 0.0227_dp   !Cl-      PJ (b25)
+!              sa1(14,ia)=x0 * 0.0356_dp     !Cl-      PJ (cl_b23c)
+              sa1(14,ia) = x0 * 0.0227_dp   !Cl-      PJ (b25)
            else
-              sa1(ia,14) = x0 * 0._dp       ! No Cl- in supermicron
+              sa1(14,ia) = x0 * 0._dp       ! No Cl- in supermicron
            end if
-           sa1(ia,19) = x0 * 0._dp          !HSO4-    PJ
-!           sa1(ia,j2-j3+4) = x0 * 0.5757_dp !DOM      PJ  (obs DOM)
-!           sa1(ia,j2-j3+4) = x0 * 0.7763_dp !DOM      PJ  (obs total PM2.5)
-           sa1(ia,j2-j3+4) = x0 * 0.6642_dp !DOM      PJ  (b25)
+           sa1(19,ia) = x0 * 0._dp          !HSO4-    PJ
+!           sa1(j2-j3+4,ia) = x0 * 0.5757_dp !DOM      PJ  (obs DOM)
+!           sa1(j2-j3+4,ia) = x0 * 0.7763_dp !DOM      PJ  (obs total PM2.5)
+           sa1(j2-j3+4,ia) = x0 * 0.6642_dp !DOM      PJ  (b25)
         end if              ! Joyce
      end if                 ! iaertyp
   end do                    !ia
@@ -407,22 +407,22 @@ subroutine initc (box,n_bl)
 
 ! print initial concentrations (continued)
   write (jpfunprofc,6030)
-6030 format (6x,'sa1(nka,4)')
-  write (jpfunprofc,6020) (sa1(ia,4),ia=1,nka)
+6030 format (6x,'sa1(4,nka)')
+  write (jpfunprofc,6020) (sa1(4,ia),ia=1,nka)
   write (jpfunprofc,6040)
-6040 format (6x,'sa1(nka,6)')
-  write (jpfunprofc,6020) (sa1(ia,6),ia=1,nka)
+6040 format (6x,'sa1(6,nka)')
+  write (jpfunprofc,6020) (sa1(6,ia),ia=1,nka)
   write (jpfunprofc,6050)
-! 6050 format (6x,'sa1(nka,j2-j3+4)')
-!  write (jpfunprofc,6020) (sa1(ia,j2-j3+4),ia=1,nka)
+! 6050 format (6x,'sa1(j2-j3+4,nka)')
+!  write (jpfunprofc,6020) (sa1(j2-j3+4,ia),ia=1,nka)
 !  write (jpfunprofc,6060)
-! 6060 format (6x,'sa1(nka,j2-j3+5)')
-!  write (jpfunprofc,6020) (sa1(ia,j2-j3+5),ia=1,nka)
-6050 format (6x,'sa1(nka,14)')
-  write (jpfunprofc,6020) (sa1(ia,14),ia=1,nka)
+! 6060 format (6x,'sa1(j2-j3+5,nka)')
+!  write (jpfunprofc,6020) (sa1(j2-j3+5,ia),ia=1,nka)
+6050 format (6x,'sa1(14,nka)')
+  write (jpfunprofc,6020) (sa1(14,ia),ia=1,nka)
   write (jpfunprofc,6060)
-6060 format (6x,'sa1(nka,24)')
-  write (jpfunprofc,6020) (sa1(ia,24),ia=1,nka)
+6060 format (6x,'sa1(24,nka)')
+  write (jpfunprofc,6020) (sa1(24,ia),ia=1,nka)
 
 ! levels for  rate output
   il(1) =  5
@@ -3359,7 +3359,6 @@ subroutine konc
 ! Declarations :
 ! ------------
 ! Modules used:
-
   USE file_unit, ONLY : &
 ! Imported Parameters:
        jpfunout
@@ -3379,9 +3378,11 @@ subroutine konc
 
   implicit none
 
+! Local scalars:
   integer :: ia, ii, jj, k, l
   real (kind=dp) :: del, delta, dp_1, dp_2, dp_3, dp_4, xs
 
+! Common blocks:
   common /blck06/ kw(nka),ka
   integer :: kw, ka
   common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &
@@ -3554,107 +3555,134 @@ end subroutine konc
 !-----------------------------------------------------------------------------------
 !
 
-      subroutine init_konc
-! Init loading of aerosols with ions.
-! If rH>0.7 aerosols get activated and liquid chemistry is started.
-! The ions are transported vertically by turbulence and sedimentation
-! independent of activation.
-!      double precision ap1o,ap2o,ap2n,apo,apn
+subroutine init_konc
 
-      USE config, ONLY : &
-           ifeed, &
-           lpJoyce14bc
+! Description :
+! -----------
+  ! Init loading of aerosols with ions.
+  ! If rH>0.7 aerosols get activated and liquid chemistry is started.
+  ! The ions are transported vertically by turbulence and sedimentation
+  ! independent of activation.
 
-      USE global_params, ONLY : &
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! jjb work done: turned ap into one dimension only (previously ap(n,nka))
+  !                reindexed sa1 for computing efficiency
+  !                introduced lpJoyce14bc special case
+  !                cleaned, missing declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE config, ONLY : &
+       ifeed, &
+       lpJoyce14bc
+
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j3, &
-           j6, &
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j3, &
+       j6, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /blck06/ kw(nka),ka
+  implicit none
+
+! Local scalars:
+  integer :: ia, ial, jt, k
+  real (kind=dp) :: ap(nka)
+
+! Common blocks:
+  common /blck06/ kw(nka),ka
   integer :: kw, ka
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /blck78/ sa1(nka,j2),sac1(nka,j2)
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /blck78/ sa1(j2,nka)
+  real(kind=dp) :: sa1
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      dimension ap(n,nka)
+! == End of declarations =======================================================
 
 ! sa1 in mole/particle; sl1, sion1 in mole m**-3
 ! ap total number of aerosols in cm**-3
 ! of sulfate and sea salt aerosol regime
 
-      do k=2,n-1
+  do k=2,n-1
 
-         if (ifeed.eq.2) then
-           ial = 2
-         else
-           ial = 1
-         endif
-         do ia=ial,nka
-            ap(k,ia)=0.
-!            do jt=1,kg
-            do jt=1,nkt
-               ap(k,ia)=ap(k,ia)+ff(jt,ia,k)
-            enddo
-            if (ap(k,ia).eq.0.) print *,ia,k,'init(ap)=0'
-         enddo
+     if (ifeed.eq.2) then
+        ial = 2
+     else
+        ial = 1
+     endif
+     do ia=ial,nka
+        ap(ia) = 0._dp
+        do jt=1,nkt
+           ap(ia) = ap(ia)+ff(jt,ia,k)
+        enddo
+        if (ap(ia).eq.0._dp) write(jpfunout,6002) ia,k,'init(ap)=0'
+     enddo
 ! no3-, nh4+ and so4= due to nucleation scavenging and evaporation
-         do ia=1,ka
-            if (lpJoyce14bc) &
-            sion1( 1,1,k)=sion1( 1,1,k)+ap(k,ia)*sa1(ia, 1)*1.d6 !H+ PJ
-            sion1( 2,1,k)=sion1( 2,1,k)+ap(k,ia)*sa1(ia, 2)*1.d6
-            sion1( 8,1,k)=sion1( 8,1,k)+ap(k,ia)*sa1(ia, 8)*1.d6
-            sion1(13,1,k)=sion1(13,1,k)+ap(k,ia)*sa1(ia,13)*1.d6
-            if (lpJoyce14bc) &
-            sion1(14,1,k)=sion1(14,1,k)+ap(k,ia)*sa1(ia,14)*1.d6 !Cl- (cl_b23c) PJ
-            sion1(17,1,k)=sion1(19,1,k)                          !mixing tracer
-            sion1(19,1,k)=sion1(19,1,k)+ap(k,ia)*sa1(ia,19)*1.d6
-            if (lpJoyce14bc) &
-            sl1(j2-j3+4,1,k)=sl1(j2-j3+4,1,k)+ap(k,ia)* &        !DOM    PJ
-                 sa1(ia,j2-j3+4)*1.d6
+     do ia=1,ka
+        if (lpJoyce14bc) &
+             sion1( 1,1,k)=sion1( 1,1,k)+ap(ia)*sa1( 1,ia)*1.d6 !H+ PJ
+        sion1( 2,1,k)=sion1( 2,1,k)+ap(ia)*sa1( 2,ia)*1.d6
+        sion1( 8,1,k)=sion1( 8,1,k)+ap(ia)*sa1( 8,ia)*1.d6
+        sion1(13,1,k)=sion1(13,1,k)+ap(ia)*sa1(13,ia)*1.d6
+        if (lpJoyce14bc) &
+             sion1(14,1,k)=sion1(14,1,k)+ap(ia)*sa1(14,ia)*1.d6 !Cl- (cl_b23c) PJ
+        sion1(17,1,k)=sion1(19,1,k)                          !mixing tracer
+        sion1(19,1,k)=sion1(19,1,k)+ap(ia)*sa1(19,ia)*1.d6
+        if (lpJoyce14bc) &
+             sl1(j2-j3+4,1,k)=sl1(j2-j3+4,1,k)+ap(ia)*sa1(j2-j3+4,ia)*1.d6  !DOM    PJ
 ! NO3-, NH4-, SO4=, HSO4- : j6 used in sion1, sa1
 ! Br-, HCO3-, I-, IO3-, Cl-: j6 used in sion1, sa1
-         enddo
-         if (sion1(8,1,k).eq.0.) print *,k,'init(so4=)=0'
+     enddo
+     if (sion1(8,1,k).eq.0.) write (jpfunout,6003) k,'init(so4=)=0'
 
-         do ia=ka+1,nka
-            if (lpJoyce14bc) then
-            sion1( 1,2,k)=sion1( 1,2,k)+ap(k,ia)*sa1(ia, 1)*1.d6 !H+ PJ
-            sion1( 2,2,k)=sion1( 2,2,k)+ap(k,ia)*sa1(ia, 2)*1.d6 !NH4+ PJ
-            end if
-            sion1( 8,2,k)=sion1( 8,2,k)+ap(k,ia)*sa1(ia, 8)*1.d6 !SO4=
-            sion1( 9,2,k)=sion1( 9,2,k)+ap(k,ia)*sa1(ia, 9)*1.d6 !HCO3-
-            sion1(13,2,k)=sion1(13,2,k)+ap(k,ia)*sa1(ia,13)*1.d6 !NO3-
-            sion1(14,2,k)=sion1(14,2,k)+ap(k,ia)*sa1(ia,14)*1.d6 !Cl-
-            sion1(17,2,k)=sion1(14,2,k)                          !mixing tracer
-            if (lpJoyce14bc) then
-            sion1(19,2,k)=sion1(19,2,k)+ap(k,ia)*sa1(ia,19)*1.d6 !HSO4- PJ
-            end if
-            sion1(20,2,k)=sion1(20,2,k)+ap(k,ia)*sa1(ia,20)*1.d6 !Na+; inert
-            sion1(24,2,k)=sion1(24,2,k)+ap(k,ia)*sa1(ia,24)*1.d6 !Br-
-            sion1(34,2,k)=sion1(34,2,k)+ap(k,ia)*sa1(ia,34)*1.d6 !I-
-            sion1(36,2,k)=sion1(36,2,k)+ap(k,ia)*sa1(ia,36)*1.d6 !IO3-
-            sl1(j2-j3+4,2,k)=sl1(j2-j3+4,2,k)+ap(k,ia)* &
-                 sa1(ia,j2-j3+4)*1.d6 !DOM
-         enddo
-         if (sion1(14,2,k).eq.0.) print *,k,'init(cl-)=0'
-      enddo
+     do ia=ka+1,nka
+        if (lpJoyce14bc) then
+           sion1( 1,2,k)=sion1( 1,2,k)+ap(ia)*sa1( 1,ia)*1.d6 !H+ PJ
+           sion1( 2,2,k)=sion1( 2,2,k)+ap(ia)*sa1( 2,ia)*1.d6 !NH4+ PJ
+        end if
+        sion1( 8,2,k)=sion1( 8,2,k)+ap(ia)*sa1( 8,ia)*1.d6 !SO4=
+        sion1( 9,2,k)=sion1( 9,2,k)+ap(ia)*sa1( 9,ia)*1.d6 !HCO3-
+        sion1(13,2,k)=sion1(13,2,k)+ap(ia)*sa1(13,ia)*1.d6 !NO3-
+        sion1(14,2,k)=sion1(14,2,k)+ap(ia)*sa1(14,ia)*1.d6 !Cl-
+        sion1(17,2,k)=sion1(14,2,k)                          !mixing tracer
+        if (lpJoyce14bc) then
+           sion1(19,2,k)=sion1(19,2,k)+ap(ia)*sa1(19,ia)*1.d6 !HSO4- PJ
+        end if
+        sion1(20,2,k)=sion1(20,2,k)+ap(ia)*sa1(20,ia)*1.d6 !Na+; inert
+        sion1(24,2,k)=sion1(24,2,k)+ap(ia)*sa1(24,ia)*1.d6 !Br-
+        sion1(34,2,k)=sion1(34,2,k)+ap(ia)*sa1(34,ia)*1.d6 !I-
+        sion1(36,2,k)=sion1(36,2,k)+ap(ia)*sa1(36,ia)*1.d6 !IO3-
+        sl1(j2-j3+4,2,k)=sl1(j2-j3+4,2,k)+ap(ia)*sa1(j2-j3+4,ia)*1.d6 !DOM
+     enddo
+     if (sion1(14,2,k).eq.0.) write (jpfunout,6003) k,'init(cl-)=0'
+  enddo
 
-      end subroutine init_konc
+6002 format (2i3,a)
+6003 format (i3,a)
+
+end subroutine init_konc
 
 
 !
@@ -3737,8 +3765,8 @@ end subroutine konc
       integer :: kw, ka
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
       real(kind=dp) :: sl1, sion1
-      common /blck78/ sa1(nka,j2),sac1(nka,j2)
-      real(kind=dp) :: sa1, sac1
+      common /blck78/ sa1(j2,nka)
+      real(kind=dp) :: sa1
       common /ff_0/ ff_0(nka)
       real(kind=dp) :: ff_0
       common /sss/ brsss,clsss,xnasss
@@ -3874,25 +3902,25 @@ end subroutine konc
 ! change number conc and aerosol conc (Br-, I-, IO3-, Cl-, Na+, DOM)
              ff(jt,ia,k_in)=ff(jt,ia,k_in)+df*dd
              if (lpJoyce14bc) then
-             sion1( 1,ikc,k_in)=sion1( 1,ikc,k_in)+df*dd*sa1(ia, 1)*1.d6 !H+
+             sion1( 1,ikc,k_in)=sion1( 1,ikc,k_in)+df*dd*sa1( 1,ia)*1.d6 !H+
              end if
-             sion1( 8,ikc,k_in)=sion1( 8,ikc,k_in)+df*dd*sa1(ia, 8)*1.d6 !SO4=
+             sion1( 8,ikc,k_in)=sion1( 8,ikc,k_in)+df*dd*sa1( 8,ia)*1.d6 !SO4=
              if (.not.lpJoyce14bc) then
-             sion1( 9,ikc,k_in)=sion1( 9,ikc,k_in)+df*dd*sa1(ia, 9)*1.d6 !HCO3-
-             sion1(13,ikc,k_in)=sion1(13,ikc,k_in)+df*dd*sa1(ia,13)*1.d6 !NO3-
+             sion1( 9,ikc,k_in)=sion1( 9,ikc,k_in)+df*dd*sa1( 9,ia)*1.d6 !HCO3-
+             sion1(13,ikc,k_in)=sion1(13,ikc,k_in)+df*dd*sa1(13,ia)*1.d6 !NO3-
              end if
-             sion1(14,ikc,k_in)=sion1(14,ikc,k_in)+df*dd*sa1(ia,14)*1.d6 !Cl-
+             sion1(14,ikc,k_in)=sion1(14,ikc,k_in)+df*dd*sa1(14,ia)*1.d6 !Cl-
              if (.not.lpJoyce14bc) then
-             sion1(20,ikc,k_in)=sion1(20,ikc,k_in)+df*dd*sa1(ia,20)*1.d6 !Na+, ion balance
-             sion1(24,ikc,k_in)=sion1(24,ikc,k_in)+df*dd*sa1(ia,24)*1.d6 !Br-
-             sion1(34,ikc,k_in)=sion1(34,ikc,k_in)+df*dd*sa1(ia,34)*1.d6 !I-
-             sion1(36,ikc,k_in)=sion1(36,ikc,k_in)+df*dd*sa1(ia,36)*1.d6 !IO3-
+             sion1(20,ikc,k_in)=sion1(20,ikc,k_in)+df*dd*sa1(20,ia)*1.d6 !Na+, ion balance
+             sion1(24,ikc,k_in)=sion1(24,ikc,k_in)+df*dd*sa1(24,ia)*1.d6 !Br-
+             sion1(34,ikc,k_in)=sion1(34,ikc,k_in)+df*dd*sa1(34,ia)*1.d6 !I-
+             sion1(36,ikc,k_in)=sion1(36,ikc,k_in)+df*dd*sa1(36,ia)*1.d6 !IO3-
              end if
              sl1(j2-j3+4,ikc,k_in)=sl1(j2-j3+4,ikc,k_in)+df*dd* &
-                   sa1(ia,j2-j3+4)*1.d6 !DOM
-             brsss=brsss+df*dd*sa1(ia,24)*1.d6
-             clsss=clsss+df*dd*sa1(ia,14)*1.d6
-             xnasss=xnasss+df*dd*sa1(ia,20)*1.d6
+                   sa1(j2-j3+4,ia)*1.d6 !DOM
+             brsss=brsss+df*dd*sa1(24,ia)*1.d6
+             clsss=clsss+df*dd*sa1(14,ia)*1.d6
+             xnasss=xnasss+df*dd*sa1(20,ia)*1.d6
 !               print *,jt,f(2,ia,jt),df
              goto 1000
           endif                 ! eg.le.ew(jt)
@@ -4034,6 +4062,7 @@ end subroutine konc
       real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+      real (kind=dp) :: sl1, sion1
       common /cb18/ alat,declin                ! for the SZA calculation
       double precision alat,declin
 
@@ -6467,6 +6496,7 @@ end subroutine konc
 !$$$      integer :: kw, ka
 !$$$      common /blck12/ cw(nkc,n),cm(nkc,n)
 !$$$      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+!$$$      real (kind=dp) :: sl1, sion1
 !$$$!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
 !$$$!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !$$$!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka

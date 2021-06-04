@@ -198,6 +198,7 @@ program mistra
 ! initial meteorological and chemical input
   call initm (iaertyp,fogtype,rst)
   if (chem) call initc(box,n_bl)
+
 ! number of iterations
   it0=0
   itmax=60*lstmax
@@ -1721,8 +1722,8 @@ subroutine startc (fogtype)
   real (kind=dp) :: conv2
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /blck78/ sa1(nka,j2),sac1(nka,j2)
-  real (kind=dp) :: sa1, sac1
+  common /blck78/ sa1(j2,nka)
+  real (kind=dp) :: sa1
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
@@ -1752,7 +1753,7 @@ subroutine startc (fogtype)
   read (jpfunrstc) &
 ! double precision arrays
        am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
-       sac1,sl1,sion1,vd,vdm,vt,xgamma, &
+       sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
        xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
@@ -5917,6 +5918,7 @@ end subroutine adjust_f
       common /kinv_i/ kinv
       integer :: kinv
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+      real (kind=dp) :: vt, vd, vdm
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
 !      double precision ra,rb,vs,vd,z,xD,sc,st,rx,Cc
@@ -5931,7 +5933,7 @@ end subroutine adjust_f
 ! particle dry deposition velocity:v_d=1/(ra + rb + ra rb v_s)+ v_s
 !    ra=1/(kappa ustar) (ln (z/z0) +Phi) ;where z=height of surface (constant flux) layer
 !                                         Phi takes stratification into account
-!    rb=1/(ustar(Sc^(2/3) + 10^(-3/St))) ;Sc=nu/D  St=v_s*ustar^2/(g nu)
+!    rb=1/(ustar(Sc^(-2/3) + 10^(-3/St))) ;Sc=nu/D  St=v_s*ustar^2/(g nu)
 
       xk=1.38066d-23 !Boltzmann number
       z=0.1*eta(kinv) !surface layer height: 10% of BL (Stull), insensitive parameter
@@ -6679,7 +6681,9 @@ end subroutine sedc_box
       integer :: nar
 
       common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+      real (kind=dp) :: sl1, sion1
       common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+      real (kind=dp) :: vt, vd, vdm
 
 ! == End of declarations =======================================================
 

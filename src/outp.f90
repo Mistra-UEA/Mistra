@@ -251,8 +251,8 @@ subroutine outc
   real (kind=dp) :: conv2
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /blck78/ sa1(nka,j2),sac1(nka,j2)
-  real (kind=dp) :: sa1, sac1
+  common /blck78/ sa1(j2,nka)
+  real (kind=dp) :: sa1
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
@@ -297,7 +297,7 @@ subroutine outc
   write (jpfunrstc) &
 ! double precision arrays
        am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
-       sac1,sl1,sion1,vd,vdm,vt,xgamma, &
+       sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
        xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
