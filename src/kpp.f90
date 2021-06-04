@@ -3334,60 +3334,93 @@ end subroutine equil_co_a
 !------------------------------------------------------------------------
 !
 
+subroutine konc
 
-!     subroutine konc (ij) ! jjb dummy argument not used
-      subroutine konc      ! jjb removed
-! new concentrations of chemical species in liquid phases
-! due to changes in particle size distribution
-!
-! all changes are calculated via changes of the volume of
-! the nkc size bins
+! Description :
+! -----------
+  ! new concentrations of chemical species in liquid phases
+  ! due to changes in particle size distribution
+  !
+  ! all changes are calculated via changes of the volume of
+  ! the nkc size bins
 
-      USE global_params, ONLY : &
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! jjb : vol1 now split into vol1_a for aerosol and vol1_d for droplets, so that arrays are filled
+  !       (previously vol1(2/4,1:ka) and vol1(1/3,ka+1:nka) were empty)
+  ! jjb: added all missing declarations and implicit none, minor rewritting
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           nf, &
-           n, &
-           nka, &
-           nkc
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkc
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /blck06/ kw(nka),ka
+  implicit none
+
+  integer :: ia, ii, jj, k, l
+  real (kind=dp) :: del, delta, dp_1, dp_2, dp_3, dp_4, xs
+
+  common /blck06/ kw(nka),ka
   integer :: kw, ka
-      common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &
-                   part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1)
-      common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  common /blck07/ part_o_a(nka,nf+1),part_o_d(nka,nf+1), &
+                  part_n_a(nka,nf+1),part_n_d(nka,nf+1),pntot(nkc,nf+1)
+  real (kind=dp) :: part_o_a, part_o_d, part_n_a, part_n_d, pntot
+  common /blck08/ vol1_a(nka,nf+1),vol1_d(nka,nf+1),vol2(nkc,nf+1)
+  real (kind=dp) :: vol1_a, vol1_d, vol2
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
+! == End of declarations =======================================================
 
-! vol2 and vol1 old liquid volume in class (1-nkc) and row/class (1-nkc,1-nka)
+! vol2 and vol1_a/d old liquid volume in bin (1-nkc) and row/class (1-nka)
 ! (um^3/cm^3), used in SR konc to shift moles from aerosol to drop
 ! and vice versa.
 ! part_o and part_n old and new part. conc. in row/class (1-nkc,1-nka) (cm^-3)
 
-      do k=2,nf
+  do k=2,nf
 
 ! small (dry) particles
-         do ia=1,ka
-            dp_1=part_o_a(ia,k)-part_n_a(ia,k)
-            dp_3=part_o_d(ia,k)-part_n_d(ia,k)
-            if (dabs(dp_1+dp_3).gt.1.d-10) print &
-                 *,'Warning SR konc dp_1 > dp_3',k,ia,dp_1,dp_3
+     do ia=1,ka
+        dp_1 = part_o_a(ia,k) - part_n_a(ia,k)
+        dp_3 = part_o_d(ia,k) - part_n_d(ia,k)
+! Change of particle number should cancel out. If not, arise a warning message
+        if (abs(dp_1+dp_3).gt.1.d-10) then
+           write (jpfunout,6000) 'Warning SR konc dp_1 > dp_3',k,ia,dp_1,dp_3
+        end if
 ! search bin that loses moles:
-            ii=1
-!            if (dp_1.ge.1.d-10) ii=1
-            if (dp_3.ge.1.d-10) ii=3
+        if (dp_1.ge.1.d-10) then
+           ii = 1
+        else ! (dp_3.ge.1.d-10)
+           ii = 3
+        end if
 ! no change if number of growing particles is too small:
-            xs=1.d0
-            if (dabs(dp_1).lt.1.d-10) xs=0.d0
+        if (abs(dp_1).lt.1.d-10) then
+           xs = 0._dp
+        else
+           xs = 1._dp
+        end if
 ! mol/m^3(air) -1-> mol/l(aq) -2-> mol/m^3(air,row) -3-> mol/part(row)
 ! -4-> mol/m^3(air,change,row)
 ! mol/m^3(air) -1-> mol/l(aq):
@@ -3399,112 +3432,123 @@ end subroutine equil_co_a
 !     mol/m^3(air,row)*1.d-6 cm^3(air,row)/part = mol/part(row)
 ! mol/part(row) -4-> mol/m^3(air,change,row):
 !     mol/part(row)*1.d6*part/cm^3(air,row,change) = mol/m^3(air,row,change)
-            if (ii.eq.1) then
-               jj=3
-               if (vol2(ii,k).gt.0..and.part_o_a(ia,k).gt.0.) then
-                  delta=vol1_a(ia,k)/vol2(ii,k)* &
-                    dp_1/part_o_a(ia,k)*xs
-               else
-                  delta=0.d0
-               end if
-            else ! ii == 3
-               jj=1
-               if (vol2(ii,k).gt.0..and.part_o_d(ia,k).gt.0.) then
-                  delta=vol1_d(ia,k)/vol2(ii,k)* &
-                    dp_3/part_o_d(ia,k)*xs
-               else
-                  delta=0.d0
-               end if
-            endif
-            if (delta.lt.0.) print *,k,ia,delta,'Warning SR konc s <'
-            if (delta.gt.1.) print *,k,ia,delta,'Warning SR konc s >'
-            if (delta.eq.0.) goto 1111
-            do l=1,j2
-               del=sl1(l,ii,k)*delta
-               sl1(l,ii,k)=dmax1(0.d0,sl1(l,ii,k)-del)
-               sl1(l,jj,k)=dmax1(0.d0,sl1(l,jj,k)+del)
-            enddo
-            do l=1,j6
-               del=sion1(l,ii,k)*delta
-               sion1(l,ii,k)=dmax1(0.d0,sion1(l,ii,k)-del)
-               sion1(l,jj,k)=dmax1(0.d0,sion1(l,jj,k)+del)
-            enddo
- 1111       continue
-         enddo
-! large (dry) particles
-         do ia=ka+1,nka
-            dp_2=part_o_a(ia,k)-part_n_a(ia,k)
-            dp_4=part_o_d(ia,k)-part_n_d(ia,k)
-            if (dabs(dp_2+dp_4).gt.1.d-10) print &
-                 *,'Warning SR konc dp_2 > dp_4',k,ia,dp_2,dp_4
-            ii=2
-!            if (dp_2.ge.1.d-10) ii=2
-            if (dp_4.ge.1.d-10) ii=4
-            xs=1.d0
-            if (dabs(dp_2).lt.1.d-10) xs=0.d0
+        if (ii.eq.1) then
+           jj=3
+           if (vol2(ii,k).gt.0..and.part_o_a(ia,k).gt.0.) then
+              delta = vol1_a(ia,k)/vol2(ii,k)*dp_1/part_o_a(ia,k)*xs
+           else
+              delta = 0._dp
+           end if
+        else ! ii == 3
+           jj=1
+           if (vol2(ii,k).gt.0..and.part_o_d(ia,k).gt.0.) then
+              delta = vol1_d(ia,k)/vol2(ii,k)*dp_3/part_o_d(ia,k)*xs
+           else
+              delta = 0._dp
+           end if
+        endif
+! Check delta is within 0 and 1, and change concentrations only if >0
+        if (delta.lt.0._dp) then
+           write (jpfunout,6001) k,ia,delta,'Warning SR konc s <'
+        else if (delta.gt.1._dp) then
+           write (jpfunout,6001) k,ia,delta,'Warning SR konc s >'
+        else if (delta.gt.0._dp) then
+           do l=1,j2
+              del = sl1(l,ii,k) * delta
+              sl1(l,ii,k) = max(0._dp, sl1(l,ii,k)-del)
+              sl1(l,jj,k) = max(0._dp, sl1(l,jj,k)+del)
+           enddo
+           do l=1,j6
+              del = sion1(l,ii,k) * delta
+              sion1(l,ii,k) = max(0._dp, sion1(l,ii,k)-del)
+              sion1(l,jj,k) = max(0._dp, sion1(l,jj,k)+del)
+           enddo
+        !else      ! the only remaining case here is delta == 0
+        !   cycle  ! leave concentrations unchanged in this case
+        end if
+     enddo
 
-            if (ii.eq.2) then
-               jj=4
-               if (vol2(ii,k).gt.0..and.part_o_a(ia,k).gt.0.) then
-                  delta=vol1_a(ia,k)/vol2(ii,k)* &
-                    dp_2/part_o_a(ia,k)*xs
-               else
-                  delta=0.d0
-               end if
-            else ! ii == 4
-               jj=2
-               if (vol2(ii,k).gt.0..and.part_o_d(ia,k).gt.0.) then
-                  delta=vol1_d(ia,k)/vol2(ii,k)* &
-                    dp_4/part_o_d(ia,k)*xs
-               else
-                  delta=0.d0
-               end if
-            endif
+! large (dry) particles (see above for comments)
+     do ia=ka+1,nka
+        dp_2 = part_o_a(ia,k) - part_n_a(ia,k)
+        dp_4 = part_o_d(ia,k) - part_n_d(ia,k)
+        if (abs(dp_2+dp_4).gt.1.d-10) then
+           write (jpfunout,6000) 'Warning SR konc dp_2 > dp_4',k,ia,dp_2,dp_4
+        end if
+        if (dp_2.ge.1.d-10) then
+           ii=2
+        else ! (dp_4.ge.1.d-10)
+           ii=4
+        end if
+        if (abs(dp_2).lt.1.d-10) then
+           xs = 0._dp
+        else
+           xs = 1._dp
+        end if
+        if (ii.eq.2) then
+           jj=4
+           if (vol2(ii,k).gt.0..and.part_o_a(ia,k).gt.0.) then
+              delta = vol1_a(ia,k)/vol2(ii,k)*dp_2/part_o_a(ia,k)*xs
+           else
+              delta = 0._dp
+           end if
+        else ! ii == 4
+           jj=2
+           if (vol2(ii,k).gt.0..and.part_o_d(ia,k).gt.0.) then
+              delta = vol1_d(ia,k)/vol2(ii,k)*dp_4/part_o_d(ia,k)*xs
+           else
+              delta = 0._dp
+           end if
+        endif
 
-            if (delta.lt.0.) print *,k,ia,delta,'SR konc l <'
-            if (delta.gt.1.) print *,k,ia,delta,'SR konc l >'
-            if (delta.eq.0.) goto 1112
+        if (delta.lt.0._dp) then
+           write (jpfunout,6001) k,ia,delta,'SR konc l <'
+        else if (delta.gt.1._dp) then
+           write (jpfunout,6001) k,ia,delta,'SR konc l >'
+        else if (delta.gt.0._dp) then
+           do l=1,j2
+              del = sl1(l,ii,k)*delta
+              sl1(l,ii,k) = max(0._dp,sl1(l,ii,k)-del)
+              sl1(l,jj,k) = max(0._dp,sl1(l,jj,k)+del)
+           enddo
+           do l=1,j6
+              del = sion1(l,ii,k)*delta
+              sion1(l,ii,k) = max(0._dp,sion1(l,ii,k)-del)
+              sion1(l,jj,k) = max(0._dp,sion1(l,jj,k)+del)
+           enddo
+        end if
+     enddo
 
-            do l=1,j2
-               del=sl1(l,ii,k)*delta
-               sl1(l,ii,k)=dmax1(0.d0,sl1(l,ii,k)-del)
-               sl1(l,jj,k)=dmax1(0.d0,sl1(l,jj,k)+del)
-            enddo
-            do l=1,j6
-               del=sion1(l,ii,k)*delta
-               sion1(l,ii,k)=dmax1(0.d0,sion1(l,ii,k)-del)
-               sion1(l,jj,k)=dmax1(0.d0,sion1(l,jj,k)+del)
-            enddo
- 1112       continue
-         enddo ! kc
+! Transfer all remaining species from droplet bins (#3 or #4) to the corresponding aerosol bin
+! (#1 and #2, respectively) if too little particle remains in the droplet bins     
+     do l=1,j2
+        if (pntot(3,k).lt.1.d-7) then
+           sl1(l,1,k) = sl1(l,1,k) + max(0._dp, sl1(l,3,k))
+           sl1(l,3,k) = 0._dp
+        endif
+        if (pntot(4,k).lt.1.d-7) then
+           sl1(l,2,k) = sl1(l,2,k) + max(0._dp, sl1(l,4,k))
+           sl1(l,4,k) = 0._dp
+        endif
+     enddo
 
+     do l=1,j6
+        if (pntot(3,k).lt.1.d-7) then
+           sion1(l,1,k) = sion1(l,1,k) + max(0._dp, sion1(l,3,k))
+           sion1(l,3,k) = 0._dp
+        endif
+        if (pntot(4,k).lt.1.d-7) then
+           sion1(l,2,k) = sion1(l,2,k) + max(0._dp, sion1(l,4,k))
+           sion1(l,4,k) = 0._dp
+        endif
+     enddo
 
+  enddo ! k
 
-         do l=1,j2
-            if (pntot(3,k).lt.1.d-7) then
-               sl1(l,1,k)=sl1(l,1,k)+dmax1(0.d0,sl1(l,3,k))
-               sl1(l,3,k)=0.
-            endif
-            if (pntot(4,k).lt.1.d-7) then
-               sl1(l,2,k)=sl1(l,2,k)+dmax1(0.d0,sl1(l,4,k))
-               sl1(l,4,k)=0.
-            endif
-         enddo
+6000 format (a,2i3,2es10.3)
+6001 format (2i3,es10.3,a)
 
-         do l=1,j6
-            if (pntot(3,k).lt.1.d-7) then
-               sion1(l,1,k)=sion1(l,1,k)+dmax1(0.d0,sion1(l,3,k))
-               sion1(l,3,k)=0.
-            endif
-            if (pntot(4,k).lt.1.d-7) then
-               sion1(l,2,k)=sion1(l,2,k)+dmax1(0.d0,sion1(l,4,k))
-               sion1(l,4,k)=0.
-            endif
-         enddo
-
-      enddo ! k
-
-      end subroutine konc
+end subroutine konc
 
 !
 !-----------------------------------------------------------------------------------
