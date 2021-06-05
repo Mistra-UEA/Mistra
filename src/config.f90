@@ -83,7 +83,9 @@ logical :: &
   nuc,     & ! nuc      : nucleation on/off
   Napari,  & ! Napari   : nuc only, Napari = ternary H2SO4-H2O-NH3 nucleation
   Lovejoy, & ! Lovejoy  : nuc only, Lovejoy = homogeneous OIO nucleation
-  ltwcst     ! ltwcst   : constant tw (if not, ntwopt must be set)
+  ltwcst,  & ! ltwcst   : constant tw (if not, ntwopt must be set)
+  lpmona,  & ! lpmona   : activate Monahan scheme for particle emission (see SR aer_source)
+  lpsmith    ! lpsmith  : activate Smith scheme for particle emission (see SR aer_source)
 
 integer :: &
   iaertyp, & ! iaertyp  : type of aerosol; 1=urban, 2=rural, 3=ocean, 4=background
@@ -166,6 +168,7 @@ namelist /mistra_cfg/ &
 ! Chemistry setings
      chem, halo, iod, nkc_l,   &
      cgaslistfile, cradlistfile,  &
+     lpmona, lpsmith, &
      neula,           &
      box,             &
      bl_box,          &
@@ -221,7 +224,7 @@ subroutine read_config
   use file_unit, only : &
 ! Imported Parameters:
        jpfunnam,        &
-       jpfunout,        &
+       jpfunerr, jpfunout, &
        jpfuncfgout
 
   use precision, only : &
@@ -309,6 +312,8 @@ iod = .false.
 nkc_l = 4
 cgaslistfile='gas_species.csv'
 cradlistfile='gas_radical_species.csv'
+lpmona = .true.
+lpsmith = .false.
 neula = 1
 box = .false.
 bl_box = .false.
@@ -345,6 +350,10 @@ end if
 if (.not.nuc) then
    ifeed = 0
    ! do not display warning message in this case
+end if
+if (lpmona .and. lpsmith) then
+   write (jpfunerr,*) 'Error in namelist settings: choose either lpmona or lpsmith for aer emission scheme'
+   call abortM ('Stopped by SR read_config')
 end if
 
 ! =====================================================

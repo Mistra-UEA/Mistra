@@ -456,6 +456,9 @@ subroutine initc (box,n_bl)
   write (jpfunsr1) is4
   close (jpfunsr1)
 
+! vertical grid analysis: find the layers to compute u10
+  call aer_source_init
+
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !! Initialise vmean (constant factor calculation)
 !      call v_mean_init
@@ -3689,248 +3692,346 @@ end subroutine init_konc
 !-----------------------------------------------------------------------------------
 !
 
-      subroutine aer_source (box,dd,z_mbl,n_bl)
-! calculation of sea salt aerosol source
+subroutine aer_source_init
 
-! work done:
-! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
+! Description :
+! -----------
+  ! find indexes and weights of layers around 10m heigh for accurate u10 calculation
 
-      USE config, ONLY : &
+! Method :
+! -----------
+  ! find k10m, k10p such that eta(k10m) <= 10 < eta(k10p)
+  ! linear interpolation to compute the weights
+
+! Author :
+! ------
+  ! Josué Bock
+
+! Modifications :
+! -------------
+  ! 05-Jun-2021  Josué Bock  First version
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE config, ONLY : &
 ! Imported Parameters:
-           lpJoyce14bc
+       detamin, &
+       lpmona, lpsmith
 
-      USE constants, ONLY : &
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  integer :: k
+  real (kind=dp) :: zza, zzb, zzr
+  common /blck09/ k10m, k10p, w10m, w10p
+  integer :: k10m, k10p
+  real (kind=dp) :: w10m, w10p
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+
+! == End of declarations =======================================================
+
+  k=1
+  do while (eta(k+1).lt.10._dp)
+     k = k+1
+  end do
+  k10m = k
+  k10p = k+1
+
+  ! linear interpolation:
+  ! a*k     + b = eta(k)
+  ! a*(k+1) + b = eta(k+1) = eta(k) + a
+  !  thus a=detamin and b=eta(k)-k*detamin
+  ! a*r     + b = 10 with k <= r < k+1
+  zza = detamin
+  zzb = eta(k)-k*detamin
+  zzr = (10._dp - zzb) / zza
+
+  w10p = zzr - real(k,dp)
+  w10m = 1._dp - w10p
+
+  write (jpfunout,6000)
+  write (jpfunout,6010) k10m,w10m
+  write (jpfunout,6011) k10p,w10p
+  write (jpfunout,6012) lpmona, lpsmith
+6000 format ('---------------------------------------------------------------------')
+6010 format ('u10 will be computed from wind at index',i3,' with weight',f5.2)
+6011 format ('and index',i3,' with weight',f5.2)
+6012 format ('emission parameterisation: Monahan',l2,' Smith',l2)
+
+end subroutine aer_source_init
+
+
+!
+!-----------------------------------------------------------------------------------
+!
+
+subroutine aer_source (box,dd,z_mbl,n_bl)
+
+! Description :
+! -----------
+  ! calculation of sea salt aerosol source
+
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! work done:
+  ! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
+  ! 04-Jun-2021  Josué Bock  
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE config, ONLY : &
+! Imported Parameters:
+       lpJoyce14bc,  &          ! special emission scheme: Joyce et al, ACP 2014 (base case)
+       lpmona,       &          ! Monahan et al., 1986
+       lpsmith                  ! Smith et al, 1993
+
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi, &
        rho3, &                  ! aerosol density
        rhow                     ! water density
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j3, &
-           j6, &
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       j2, &
+       j3, &
+       j6, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
+
+  logical, intent(in) ::  box
+  integer, intent(in) :: n_bl
+  real (kind=dp), intent(in) :: dd, z_mbl
 
 ! Local parameters:
   ! optimisation: define parameters that will be computed only once
-      real (kind=dp), parameter :: zrho_frac = rho3 / rhow
-      real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
+  real (kind=dp), parameter :: zrho_frac = rho3 / rhow
+  real (kind=dp), parameter :: z4pi3 = 4.e-09_dp * pi / 3._dp
 
-      logical, intent(in) ::  box
-      integer, intent(in) :: n_bl
-      real (kind=dp), intent(in) :: dd, z_mbl
+! Local scalars:
+  integer :: ia, iamin, iamax, ikc, jt, jt_low, jtt, k_in
+  real (kind=dp) :: a1, a2, f1, f2, r01, r02
+  real (kind=dp) :: bb, df, df1, df2
+  real (kind=dp) :: a0, b0, rg, eg, rr
+  real (kind=dp) :: d_z, u10
 
-      integer :: ia, iamin, iamax, ikc, jt, jt_low, jtt, k_in
-      logical mona,smith
-      real (kind=dp) :: a1, a2, f1, f2, r01, r02
-      real (kind=dp) :: bb, df, df1, df2
-      real (kind=dp) :: a0, b0, rg, eg, rr
-      real (kind=dp) :: d_z, u10
+  real (kind=dp), external :: rgl
 
-      real (kind=dp), external :: rgl
 ! Common blocks
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      real (kind=dp) :: detw, deta, eta, etw
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck09/ k10m, k10p, w10m, w10p
+  integer :: k10m, k10p
+  real (kind=dp) :: w10m, w10p
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real(kind=dp) :: sl1, sion1
+  common /blck78/ sa1(j2,nka)
+  real(kind=dp) :: sa1
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
+  common /cb44/ a0m,b0m(nka)
+  real (kind=dp) :: a0m,b0m
+  common /cb45/ u(n),v(n),w(n)
+  real (kind=dp) :: u, v, w
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /ff_0/ ff_0(nka)
+  real(kind=dp) :: ff_0
+  common /sss/ brsss,clsss,xnasss
+  real (kind=dp) :: brsss, clsss, xnasss
 
-      common /cb44/ a0m,b0m(nka)
-      double precision a0m,b0m
+! == End of declarations =======================================================
 
-      common /cb45/ u(n),v(n),w(n)
-      double precision u, v, w
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw, ew, rn, rw, en, e, dew, rq
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
-      common /blck06/ kw(nka),ka
-      integer :: kw, ka
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real(kind=dp) :: sl1, sion1
-      common /blck78/ sa1(j2,nka)
-      real(kind=dp) :: sa1
-      common /ff_0/ ff_0(nka)
-      real(kind=dp) :: ff_0
-      common /sss/ brsss,clsss,xnasss
-      real (kind=dp) :: brsss, clsss, xnasss
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-
-! choose which version to pick
-      mona=.true.      ! Monahan et al., 1986
-      smith=.false.    ! Smith et al, 1993
-
-      if (box) then
-         k_in = n_bl
-         d_z  = z_mbl
-      else
-         k_in = 2
-         d_z  = deta(2)
-      endif
+! Set the index and the height of the layer where new particles are injected
+  if (box) then
+     k_in = n_bl
+     d_z  = z_mbl
+  else
+     k_in = 2
+     d_z  = deta(2)
+  endif
 ! this is also defined for box:
-      u10  = 0.5*(dsqrt(u(3)**2+v(3)**2)+dsqrt(u(2)**2+v(2)**2))
+  u10 = w10m*sqrt(u(k10m)**2+v(k10m)**2) + w10p*sqrt(u(k10p)**2+v(k10p)**2)
 
-      if (smith) then
-         a1=10**(0.0676*u10+2.43)
-         a2=10**(0.959*u10**0.5-1.476)
-         f1=3.1
-         f2=3.3
-         r01=2.1
-         r02=9.2
-      endif
+  if (lpsmith) then
+     a1  = 10**(0.0676_dp * u10 + 2.43_dp)
+     a2  = 10**(0.959_dp * u10**0.5 - 1.476_dp)
+     f1  = 3.1_dp
+     f2  = 3.3_dp
+     r01 = 2.1_dp
+     r02 = 9.2_dp
+  endif
 
 ! Define radius bounds for aerosol source
-      if (lpJoyce14bc) then
-         ! sfc source, "quick and dirty"   PJ
-         iamin = 1
-         iamax = nka
-      else
-         ! general case: only large aerosols are emitted
-         iamin = ka+1
-         iamax = nka
-      end if
+  if (lpJoyce14bc) then
+     ! sfc source, "quick and dirty"   PJ
+     iamin = 1
+     iamax = nka
+  else
+     ! general case: only large aerosols are emitted
+     iamin = ka+1
+     iamax = nka
+  end if
 
-      do ia=iamin, iamax
+  do ia=iamin, iamax
 
 ! compare SR equil in str.f
 ! aerosols in equilibrium with ambient rH:
-         feu(k_in)=dmin1(feu(k_in),0.99999d0)
+     feu(k_in) = min(feu(k_in), 0.99999_dp)
 ! equilibrium radius
-         a0=a0m/t(k_in)
-         b0=b0m(ia)*zrho_frac
+     a0 = a0m / t(k_in)
+     b0 = b0m(ia) * zrho_frac
 ! b0=b0m*rho3/rhow; rho3=2000; rhow=1000
-         rg=rgl(rn(ia),a0,b0,feu(k_in))
-         eg=z4pi3*(rg**3-rn(ia)**3)
-         do jt=1,nkt
+     rg = rgl(rn(ia),a0,b0,feu(k_in))
+     eg = z4pi3 * (rg**3 - rn(ia)**3)
+
+     jtclass: do jt=1,nkt
 ! find jt that corresponds to particle size at ambient rH
-!            if (rq(jt,ia).ge.rg) then
-            if (eg.le.ew(jt)) then
-!              rr=rq(jt,ia)
+!        if (rq(jt,ia).ge.rg) then
+        if (eg.le.ew(jt)) then
+!           rr=rq(jt,ia)
 ! source functions are for rH=80%
-               rr=rgl(rn(ia),a0,b0,0.8d0)
+           rr = rgl(rn(ia),a0,b0,0.8_dp)
 ! find jt-index that corresponds to rr for this dry aerosol radius
-               jt_low = -1
-               do jtt=1,nkt
-                  if (rq(jtt,ia).le.rr) jt_low = jtt
-               enddo
-!               print *,ia,jt_low,rr,rq(jt_low,ia)
+           jt_low = -1
+           do jtt=1,nkt
+              if (rq(jtt,ia).le.rr) jt_low = jtt
+           enddo
+!           print *,ia,jt_low,rr,rq(jt_low,ia)
 
 ! =============              =============
 !               GENERAL CASE
 ! =============              =============
-               if (.not.lpJoyce14bc) then
-                  if (mona) then
+           if (.not.lpJoyce14bc) then
+              if (lpmona) then
 ! aerosol source after Monahan et al. 86 cited in Gong et al, 97, JGR, 102, p3805-3818
 !  "log" is log10
-!                    bb=(0.380-log(rr))/0.65
-                    bb=(0.380-log10(rr))/0.65
-!                    print *,'bb',bb
-                    df1=1.373*u10**3.41*rr**(-3.)*(1. + 0.057 *rr**1.05) &
-                    * 10**(1.19*exp(-bb**2))
-!              if (rr.gt.10..and.rr.lt.75.) df22=8.6d-6*exp(2.08*u10)* &
-!                   rr**(-2)
-!              if (rr.gt.75..and.rr.lt.100.) df23=4.83d-2*exp(2.08*u10)* &
-!                   rr**(-4)
-!              if (rr.gt.100.) df24=8.6d6*exp(2.08*u10)*rr**(-8)
-                    df=df1      !+df22+df23+df24
-                 endif
-                 if (smith) then
+!                 bb=(0.380_dp - log(rr)) / 0.65
+                 bb=(0.380_dp - log10(rr)) / 0.65
+!                 print *,'bb',bb
+                 df1=1.373*u10**3.41*rr**(-3)*(1._dp + 0.057 *rr**1.05) * 10**(1.19*exp(-bb**2))
+!                 if (rr.gt.10..and.rr.lt.75.) df22=8.6d-6*exp(2.08*u10)*rr**(-2)
+!                 if (rr.gt.75..and.rr.lt.100.) df23=4.83d-2*exp(2.08*u10)*rr**(-4)
+!                 if (rr.gt.100.) df24=8.6d6*exp(2.08*u10)*rr**(-8)
+                 df=df1      !+df22+df23+df24
+              endif
+              if (lpsmith) then
 ! aerosol source after Smith et al., 93, QJRMS,119,809-824
-                    df1=a1*dexp(-f1*(dlog(rr/r01)**2))
-                    df2=a2*dexp(-f2*(dlog(rr/r02)**2))
-                    df=df1+df2
-                 endif
-!               print *,df,rr,rq(jt,ia)-rq(jt,ia-1)
+                 df1=a1*exp(-f1*(log(rr/r01)**2))
+                 df2=a2*exp(-f2*(log(rr/r02)**2))
+                 df=df1+df2
+              endif
+!              print *,df,rr,rq(jt,ia)-rq(jt,ia-1)
 ! df in m^-2 um^-1 s^-1, convert to: cm^-3 s^-1
 ! m^-2 --> m^-3: 1/dz, m^-3 --> cm^-3: 10-6, integrate over r
-!                 if (jt.eq.1) then
-                 if (jt_low.eq.1) then
-!                    df=df*(rq(jt+1,ia)-rq(jt,ia))/d_z*1.d-6
-                    df=df*(rq(jt_low+1,ia)-rq(jt_low,ia))/d_z*1.d-6
-                 else
-!                    df=df*(rw(jt,ia)-rw(jt-1,ia))/d_z*1.d-6
-                    df=df*(rw(jt_low,ia)-rw(jt_low-1,ia))/d_z*1.d-6
-                 endif
-!               print *,ia,df,df*86400
+!              if (jt.eq.1) then
+              if (jt_low.eq.1) then
+!                 df=df*(rq(jt+1,ia)-rq(jt,ia))/d_z*1.d-6
+                 df=df*(rq(jt_low+1,ia)-rq(jt_low,ia))/d_z*1.d-6
+              else
+!                 df=df*(rw(jt,ia)-rw(jt-1,ia))/d_z*1.d-6
+                 df=df*(rw(jt_low,ia)-rw(jt_low-1,ia))/d_z*1.d-6
+              endif
+!              print *,ia,df,df*86400
 ! =============              =============
 !               SPECIAL CASE
 ! =============              =============
-              else if (lpJoyce14bc) then
-                 ! "aeroPJ"  SR aer_source, 2 hour source, 2 hr delay
-                 if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3)then
-                    df=ff_0(ia)/86400. ! magnitude: replenished in one day
-                    df=df*15.03 ! modifer to match DEC_FBX constraint (twk3)
-!                    df=df*35.26        ! modifer to match STD_URB constraint
-                    !df=df*.001_dp ! jjb adjustment
-                 else
-                    df=0.
-                 endif
-              end if
+           else if (lpJoyce14bc) then
+              ! "aeroPJ"  SR aer_source, 2 hour source, 2 hr delay
+              if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3)then
+                 df=ff_0(ia)/86400. ! magnitude: replenished in one day
+                 df=df*15.03        ! modifer to match DEC_FBX constraint (twk3)
+!                 df=df*35.26        ! modifer to match STD_URB constraint
+              else
+                 df=0._dp
+              endif
+           end if
 
 ! Select the correct kc bin
-              if (.not.lpJoyce14bc) then
-                 ! general case: iamin = ka+1, only large aerosol
+           if (.not.lpJoyce14bc) then
+              ! general case: iamin = ka+1, only large aerosol (kc=2)
+              ikc = 2
+           else if (lpJoyce14bc) then
+              if (ia.le.ka) then
+                 ikc = 1
+              else
                  ikc = 2
-              else if (lpJoyce14bc) then
-                 if (ia.le.ka) then
-                    ikc = 1
-                 else
-                    ikc = 2
-                 end if
               end if
+           end if
 
 
 ! new distribution
 ! change number conc and aerosol conc (Br-, I-, IO3-, Cl-, Na+, DOM)
-             ff(jt,ia,k_in)=ff(jt,ia,k_in)+df*dd
-             if (lpJoyce14bc) then
-             sion1( 1,ikc,k_in)=sion1( 1,ikc,k_in)+df*dd*sa1( 1,ia)*1.d6 !H+
-             end if
-             sion1( 8,ikc,k_in)=sion1( 8,ikc,k_in)+df*dd*sa1( 8,ia)*1.d6 !SO4=
-             if (.not.lpJoyce14bc) then
-             sion1( 9,ikc,k_in)=sion1( 9,ikc,k_in)+df*dd*sa1( 9,ia)*1.d6 !HCO3-
-             sion1(13,ikc,k_in)=sion1(13,ikc,k_in)+df*dd*sa1(13,ia)*1.d6 !NO3-
-             end if
-             sion1(14,ikc,k_in)=sion1(14,ikc,k_in)+df*dd*sa1(14,ia)*1.d6 !Cl-
-             if (.not.lpJoyce14bc) then
-             sion1(20,ikc,k_in)=sion1(20,ikc,k_in)+df*dd*sa1(20,ia)*1.d6 !Na+, ion balance
-             sion1(24,ikc,k_in)=sion1(24,ikc,k_in)+df*dd*sa1(24,ia)*1.d6 !Br-
-             sion1(34,ikc,k_in)=sion1(34,ikc,k_in)+df*dd*sa1(34,ia)*1.d6 !I-
-             sion1(36,ikc,k_in)=sion1(36,ikc,k_in)+df*dd*sa1(36,ia)*1.d6 !IO3-
-             end if
-             sl1(j2-j3+4,ikc,k_in)=sl1(j2-j3+4,ikc,k_in)+df*dd* &
-                   sa1(j2-j3+4,ia)*1.d6 !DOM
-             brsss=brsss+df*dd*sa1(24,ia)*1.d6
-             clsss=clsss+df*dd*sa1(14,ia)*1.d6
-             xnasss=xnasss+df*dd*sa1(20,ia)*1.d6
-!               print *,jt,f(2,ia,jt),df
-             goto 1000
-          endif                 ! eg.le.ew(jt)
-       enddo                    ! jt
- 1000  continue
+           ff(jt,ia,k_in)=ff(jt,ia,k_in)+df*dd
+           if (lpJoyce14bc) then
+              sion1( 1,ikc,k_in)=sion1( 1,ikc,k_in)+df*dd*sa1( 1,ia)*1.d6 !H+
+           end if
+           sion1( 8,ikc,k_in)=sion1( 8,ikc,k_in)+df*dd*sa1( 8,ia)*1.d6 !SO4=
+           if (.not.lpJoyce14bc) then
+              sion1( 9,ikc,k_in)=sion1( 9,ikc,k_in)+df*dd*sa1( 9,ia)*1.d6 !HCO3-
+              sion1(13,ikc,k_in)=sion1(13,ikc,k_in)+df*dd*sa1(13,ia)*1.d6 !NO3-
+           end if
+           sion1(14,ikc,k_in)=sion1(14,ikc,k_in)+df*dd*sa1(14,ia)*1.d6 !Cl-
+           if (.not.lpJoyce14bc) then
+              sion1(20,ikc,k_in)=sion1(20,ikc,k_in)+df*dd*sa1(20,ia)*1.d6 !Na+, ion balance
+              sion1(24,ikc,k_in)=sion1(24,ikc,k_in)+df*dd*sa1(24,ia)*1.d6 !Br-
+              sion1(34,ikc,k_in)=sion1(34,ikc,k_in)+df*dd*sa1(34,ia)*1.d6 !I-
+              sion1(36,ikc,k_in)=sion1(36,ikc,k_in)+df*dd*sa1(36,ia)*1.d6 !IO3-
+           end if
+           sl1(j2-j3+4,ikc,k_in)=sl1(j2-j3+4,ikc,k_in)+df*dd*sa1(j2-j3+4,ia)*1.d6 !DOM
+           brsss=brsss+df*dd*sa1(24,ia)*1.d6
+           clsss=clsss+df*dd*sa1(14,ia)*1.d6
+           xnasss=xnasss+df*dd*sa1(20,ia)*1.d6
+!           print *,jt,f(2,ia,jt),df
+           ! once the appropriate jt has been found and refilled, exit jt loop
+           exit jtclass
+        endif                 ! eg.le.ew(jt)
+     enddo jtclass            ! jt
 
-      enddo ! ia
+  enddo ! ia
 
-
-      end subroutine aer_source
+end subroutine aer_source
 
 
 !
