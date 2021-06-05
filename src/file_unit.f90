@@ -73,6 +73,8 @@ module file_unit
   integer, parameter :: jpfunnuc4 = 38
   integer, parameter :: jpfunnuc5 = 39
 
+  integer, parameter :: jpfunpph = 40
+
   integer, parameter :: jpfunclarke = 50
 
   integer, parameter :: jpfunaerrad  = 51 ! units used: 51-56

@@ -45,7 +45,6 @@ subroutine initc (box,n_bl)
 ! Declarations :
 ! ------------
 ! Modules used:
-
   USE config, ONLY : &
        cmechdir,     &
        iaertyp,      &
@@ -4038,83 +4037,98 @@ end subroutine aer_source
 !-----------------------------------------------------------------------
 !
 
-      subroutine plo_ppH
-! print NH3,NH4+,HCl,Cl-,HNO3,NO3-,SO2,H2SO4,HSO4-,SO4=
-! to calculate the potential pH
-! use for parameterisation development for global models
+subroutine plo_ppH
 
-      USE gas_common, ONLY : &
+! Description :
+! -----------
+  ! print NH3,NH4+,HCl,Cl-,HNO3,NO3-,SO2,H2SO4,HSO4-,SO4=
+  ! to calculate the potential pH
+  ! use for parameterisation development for global models
+
+! Modifications :
+! -------------
+  ! jjb work done: missing declarations, implicit none, jpfunpph, reindex i0 and correct its dimension
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE file_unit, ONLY : &
+       jpfunpph
+
+  USE gas_common, ONLY : &
 ! Imported Array Variables with intent (in):
-           s1
+       s1
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           nf, &
-           n, &
-           nkc
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-
-      implicit none
+  implicit none
 
 ! Local scalars:
-      character (len=8),parameter :: fname = 'ppHa.out'
-      integer :: k
+  character (len=8),parameter :: fname = 'ppHa.out'
+  integer :: k
 
 ! Local arrays:
-      real (kind=dp) :: i0(n,25)
+  real (kind=dp) :: i0(nf,25)
 
 ! Common blocks:
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real (kind=dp) :: sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
-!- End of header ---------------------------------------------------------------
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      do k=2,nf
-            i0(k,1)=s1(4,k)
-            i0(k,2)=s1(30,k)
-            i0(k,3)=s1(3,k)
-            i0(k,4)=s1(5,k)
-            i0(k,5)=s1(6,k)
+! == End of declarations =======================================================
 
-            i0(k,6)=sl1(4,1,k)
-            i0(k,7)=sl1(30,1,k)
-            i0(k,8)=sl1(3,1,k)
-            i0(k,9)=sl1(5,1,k)
-            i0(k,10)=sl1(6,1,k)
-            i0(k,11)=sl1(4,2,k)
-            i0(k,12)=sl1(30,2,k)
-            i0(k,13)=sl1(3,2,k)
-            i0(k,14)=sl1(5,2,k)
-            i0(k,15)=sl1(6,2,k)
+  do k=2,nf
+     i0(1,k)=s1(4,k)
+     i0(2,k)=s1(30,k)
+     i0(3,k)=s1(3,k)
+     i0(4,k)=s1(5,k)
+     i0(5,k)=s1(6,k)
 
-            i0(k,16)=sion1(2,1,k)
-            i0(k,17)=sion1(14,1,k)
-            i0(k,18)=sion1(13,1,k)
-            i0(k,19)=sion1(19,1,k)
-            i0(k,20)=sion1(8,1,k)
-            i0(k,21)=sion1(2,2,k)
-            i0(k,22)=sion1(14,2,k)
-            i0(k,23)=sion1(13,2,k)
-            i0(k,24)=sion1(19,2,k)
-            i0(k,25)=sion1(8,2,k)
-      enddo
+     i0(6,k)=sl1(4,1,k)
+     i0(7,k)=sl1(30,1,k)
+     i0(8,k)=sl1(3,1,k)
+     i0(9,k)=sl1(5,1,k)
+     i0(10,k)=sl1(6,1,k)
+     i0(11,k)=sl1(4,2,k)
+     i0(12,k)=sl1(30,2,k)
+     i0(13,k)=sl1(3,2,k)
+     i0(14,k)=sl1(5,2,k)
+     i0(15,k)=sl1(6,2,k)
 
- 3000 continue
-      open (73, file=fname,status='unknown',form='unformatted', &
+     i0(16,k)=sion1(2,1,k)
+     i0(17,k)=sion1(14,1,k)
+     i0(18,k)=sion1(13,1,k)
+     i0(19,k)=sion1(19,1,k)
+     i0(20,k)=sion1(8,1,k)
+     i0(21,k)=sion1(2,2,k)
+     i0(22,k)=sion1(14,2,k)
+     i0(23,k)=sion1(13,2,k)
+     i0(24,k)=sion1(19,2,k)
+     i0(25,k)=sion1(8,2,k)
+  enddo
+
+3000 continue
+  open (jpfunpph, file=fname,status='unknown',form='unformatted', &
        position='append',err=3000)
-      write (73) lday,lst,lmin,i0
-      close (73)
+  write (jpfunpph) lday,lst,lmin,i0
+  close (jpfunpph)
 
-      end subroutine plo_ppH
+end subroutine plo_ppH
 
 
 !
