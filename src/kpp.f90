@@ -5120,7 +5120,7 @@ end subroutine dry_rates_t
 !------------------------------------------------------------
 !
 
-      subroutine activ (box,n_bl)
+subroutine activ (box,n_bl)
 ! front end for Beiping Luo's model to calculate activity coefficients
 
 ! jjb work done:
@@ -5138,216 +5138,225 @@ end subroutine dry_rates_t
 !                        See SR gammann: 1./xo4 where xo4=(omega1*I2)**4 and I2=sqrt(I) (I=xip here)
 !                        min(omega(i,j)) = 0.43 thus xip2 = 0.01*xip**2
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           nf, &
-           n, &
-           nkc
+       jpfunout, &
+       jpfungam
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      logical, intent(in) :: box
-      integer, intent(in) :: n_bl
+  implicit none
+
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
 ! Local parameters:
-      integer, parameter :: nk = 10  ! Number of vertical levels outputed
-      integer, parameter :: kk(nk) = (/2,12,22,32,42,52,62,72,82,92/) ! Indexes of levels in output
+  integer, parameter :: nk = 10  ! Number of vertical levels outputed
+  integer, parameter :: kk(nk) = (/2,12,22,32,42,52,62,72,82,92/) ! Indexes of levels in output
 
 ! Local scalars:
-      integer :: jg, k, kc   ! loop indexes for liq. species, vertical layers, liq. bins
-      integer :: nmin, nmax  ! lower and upper bounds for calculations
+  integer :: jg, k, kc   ! loop indexes for liq. species, vertical layers, liq. bins
+  integer :: nmin, nmax  ! lower and upper bounds for calculations
 
-      real (kind=dp) :: wact
-      real (kind=dp) :: xip2
+  real (kind=dp) :: wact
+  real (kind=dp) :: xip2
 
 ! Local arrays:
-      real (kind=dp) :: wa(nkc,nf)
-      real (kind=dp) :: xip(nkc,nf), xit(nkc,nf)
+  real (kind=dp) :: wa(nkc,nf)
+  real (kind=dp) :: xip(nkc,nf), xit(nkc,nf)
 
 ! Common blocks:
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real (kind=dp) :: cw, cm
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real (kind=dp) :: sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /kpp_mol/ xgamma(nf,j6,nkc)
-      real (kind=dp) :: xgamma
+  common /kpp_mol/ xgamma(nf,j6,nkc)
+  real (kind=dp) :: xgamma
 
 
 ! Initialise lower and upper bounds (in the vertical grid) to do the calculations
-      nmin=2
-      nmax=nf
-      if (box) then
-         nmin=n_bl
-         nmax=n_bl
-      endif
+  nmin=2
+  nmax=nf
+  if (box) then
+     nmin=n_bl
+     nmax=n_bl
+  endif
 
 ! Initialise gammas
-      xgamma(:,:,:) = 1.d0
+  xgamma(:,:,:) = 1._dp
 
-      do k=nmin,nmax
-         do kc=1,nkc
+  do k=nmin,nmax
+     do kc=1,nkc
 
-            ! Skip if cm too small
-            if (cm(kc,k) <= tiny(0.d0)) cycle
+        ! Skip if cm too small
+        if (cm(kc,k).gt.0._dp) then
 
 ! calculate ionic strength of species accounted for in pitzer module
 !       ionic strength: I=0.5*sum(molality*charge^2)
 ! concentrations --> molality:
 !  mol/m^3_air * m^3_air/m^3_solvent * 10^-3 * 1 dm^3/kg (density of water) = mol/kg_solvent
 !   sion1      * cm^-1               * 1.d-3
-            xip(kc,k)=0.5*(sion1(1,kc,k)+sion1(2,kc,k)+sion1(20,kc,k)+ &
-                 sion1(19,kc,k)+4.*sion1(8,kc,k)+sion1(13,kc,k)+ &
-                 sion1(14,kc,k))
-            xip(kc,k)=xip(kc,k)*1.d-3/cm(kc,k)
+           xip(kc,k)=0.5*(sion1(1,kc,k)+sion1(2,kc,k)+sion1(20,kc,k)+ &
+                sion1(19,kc,k)+4.*sion1(8,kc,k)+sion1(13,kc,k)+ &
+                sion1(14,kc,k))
+           xip(kc,k)=xip(kc,k)*1.d-3/cm(kc,k)
 ! calculate ionic strength of all species
-            xit(kc,k)=0.5*(sion1(1,kc,k)+sion1(2,kc,k)+sion1(3,kc,k)+ &
-                 sion1(4,kc,k)+sion1(5,kc,k)+4.*sion1(6,kc,k)+ &
-                 sion1(7,kc,k)+4.*sion1(8,kc,k)+sion1(9,kc,k)+ &
-                 sion1(10,kc,k)+sion1(11,kc,k)+sion1(12,kc,k)+ &
-                 sion1(13,kc,k)+sion1(14,kc,k)+sion1(15,kc,k)+ &
-                 sion1(16,kc,k)+sion1(19,kc,k)+sion1(20,kc,k)+ &
-                 sion1(21,kc,k)+sion1(22,kc,k)+sion1(23,kc,k)+ &
-                 sion1(24,kc,k)+sion1(25,kc,k)+sion1(26,kc,k)+ &
-                 sion1(27,kc,k)+sion1(28,kc,k)+sion1(29,kc,k)+ &
-                 sion1(30,kc,k)+sion1(31,kc,k)+sion1(32,kc,k)+ &
-                 sion1(33,kc,k)+sion1(34,kc,k)+sion1(35,kc,k)+ &
-                 sion1(36,kc,k)+sion1(37,kc,k)+sion1(38,kc,k)+ &
-                 sion1(39,kc,k)) &
-                 *1.d-3/cm(kc,k)
+           xit(kc,k)=0.5*(sion1(1,kc,k)+sion1(2,kc,k)+sion1(3,kc,k)+ &
+                sion1(4,kc,k)+sion1(5,kc,k)+4.*sion1(6,kc,k)+ &
+                sion1(7,kc,k)+4.*sion1(8,kc,k)+sion1(9,kc,k)+ &
+                sion1(10,kc,k)+sion1(11,kc,k)+sion1(12,kc,k)+ &
+                sion1(13,kc,k)+sion1(14,kc,k)+sion1(15,kc,k)+ &
+                sion1(16,kc,k)+sion1(19,kc,k)+sion1(20,kc,k)+ &
+                sion1(21,kc,k)+sion1(22,kc,k)+sion1(23,kc,k)+ &
+                sion1(24,kc,k)+sion1(25,kc,k)+sion1(26,kc,k)+ &
+                sion1(27,kc,k)+sion1(28,kc,k)+sion1(29,kc,k)+ &
+                sion1(30,kc,k)+sion1(31,kc,k)+sion1(32,kc,k)+ &
+                sion1(33,kc,k)+sion1(34,kc,k)+sion1(35,kc,k)+ &
+                sion1(36,kc,k)+sion1(37,kc,k)+sion1(38,kc,k)+ &
+                sion1(39,kc,k)) &
+                *1.d-3/cm(kc,k)
 
 
 ! check that ionic strength remains in a "reasonable" range; if too high there
 ! will also be a "floating overflow" in SR pitzer
-            xip2 = 0.01*xip(kc,k)**2 ! <jjb> see explanations in header. 0.01 < 0.43**4
-            !if (xit(kc,k).le.80..and.xit(kc,k).gt.0.) then
-            if (xip(kc,k).le.80..and.xip2.gt.tiny(0.)) then
+           xip2 = 0.01*xip(kc,k)**2 ! <jjb> see explanations in header. 0.01 < 0.43**4
+           !if (xit(kc,k).le.80..and.xit(kc,k).gt.0.) then
+           if (xip(kc,k).le.80._dp.and.xip2.gt.0._dp) then
 ! calculate pitzer coefficients for layer k and liquid size bin kc
-               call pitzer (k,kc,wact) ! for sulfate data can be used for ionic strengths
+              call pitzer (k,kc,wact) ! for sulfate data can be used for ionic strengths
                                        ! up to 40 M, for sea salt only up to 6 M
-               wa(kc,k)=wact
-            else
-               print *,'ionic strength > 80. or <=0.',k,kc
-               print *,'I=',xip(kc,k),xit(kc,k)
-               cycle
-            endif
+              wa(kc,k)=wact
+           else
+              write(jpfunout,*) 'warning: ionic strength > 80. or <=0.',k,kc
+              write(jpfunout,*) 'I=',xip(kc,k),xit(kc,k)
+              cycle
+           endif
 
 ! gamma's calculated by SR pitzer are for molalities, used here are molarities ==> conversion factor needed:
 ! mol/kg(solvent) --> mol/l(solution): cm/cw (assuming unity density for the solvent water)
 
 
 ! don't apply to all xgamma's only to those that are <> 1:
-            !if (cw(kc,k).gt.0.d0) then ! jjb: test not needed, already excluded by cm above
-               do jg=1,j6
-                  if (xgamma(k,jg,kc).ne.1.) xgamma(k,jg,kc) = &
-                       xgamma(k,jg,kc) * cm(kc,k)/cw(kc,k)
-               enddo
-            !end if
+            !if (cw(kc,k).gt.0.d0) then ! jjb: test not needed, already excluded by cm>0 above
+           do jg=1,j6
+              if (xgamma(k,jg,kc).ne.1._dp) then
+                 xgamma(k,jg,kc) = xgamma(k,jg,kc) * cm(kc,k)/cw(kc,k)
+              end if
+           enddo
+           !end if
 
 ! define gamma's for species that are not included in pitzer module
 ! L+J: Liang and Jacobson, 1999, JGR, 104, 13749, #554
 ! C+S: Chameides and Stelson, 1992, JGR, 97,20565,#470
-            xgamma(k,3,kc)=xgamma(k,13,kc) !OH-   = NO3- (assumed, Luo, pers comm 2000)
-            xgamma(k,5,kc)=xgamma(k,19,kc) !HSO3- = HSO4- (L+J)
-            xgamma(k,6,kc)=xgamma(k,8,kc)  !SO3=  = SO4=  (L+J)
-            xgamma(k,7,kc)=xgamma(k,19,kc) !SO4-  = HSO4- (L+J)
-            xgamma(k,9,kc)=xgamma(k,5,kc)  !HCO3- = HSO3- (C+S)
-            xgamma(k,11,kc)=xgamma(k,5,kc) !O2-   = Cl2- = HSO3- (C+S)
-            xgamma(k,12,kc)=xgamma(k,13,kc)!NO2-  = NO3-  (L+J)
-            xgamma(k,15,kc)=xgamma(k,5,kc) !Cl2-  = HSO3- (C+S)
-            xgamma(k,16,kc)=xgamma(k,5,kc)  !HCOO- = HSO3- (assumed)????
-!            xgamma(k,21,kc)=xgamma(k,,kc) !NO4-  = ??   (assumed)
-            xgamma(k,22,kc)=xgamma(k,14,kc)!ClO-  = Cl-   (assumed)
-            xgamma(k,24,kc)=xgamma(k,14,kc)!Br-   = Cl-   (assumed)
-            xgamma(k,25,kc)=xgamma(k,5,kc) !Br2-  = HSO3- (C+S)
-            xgamma(k,26,kc)=xgamma(k,24,kc)!BrO-  = Br-   (assumed)
-!            xgamma(k,28,kc)=xgamma(k,,kc)  !BrCl2-= ? not used in SR equil_co*
-!            xgamma(k,29,kc)=xgamma(k,,kc)  !Br2Cl-= ?       -"-
-            xgamma(k,37,kc)=xgamma(k,5,kc) !ICl2- = HSO3- (assumed)
-            xgamma(k,38,kc)=xgamma(k,5,kc) !IBr2- = HSO3- (assumed)
+           xgamma(k,3,kc)=xgamma(k,13,kc) !OH-   = NO3- (assumed, Luo, pers comm 2000)
+           xgamma(k,5,kc)=xgamma(k,19,kc) !HSO3- = HSO4- (L+J)
+           xgamma(k,6,kc)=xgamma(k,8,kc)  !SO3=  = SO4=  (L+J)
+           xgamma(k,7,kc)=xgamma(k,19,kc) !SO4-  = HSO4- (L+J)
+           xgamma(k,9,kc)=xgamma(k,5,kc)  !HCO3- = HSO3- (C+S)
+           xgamma(k,11,kc)=xgamma(k,5,kc) !O2-   = Cl2- = HSO3- (C+S)
+           xgamma(k,12,kc)=xgamma(k,13,kc)!NO2-  = NO3-  (L+J)
+           xgamma(k,15,kc)=xgamma(k,5,kc) !Cl2-  = HSO3- (C+S)
+           xgamma(k,16,kc)=xgamma(k,5,kc)  !HCOO- = HSO3- (assumed)????
+!           xgamma(k,21,kc)=xgamma(k,,kc) !NO4-  = ??   (assumed)
+           xgamma(k,22,kc)=xgamma(k,14,kc)!ClO-  = Cl-   (assumed)
+           xgamma(k,24,kc)=xgamma(k,14,kc)!Br-   = Cl-   (assumed)
+           xgamma(k,25,kc)=xgamma(k,5,kc) !Br2-  = HSO3- (C+S)
+           xgamma(k,26,kc)=xgamma(k,24,kc)!BrO-  = Br-   (assumed)
+!           xgamma(k,28,kc)=xgamma(k,,kc)  !BrCl2-= ? not used in SR equil_co*
+!           xgamma(k,29,kc)=xgamma(k,,kc)  !Br2Cl-= ?       -"-
+           xgamma(k,37,kc)=xgamma(k,5,kc) !ICl2- = HSO3- (assumed)
+           xgamma(k,38,kc)=xgamma(k,5,kc) !IBr2- = HSO3- (assumed)
 
-         enddo  !kc
-      enddo     !k
+        end if ! cm > 0
+     enddo     ! kc
+  enddo        ! k
 
 ! output
-      if (lmin/30*30.eq.lmin) then
- 3000    continue
-         open (109,file='gam.out',status='unknown',position='append', &
-              err=3000)
-         do k=1,nk
-            do kc=1,nkc
-               write (109,20) kk(k),kc,lday,lst,lmin,feu(kk(k)), &
-                              cm(kc,kk(k)),cw(kc,kk(k)),xm2(kk(k))*1.d-3
+  if (lmin/30*30.eq.lmin) then
+3000 continue
+     open (jpfungam,file='gam.out',status='unknown',position='append',err=3000)
+     do k=1,nk
+        do kc=1,nkc
+           write (jpfungam,20) kk(k),kc,lday,lst,lmin,feu(kk(k)), &
+                cm(kc,kk(k)),cw(kc,kk(k)),xm2(kk(k))*1.d-3
 
-               ! Skip next 'write' instructions if cm too small
-               if (cm(kc,kk(k)) <= tiny(0.d0)) then
-                  write(109,*)' -> cm too small, xgamma set equal to 1.'
-                  cycle
-               end if
+           ! Skip next 'write' instructions if cm too small
+           if (cm(kc,kk(k)) <= tiny(0.d0)) then
+              write(jpfungam,*)' -> cm too small, xgamma set equal to 1.'
+              cycle
+           end if
 
-               write (109,13) xip(kc,kk(k)),xit(kc,kk(k)),wa(kc,kk(k))
-               write (109,10) (xgamma(kk(k),jg,kc),jg=1,j6)
-               write (109,10) (sion1(jg,kc,kk(k))*1.d-3/cm(kc,kk(k)), &
-                               jg=1,j6)
-            enddo
-         enddo
-         close (109)
-      endif
+           write (jpfungam,13) xip(kc,kk(k)),xit(kc,kk(k)),wa(kc,kk(k))
+           write (jpfungam,10) (xgamma(kk(k),jg,kc),jg=1,j6)
+           write (jpfungam,10) (sion1(jg,kc,kk(k))*1.d-3/cm(kc,kk(k)),jg=1,j6)
+        enddo
+     enddo
+     close (jpfungam)
+  endif
+
  10   format (8d14.6)
  13   format (3d14.6)
- 20   format ('layer ',i3,' bin ',i1,' day ',2i3,':',i2,' rH ',d12.4, &
-              ' LWC ',3d12.4)
+ 20   format ('layer ',i3,' bin ',i1,' day ',2i3,':',i2,' rH ',d12.4,' LWC ',3d12.4)
 
-      end subroutine activ
+end subroutine activ
 
 !
 !------------------------------------------------------------
 !
 
-      subroutine activ_init
+subroutine activ_init
 ! initialise activity coefficients (gammas)
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-           j6, &
-           nf, &
-           nkc
+       jpfungam
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j6, &
+       nf, &
+       nkc
 
-      implicit none
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /kpp_mol/ xgamma(nf,j6,nkc)
-      real (kind=dp) xgamma
+  implicit none
 
-      xgamma(:,:,:) = 1.d0
+  common /kpp_mol/ xgamma(nf,j6,nkc)
+  real (kind=dp) xgamma
 
-      open (109,file='gam.out',status='unknown',form='formatted')
-      write(109,*)'File opened by SR activ_init, written by SR activ'
-      write(109,*)'  For each outputed layer:'
-      write(109,*)'  partial ionic strength, total ionic str, water act'
-      write(109,*)'  gamma (all ionic species)'
-      write(109,*)'  molalities (all ionic species)'
-      write(109,*)'  --------------------------------------------------'
-      close (109)
+  xgamma(:,:,:) = 1._dp
 
-      end subroutine activ_init
+  open (jpfungam,file='gam.out',status='unknown',form='formatted')
+  write(jpfungam,*)'File opened by SR activ_init, written by SR activ'
+  write(jpfungam,*)'  For each outputed layer:'
+  write(jpfungam,*)'  partial ionic strength, total ionic str, water act'
+  write(jpfungam,*)'  gamma (all ionic species)'
+  write(jpfungam,*)'  molalities (all ionic species)'
+  write(jpfungam,*)'  --------------------------------------------------'
+  close (jpfungam)
+
+end subroutine activ_init
 
 !
 !-------------------------------------------------------------
@@ -6063,7 +6072,7 @@ end subroutine dry_rates_t
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
       real (kind=dp) :: xkmtd, henry, xeq
-!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb unused now
+
 
 ! note: activity coeff. are being correctly calculated with the averaged
 ! concentrations in layer n_bl
@@ -6498,7 +6507,7 @@ end subroutine dry_rates_t
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
       real(kind=dp) :: henry, xkmt, xkef, xkeb
       common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
+
 
       xph3=0.
       xph4=0.
@@ -6706,7 +6715,6 @@ end subroutine dry_rates_t
 !$$$!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
 !$$$!     common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc) ! jjb none of the objects of the common block is used
 !$$$!     real (kind=dp) :: vt, vd, vdm
-!$$$!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
 !$$$      common /k_surf/ xkmt_OHClm(nf,nkc)
 !$$$
 !$$$      dimension freep(nf),rqm(nkt,nka),xkmt_surf(nf,nkc)
