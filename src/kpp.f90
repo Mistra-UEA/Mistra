@@ -162,10 +162,10 @@ subroutine initc (box,n_bl)
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
   common /kpp_dryg/ xkmtd(n,2,NSPEC_g),henry(n,NSPEC_g),xeq(n,NSPEC_g)
   real (kind=dp) :: xkmtd, henry, xeq
-  common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
+  common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(NSPEC_a,nkc,nf), &
        xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
   real (kind=dp) :: henry_la, xkmt_la, xkef_la, xkeb_la
-  common /kpp_ltot/ henry_lt(NSPEC_t,nf),xkmt_lt(nf,nkc,NSPEC_t), &
+  common /kpp_ltot/ henry_lt(NSPEC_t,nf),xkmt_lt(NSPEC_t,nkc,nf), &
        xkef_lt(nf,nkc,NSPEC_t),xkeb_lt(nf,nkc,NSPEC_t)
   real (kind=dp) :: henry_lt, xkmt_lt, xkef_lt, xkeb_lt
 
@@ -1706,7 +1706,7 @@ subroutine henry_t (tt,nmaxf)
 !  real (kind=dp) :: xCO2, x3CO2, xNH3, xhp
 
 ! Common blocks:
-  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) henry, xkmt, xkef, xkeb
 
@@ -1944,7 +1944,7 @@ subroutine henry_a (tt,nmaxf)
 !  real (kind=dp) :: xCO2, x3CO2, xNH3, xhp
 
 ! Common blocks:
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) henry, xkmt, xkef, xkeb
 
@@ -2495,7 +2495,7 @@ subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
@@ -2639,7 +2639,7 @@ subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
 
 ! k_mt=4*pi/(3*LWC)*sum
            if (cw(kc,k).gt.0._dp) then
-              if (llchem) xkmt(k,kc,lex(l)) = z4pi3 / cw(kc,k) * xk1 ![1/s]
+              if (llchem) xkmt(lex(l),kc,k) = z4pi3 / cw(kc,k) * xk1 ![1/s]
 ! sedimentation velocity:
               if (l.eq.1) vt(kc,k) = z4pi3 / cw(kc,k) * xx1
            end if
@@ -2762,7 +2762,7 @@ subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
@@ -2909,7 +2909,7 @@ subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
 
 ! k_mt=4*pi/(3*LWC)*sum
            if (cw(kc,k).gt.0._dp) then
-              if (llchem) xkmt(k,kc,lex(l)) = z4pi3 / cw(kc,k) * xk1 ![1/s]
+              if (llchem) xkmt(lex(l),kc,k) = z4pi3 / cw(kc,k) * xk1 ![1/s]
 ! sedimentation velocity:
               if (l.eq.1) vt(kc,k) = z4pi3 / cw(kc,k) * xx1
            end if
@@ -2983,7 +2983,7 @@ subroutine equil_co_t (tt,nmaxf)
 ! Common blocks:
   common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
   real (kind=dp) :: conv2
-  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_mol/ xgamma(j6,nkc,nf)
@@ -3193,7 +3193,7 @@ subroutine equil_co_a (tt,nmaxf)
 ! Common blocks:
   common /blck13/ conv2(nkc,n) ! conversion factor = 1/(1000*cw)
   real (kind=dp) :: conv2
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_mol/ xgamma(j6,nkc,nf)
@@ -5423,7 +5423,7 @@ subroutine gasdrydep (xra,tt,rho,freep)
 ! Common blocks
   common /cb48/ sk,sl,dtrad(n),dtcon(n) ! sk is used in Joyce config
   real (kind=dp) :: sk, sl, dtrad, dtcon
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6275,7 +6275,7 @@ subroutine ave_aer (n_bl,nz_box)
 !  real (kind=dp) :: fs(n,nka),ffsum(nka)
 
 ! Common blocks:
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6295,11 +6295,11 @@ subroutine ave_aer (n_bl,nz_box)
         xkfsum = 0._dp
         xkbsum = 0._dp
         do k=nstart,nz_box
-           xkmsum = xkmsum + xkmt(k,kc,j)
+           xkmsum = xkmsum + xkmt(j,kc,k)
            xkfsum = xkfsum + xkef(k,kc,j)
            xkbsum = xkbsum + xkeb(k,kc,j)
         enddo
-        xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
+        xkmt(j,kc,n_bl) = xkmsum / (nz_box-nstart+1)
         xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
         xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
      enddo
@@ -6383,7 +6383,7 @@ subroutine ave_tot (n_bl,nz_box)
   real (kind=dp) :: xalsum, xhensum, xkbsum, xkfsum, xkmsum, xvmsum
 
 ! Common blocks:
-  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6403,11 +6403,11 @@ subroutine ave_tot (n_bl,nz_box)
         xkfsum = 0._dp
         xkbsum = 0._dp
         do k=nstart,nz_box
-           xkmsum = xkmsum + xkmt(k,kc,j)
+           xkmsum = xkmsum + xkmt(j,kc,k)
            xkfsum = xkfsum + xkef(k,kc,j)
            xkbsum = xkbsum + xkeb(k,kc,j)
         enddo
-        xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
+        xkmt(j,kc,n_bl) = xkmsum / (nz_box-nstart+1)
         xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
         xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
      enddo
@@ -6453,13 +6453,13 @@ subroutine print_k_mt_a
   integer :: k
 
 ! Common blocks:
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
 
   print *,'print aerosol kmt'
   do k=1,nf
-     print *,k,xkmt(k,1,ind_O3),xkmt(k,2,ind_O3)
+     print *,k,xkmt(ind_O3,1,k),xkmt(ind_O3,2,k)
   enddo
 
 end subroutine print_k_mt_a
@@ -6568,7 +6568,7 @@ subroutine set_box_lev_a (nlevbox,n_bl)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6583,7 +6583,7 @@ subroutine set_box_lev_a (nlevbox,n_bl)
      cw(kc,n_bl)    = cw(kc,nlevbox)
      rc(kc,n_bl)    = rc(kc,nlevbox)
      do j=1,NSPEC
-        xkmt(n_bl,kc,j)  = xkmt(nlevbox,kc,j)
+        xkmt(j,kc,n_bl)  = xkmt(j,kc,nlevbox)
         xkef(n_bl,kc,j)  = xkef(nlevbox,kc,j)
         xkeb(n_bl,kc,j)  = xkeb(nlevbox,kc,j)
         xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
@@ -6670,7 +6670,7 @@ subroutine set_box_lev_t (nlevbox,n_bl)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6690,7 +6690,7 @@ subroutine set_box_lev_t (nlevbox,n_bl)
      cw(kc,n_bl)    = cw(kc,nlevbox)
      rc(kc,n_bl)    = rc(kc,nlevbox)
      do j=1,NSPEC
-        xkmt(n_bl,kc,j) = xkmt(nlevbox,kc,j)
+        xkmt(j,kc,n_bl) = xkmt(j,kc,nlevbox)
         xkef(n_bl,kc,j) = xkef(nlevbox,kc,j)
         xkeb(n_bl,kc,j) = xkeb(nlevbox,kc,j)
      enddo
@@ -6758,7 +6758,7 @@ subroutine print_vals (nlevbox,n_bl)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
@@ -6775,7 +6775,7 @@ subroutine print_vals (nlevbox,n_bl)
      print *,conv2(kc,k),cw(kc,k)
      print *,rc(kc,k),cm(kc,k)
      do j=1,NSPEC
-        print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
+        print *,xkmt(j,kc,k),xkef(k,kc,j),xkeb(k,kc,j)
      enddo
   enddo
 
@@ -6799,7 +6799,7 @@ subroutine print_vals (nlevbox,n_bl)
      print *,conv2(kc,k),cw(kc,k)
      print *,rc(kc,k),cm(kc,k)
      do j=1,NSPEC
-        print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
+        print *,xkmt(j,kc,k),xkef(k,kc,j),xkeb(k,kc,j)
      enddo
   enddo
 
@@ -6817,16 +6817,16 @@ subroutine print_vals (nlevbox,n_bl)
   k=n_bl
   do kc=1,2                 !nkc
      print *,k,kc,cw(kc,k)
-     print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
-             xkmt(k,kc,ind_HNO3)
+     print *,xkmt(ind_O3,kc,k),xkmt(ind_HCl,kc,k), &
+             xkmt(ind_HNO3,kc,k)
   enddo
 
   print *,'now column vals'
   do k=1,nf
      do kc=1,2!nkc
         print *,k,kc,cw(kc,k)
-        print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
-                xkmt(k,kc,ind_HNO3)
+        print *,xkmt(ind_O3,kc,k),xkmt(ind_HCl,kc,k), &
+                xkmt(ind_HNO3,kc,k)
      enddo
   enddo
 
@@ -7530,11 +7530,11 @@ function fhet_t (a0,b0,c0)
 
 
   if (c0.eq.1) then
-     xtr=yxkmt(a0,ind_N2O5)
+     xtr=yxkmt(ind_N2O5,a0)
   else if (c0.eq.2) then
-     xtr=yxkmt(a0,ind_ClNO3)
+     xtr=yxkmt(ind_ClNO3,a0)
   else if (c0.eq.3) then
-     xtr=yxkmt(a0,ind_BrNO3)
+     xtr=yxkmt(ind_BrNO3,a0)
   else ! undefined case, shouldn't happend
      stop 'Wrong c0 index in function fhet_t'
   endif
@@ -7941,9 +7941,9 @@ function fhet_da (xliq,xhet,a0,b0,c0)
   real (kind=dp) :: h2oa, hetT, xbr, xtr, yw
 
   if (xhet.eq.0.) then
-     if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
-     if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
-     if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
+     if (c0.eq.1) xtr=yxkmt(ind_N2O5,a0)
+     if (c0.eq.2) xtr=yxkmt(ind_ClNO3,a0)
+     if (c0.eq.3) xtr=yxkmt(ind_BrNO3,a0)
      if (a0.eq.1) then
         h2oa=FIX(indf_H2Ol1)
         hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
@@ -8029,9 +8029,9 @@ function fhet_dt (xliq,xhet,a0,b0,c0)
   real (kind=dp) :: h2oa, hetT, xbr, xtr, yw
 
   if (xhet.eq.0.) then
-     if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
-     if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
-     if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
+     if (c0.eq.1) xtr=yxkmt(ind_N2O5,a0)
+     if (c0.eq.2) xtr=yxkmt(ind_ClNO3,a0)
+     if (c0.eq.3) xtr=yxkmt(ind_BrNO3,a0)
      if (a0.eq.1) then
         h2oa=FIX(indf_H2Ol1)
         hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)

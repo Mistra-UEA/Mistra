@@ -21,13 +21,13 @@
      &       xhet1,xhet2,                                                &
      &       ykmt_OHClm,ycw,ycwd,yhenry,ykeb,ykef,yxkmt,yxkmtd,yxeq
 !     common /kpp_rate_t/ conv1,cvv1,cvv2,cvv3,cvv4,xhal,xiod,xliq1,     & ! jjb original version
-!    &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(4,NSPEC),          &
+!    &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(NSPEC,4),          &
 !    &   ykef(4,NSPEC),ykeb(4,NSPEC)
 !     common /kpp_rate_t/ conv1,cvv1,cvv2,cvv3,cvv4,xhal,xiod,xliq1,     & ! jjb updated Forcheck #20
-!    &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(4,NSPEC),          &
+!    &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(NSPEC,4),          &
 !    &   ykef(4,NSPEC),ykeb(4,NSPEC),xhet1,xhet2
       common /kpp_rate_t/ conv1,cvv1,cvv2,cvv3,cvv4,xhal,xiod,xliq1,     & ! jjb updated ...
-     &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(4,NSPEC),          &
+     &   xliq2,xliq3,xliq4,ycw(4),yhenry(NSPEC),yxkmt(NSPEC,4),          &
      &   ykef(4,NSPEC),ykeb(4,NSPEC),xhet1,xhet2,yxkmtd(2,NSPEC),        &
      &   yxeq(NSPEC),ycwd(2)
       common /k_surf_t/ ykmt_OHClm(4)
