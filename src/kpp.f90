@@ -4411,187 +4411,190 @@ end subroutine kpp_driver
 !-----------------------------------------------------
 !
 
-      subroutine ionbalance (box,n_bl)
+subroutine ionbalance (box,n_bl)
 ! check ion balance
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           n, &
-           nkc
+       j2, &
+       j6, &
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      logical, intent(in) :: box
-      integer, intent(in) :: n_bl
+  logical, intent(in) :: box
+  integer, intent(in) :: n_bl
 
-      integer :: k, kc
-      integer :: n_min, n_max
+  integer :: k, kc
+  integer :: n_min, n_max
 
-      real (kind=dp) :: xpos(nkc),xneg(nkc)
+  real (kind=dp) :: xpos(nkc),xneg(nkc)
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real (kind=dp) :: sl1, sion1
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
+! == End of declarations =======================================================
 
-      write (103,*) lday,lst,lmin,' aerosol'
-      write (104,*) lday,lst,lmin,' droplet'
+  write (103,*) lday,lst,lmin,' aerosol'
+  write (104,*) lday,lst,lmin,' droplet'
 
-      n_min=1
-      n_max=n
-      if (box) then
-         n_min=n_bl
-         n_max=n_bl
-      endif
+  n_min=1
+  n_max=n
+  if (box) then
+     n_min=n_bl
+     n_max=n_bl
+  endif
 
-      do k=n_min,n_max
-         do kc=1,nkc
-            xpos(kc)=sion1(1,kc,k)+sion1(2,kc,k)+sion1(20,kc,k)
-            xneg(kc)=sion1(3,kc,k)+sion1(4,kc,k)+sion1(5,kc,k)+ &
-                 2*sion1(6,kc,k)+sion1(7,kc,k)+2*sion1(8,kc,k) &
-                 +sion1(9,kc,k)+sion1(10,kc,k)+sion1(11,kc,k) &
-                 +sion1(12,kc,k)+sion1(13,kc,k)+sion1(14,kc,k) &
-                 +sion1(15,kc,k)+sion1(16,kc,k)+sion1(19,kc,k) &
-                 +sion1(21,kc,k) &
-                 +sion1(22,kc,k)+sion1(23,kc,k)+sion1(24,kc,k) &
-                 +sion1(25,kc,k)+sion1(26,kc,k)+sion1(27,kc,k) &
-                 +sion1(28,kc,k)+sion1(29,kc,k)+sion1(30,kc,k) &
-                 +sion1(31,kc,k)+sion1(32,kc,k)+sion1(33,kc,k) &
-                 +sion1(34,kc,k)+sion1(35,kc,k)+sion1(36,kc,k) &
-                 +sion1(37,kc,k)+sion1(38,kc,k)+sion1(39,kc,k)
-         enddo
-         write (103,101) k,xpos(1),xneg(1),xpos(1)-xneg(1), &
-                         xpos(2),xneg(2),xpos(2)-xneg(2)
-         write (104,101) k,xpos(3),xneg(3),xpos(3)-xneg(3), &
-                         xpos(4),xneg(4),xpos(4)-xneg(4)
-      enddo
+  do k=n_min,n_max
+     do kc=1,nkc
+        xpos(kc)=sion1(1,kc,k)+sion1(2,kc,k)+sion1(20,kc,k)
+        xneg(kc)=sion1(3,kc,k)+sion1(4,kc,k)+sion1(5,kc,k)+ &
+             2*sion1(6,kc,k)+sion1(7,kc,k)+2*sion1(8,kc,k) &
+             +sion1(9,kc,k)+sion1(10,kc,k)+sion1(11,kc,k) &
+             +sion1(12,kc,k)+sion1(13,kc,k)+sion1(14,kc,k) &
+             +sion1(15,kc,k)+sion1(16,kc,k)+sion1(19,kc,k) &
+             +sion1(21,kc,k) &
+             +sion1(22,kc,k)+sion1(23,kc,k)+sion1(24,kc,k) &
+             +sion1(25,kc,k)+sion1(26,kc,k)+sion1(27,kc,k) &
+             +sion1(28,kc,k)+sion1(29,kc,k)+sion1(30,kc,k) &
+             +sion1(31,kc,k)+sion1(32,kc,k)+sion1(33,kc,k) &
+             +sion1(34,kc,k)+sion1(35,kc,k)+sion1(36,kc,k) &
+             +sion1(37,kc,k)+sion1(38,kc,k)+sion1(39,kc,k)
+     enddo
+     write (103,101) k,xpos(1),xneg(1),xpos(1)-xneg(1), &
+                       xpos(2),xneg(2),xpos(2)-xneg(2)
+     write (104,101) k,xpos(3),xneg(3),xpos(3)-xneg(3), &
+                       xpos(4),xneg(4),xpos(4)-xneg(4)
+  enddo
  101  format (i3,6d16.8)
 
-      end subroutine ionbalance
+end subroutine ionbalance
+
+
 !
 !------------------------------------------------------------
 !
 
-      subroutine dry_cw_rc (nmax)
+subroutine dry_cw_rc (nmax)
 ! calculates LWC and mean radius for "dry" aerosol
 
-      USE config, ONLY : &
-           ifeed
+  USE config, ONLY : &
+       ifeed
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nka, &
-           nkt, &
-           nkc
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-
-      implicit none
+  implicit none
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-      integer, intent(in) :: nmax
+  integer, intent(in) :: nmax
 
 ! Local parameters:
-      real (kind=dp), parameter :: xpi = 4./3.*pi
+  real (kind=dp), parameter :: xpi = 4./3.*pi
 
 ! Local scalars:
-      real (kind=dp) :: cwd1, cwd2
-      real (kind=dp) :: rcd1, rcd2
-      real (kind=dp) :: x0
-      integer :: ia, ial, jt, k
+  real (kind=dp) :: cwd1, cwd2
+  real (kind=dp) :: rcd1, rcd2
+  real (kind=dp) :: x0
+  integer :: ia, ial, jt, k
 
 ! Common blocks:
-      common /blck06/ kw(nka),ka
-      integer :: kw, ka
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
 
-      common /blck11/ rcd(nkc,n)
-      real (kind=dp) :: rcd
+  common /blck11/ rcd(nkc,n)
+  real (kind=dp) :: rcd
 
-      common /blck12/ cwd(nkc,n),cm(nkc,n)
-      real (kind=dp) :: cwd, cm
+  common /blck12/ cwd(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cwd, cm
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! only rq is used
-                    e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), & ! only rq is used
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw, ew, rn, rw, en, e, dew, rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n) ! only ff is used
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-!- End of header ---------------------------------------------------------------
+! == End of declarations =======================================================
 
-      if (ifeed.eq.2) then
-         ial = 2
-      else
-         ial = 1
-      endif
+
+  if (ifeed.eq.2) then
+     ial = 2
+  else
+     ial = 1
+  endif
 
 ! rcd(n,2): mean radius of aerosols in m -------
-      do k=nf+1,nmax
+  do k=nf+1,nmax
 ! calculate rc for all rel. humidities drier than crystallization
-         rcd1=0.
-         rcd2=0.
-         cwd1=0.
-         cwd2=0.
+     rcd1=0.
+     rcd2=0.
+     cwd1=0.
+     cwd2=0.
 
 ! here TOTAL particle volume is used for calculating LWC
 ! this is correct only for completely soluble aerosol
 ! small aerosol
 
-         do ia=ial,ka
-            do jt=1,kw(ia)
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cwd1=cwd1+x0
-               rcd1=rcd1+x0*rq(jt,ia)
-            enddo
-         enddo
+     do ia=ial,ka
+        do jt=1,kw(ia)
+           x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
+           cwd1=cwd1+x0
+           rcd1=rcd1+x0*rq(jt,ia)
+        enddo
+     enddo
 ! large aerosol
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
-               cwd2=cwd2+x0
-               rcd2=rcd2+x0*rq(jt,ia)
-            enddo
-         enddo
+     do ia=ka+1,nka
+        do jt=1,kw(ia)
+           x0=ff(jt,ia,k)*xpi*rq(jt,ia)**3
+           cwd2=cwd2+x0
+           rcd2=rcd2+x0*rq(jt,ia)
+        enddo
+     enddo
 ! conversion: um^3/cm^3 --> m^3(aq)/m^3(air):10^-12
 !           : um        --> m               :10^-6
-         if (cwd1.gt.0.d0) then
-            rcd(1,k)=rcd1/cwd1*1.d-6
-         else
-            rcd(1,k) = 0.d0
-         end if
+     if (cwd1.gt.0.d0) then
+        rcd(1,k)=rcd1/cwd1*1.d-6
+     else
+        rcd(1,k) = 0.d0
+     end if
 
-         if (cwd2.gt.0.d0) then
-            rcd(2,k)=rcd2/cwd2*1.d-6
-         else
-            rcd(2,k) = 0.d0
-         end if
+     if (cwd2.gt.0.d0) then
+        rcd(2,k)=rcd2/cwd2*1.d-6
+     else
+        rcd(2,k) = 0.d0
+     end if
 
-         cwd(1,k)=cwd1*1.d-12
-         cwd(2,k)=cwd2*1.d-12
+     cwd(1,k)=cwd1*1.d-12
+     cwd(2,k)=cwd2*1.d-12
 
-      end do
+  end do
 
-      end subroutine dry_cw_rc
+end subroutine dry_cw_rc
 
 
 !
