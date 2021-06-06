@@ -75,6 +75,7 @@ module file_unit
 
   integer, parameter :: jpfunpph = 40
   integer, parameter :: jpfungam = 41
+  integer, parameter :: jpfunmass = 42
 
   integer, parameter :: jpfunclarke = 50
 

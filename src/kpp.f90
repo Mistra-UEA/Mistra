@@ -627,7 +627,7 @@ subroutine liq_parm (xra,box,n_bl)
   endif
 
 ! calculate rate for surface reaction OH + Cl-
-!   call gamma_surf (box,n_bl) ! jjb not used
+!   call gamma_surf (box,n_bl, freep) ! jjb not used
 
 ! calculate rates for DRY heterogeneous reactions
   call dry_cw_rc (nmax)
@@ -2524,7 +2524,7 @@ subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
      nmax=n_bl
   else
      nmin=2
-     nmax=nf     
+     nmax=nf
   endif
 
 ! loop over vertical grid
@@ -2791,7 +2791,7 @@ subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
      nmax=n_bl
   else
      nmin=2
-     nmax=nf     
+     nmax=nf
   endif
 
 ! loop over vertical grid
@@ -3533,7 +3533,7 @@ subroutine konc
      enddo
 
 ! Transfer all remaining species from droplet bins (#3 or #4) to the corresponding aerosol bin
-! (#1 and #2, respectively) if too little particle remains in the droplet bins     
+! (#1 and #2, respectively) if too little particle remains in the droplet bins
      do l=1,j2
         if (pntot(3,k).lt.1.d-7) then
            sl1(l,1,k) = sl1(l,1,k) + max(0._dp, sl1(l,3,k))
@@ -3803,7 +3803,7 @@ subroutine aer_source (box,dd,z_mbl,n_bl)
 ! -------------
   ! work done:
   ! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
-  ! 04-Jun-2021  Josué Bock  
+  ! 04-Jun-2021  Josué Bock  Introduce aer_source_init so that u10 always match 10m height, whatever detamin
 
 ! == End of header =============================================================
 
@@ -5031,7 +5031,6 @@ subroutine dry_rates_t (freep,nmaxf)
   include 'tot_Parameters.h'     !additional common blocks and other definitions
 
 ! Subroutine arguments
-! Scalar arguments with intent(in):
   real (kind=dp), intent(in) :: freep(n)
   integer, intent(in) :: nmaxf         ! Maximum layer for calculations
 
@@ -5362,7 +5361,7 @@ end subroutine activ_init
 !-------------------------------------------------------------
 !
 
-      subroutine gasdrydep (xra,tt,rho,freep)
+subroutine gasdrydep (xra,tt,rho,freep)
 ! calculate dry deposition velocities for gas phase after Sehmel cited in
 ! Seinfeld and Pandis, 1999
 
@@ -5383,57 +5382,57 @@ end subroutine activ_init
 !   The output of this routine, vg, is converted into compressed dimension through ind_gas
 !   indexing of arrays vm, hs and f0, which pick up only relevant values.
 
-      USE config, ONLY : &
-           lpJoyce14bc
+  USE config, ONLY : &
+       lpJoyce14bc
 
-      USE data_surface, ONLY : &
-           ustern               ! frictional velocity
+  USE data_surface, ONLY : &
+       ustern               ! frictional velocity
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nkc
+       nf, &
+       n, &
+       nkc
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Parameters:
-           j1, &
+       j1, &
 ! Imported Array Variables with intent(in):
-           ind_gas, &
+       ind_gas, &
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
-!           vmean, &
-           vg
+!       vmean, &
+       vg
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      include 'aer_Parameters.h'     !additional common blocks and other definitions
+  include 'aer_Parameters.h'     !additional common blocks and other definitions
 
 ! Subroutine arguments
-      real (kind=dp), intent(in) :: xra,tt(n),rho(n),freep(n)
+  real (kind=dp), intent(in) :: xra,tt(n),rho(n),freep(n)
 ! Local variables
-      integer :: i, k
-      real (kind=dp) :: FCT, rb_fact
-      real (kind=dp) :: sac, xeta, xnu, xr_ac, xr_cl, xr_clO, xr_clS, &
-           xr_dc, xr_gs, xr_gsO, xr_gsS, xrb, xrc
-      real (kind=dp) :: vm(ind_gas(j1)),hs(ind_gas(j1)),f0(ind_gas(j1))
+  integer :: i, k
+  real (kind=dp) :: FCT, rb_fact
+  real (kind=dp) :: sac, xeta, xnu, xr_ac, xr_cl, xr_clO, xr_clS, &
+       xr_dc, xr_gs, xr_gsO, xr_gsS, xrb, xrc
+  real (kind=dp) :: vm(ind_gas(j1)),hs(ind_gas(j1)),f0(ind_gas(j1))
 
 ! Common blocks
-      common /cb48/ sk,sl,dtrad(n),dtcon(n) ! sk is used in Joyce config
-      real (kind=dp) :: sk, sl, dtrad, dtcon
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      real (kind=dp) :: henry, xkmt, xkef, xkeb
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      real (kind=dp) :: alpha, vmean
+  common /cb48/ sk,sl,dtrad(n),dtcon(n) ! sk is used in Joyce config
+  real (kind=dp) :: sk, sl, dtrad, dtcon
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real (kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
 
 
 ! function used in calculation of Hstar
-      real (kind=dp) :: funa, a0, b0
-      funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
+  real (kind=dp) :: funa, a0, b0
+  funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
 
 ! gas phase dry deposition velocity:v_d=1/(ra + rb + rc)
 !    ra=1/(kappa ustar) (ln (z/z0) +Phi) ;where z=height of surface (constant flux) layer
@@ -5451,116 +5450,116 @@ end subroutine activ_init
 
 !      Hstar calculated from henry and sea water pH=8.1 (Riley and Skirrow, 1965)
 
-      k=2 ! only in lowest model layer
-      xeta=1.8325d-5*(416.16/(tt(k)+120.))*((tt(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
-      xnu=xeta/rho(k)  !kinematic viscosity of air
+  k=2 ! only in lowest model layer
+  xeta=1.8325d-5*(416.16/(tt(k)+120._dp))*((tt(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
+  xnu=xeta/rho(k)  !kinematic viscosity of air
 
 ! get vmean for j1-list (no deposition or radicals or fixed)
 ! get vmean for j1-order from KPP names
-      vm(1)=vmean(ind_NO,k)
-      vm(2)=vmean(ind_NO2,k)
-      vm(3)=vmean(ind_HNO3,k)
-      vm(4)=vmean(ind_NH3,k)
-      vm(5)=vmean(ind_SO2,k)
-      vm(6)=vmean(ind_H2SO4,k)
-      vm(7)=vmean(ind_O3,k)
-      vm(8)=vmean(ind_CH4,k)
-      vm(9)=vmean(ind_C2H6,k)
-!      vm(10)=vmean(ind_C3H8,k)
-!      vm(11)=vmean(ind_ALKA,k)
-      vm(12)=vmean(ind_ETHE,k)
-!      vm(13)=vmean(ind_ALKE,k)
-!      vm(14)=vmean(ind_AROM,k)
-      vm(15)=vmean(ind_ACO2,k)
-      vm(16)=vmean(ind_ACTA,k)
-      vm(17)=vmean(ind_HCHO,k)
-      vm(18)=vmean(ind_ALD2,k)
-      vm(19)=vmean(ind_H2O2,k)
-      vm(20)=vmean(ind_ROOH,k)
-      vm(21)=vmean(ind_HONO,k)
-      vm(22)=vmean(ind_PAN,k)
-!      vm(23)=vmean(ind_TPAN,k)
-!      vm(24)=vmean(ind_KET,k)
-!      vm(25)=vmean(ind_CRES,k)
-!      vm(26)=vmean(ind_DIAL,k)
-!      vm(27)=vmean(ind_GLYX,k)
-!      vm(28)=vmean(ind_MGLY,k)
-!      vm(29)=vmean(ind_NH4NO3,k)
-      vm(30)=vmean(ind_HCl,k)
-!      vm(31)=vmean(ind_R3N2,k)
-!      vm(32)=vmean(ind_RAN2,k)
-!      vm(33)=vmean(ind_RAN1,k)
-      vm(34)=vmean(ind_N2O5,k)
-      vm(35)=vmean(ind_HNO4,k)
-      vm(36)=vmean(ind_NO3,k)
-      vm(37)=vmean(ind_DMS,k)
-      vm(38)=vmean(ind_HOCl,k)
-      vm(39)=vmean(ind_ClNO2,k)
-      vm(40)=vmean(ind_ClNO3,k)
-      vm(41)=vmean(ind_Cl2,k)
-      vm(42)=vmean(ind_HBr,k)
-      vm(43)=vmean(ind_HOBr,k)
-      vm(44)=vmean(ind_BrNO2,k)
-      vm(45)=vmean(ind_BrNO3,k)
-      vm(46)=vmean(ind_Br2,k)
-      vm(47)=vmean(ind_BrCl,k)
-      vm(48)=vmean(ind_HI,k)
-      vm(49)=vmean(ind_HOI,k)
-      vm(50)=vmean(ind_I2O2,k)
-      vm(51)=vmean(ind_INO2,k)
-      vm(52)=vmean(ind_INO3,k)
-      vm(53)=vmean(ind_I2,k)
-      vm(54)=vmean(ind_ICl,k)
-      vm(55)=vmean(ind_IBr,k)
-      vm(56)=vmean(ind_CH3I,k)
-      vm(57)=vmean(ind_CH2I2,k)
-      vm(58)=vmean(ind_CH2ClI,k)
-      vm(59)=vmean(ind_C3H7I,k)
-      vm(60)=vmean(ind_DMSO,k)
-      vm(61)=vmean(ind_CH3SO2,k)
-      vm(62)=vmean(ind_CH3SO3,k)
-      vm(63)=vmean(ind_CH3SO3H,k) !MSA=CH3S(OO)OH
-      vm(64)=vmean(ind_CO,k)
-      vm(65)=vmean(ind_Cl2O2,k)
-      vm(66)=vmean(ind_DMOO,k) ! CH3SCH2OO
-      vm(67)=vmean(ind_CH3S,k)
-      vm(68)=vmean(ind_CH3SO,k)
-      vm(69)=vmean(ind_CH3SO2H,k) ! MSIA=CH3S(O)OH
-      vm(70)=vmean(ind_DMSO2,k)
-      vm(71)=vmean(ind_CH2BrI,k)
-!      vm(72)=vmean(ind_CHBr2I,k)
-      vm(73)=vmean(ind_C2H5I,k)
-      vm(74)=vmean(ind_HIO3,k)
-!      vm(75)=vmean(ind_NUCV,k)
-      vm(76)=vmean(ind_SO3,k)
-      vm(77)=vmean(ind_HOSO2,k)
-      vm(78)=vmean(ind_CO2,k)
-!      vm(79)=vmean(ind_I2O,k)
-!      vm(80)=vmean(ind_I2O3,k)
-!      vm(81)=vmean(ind_I2O4,k)
-!      vm(82)=vmean(ind_I2O5,k)
-!      vm(83)=vmean(ind_INO,k)
-      vm(84)=vmean(ind_Br2O,k)
-      vm(85)=vmean(ind_ClONO,k)
-      vm(86)=vmean(ind_ClO3,k)
-      vm(87)=vmean(ind_Cl2O3,k)
-      vm(88)=vmean(ind_CH3OH,k)
-      vm(89)=vmean(ind_C2H5OH,k)
-      vm(90)=vmean(ind_H2,k)
-      vm(91)=vmean(ind_NHS,k)
-      vm(92)=vmean(ind_RCl,k)
-      vm(93)=vmean(ind_RBr,k)
-      vm(94)=vmean(ind_XOR,k)
-      vm(95)=vmean(ind_SOR,k)
-      vm(96)=vmean(ind_SPAN,k)
-!      vm(97)=vmean(ind_Hg,k)
-!      vm(98)=vmean(ind_HgO,k)
-!      vm(99)=vmean(ind_HgCl,k)
-!      vm(100)=vmean(ind_HgCl2,k)
-!      vm(101)=vmean(ind_HgBr,k)
-!      vm(102)=vmean(ind_HgBr2,k)
+  vm(1)=vmean(ind_NO,k)
+  vm(2)=vmean(ind_NO2,k)
+  vm(3)=vmean(ind_HNO3,k)
+  vm(4)=vmean(ind_NH3,k)
+  vm(5)=vmean(ind_SO2,k)
+  vm(6)=vmean(ind_H2SO4,k)
+  vm(7)=vmean(ind_O3,k)
+  vm(8)=vmean(ind_CH4,k)
+  vm(9)=vmean(ind_C2H6,k)
+!  vm(10)=vmean(ind_C3H8,k)
+!  vm(11)=vmean(ind_ALKA,k)
+  vm(12)=vmean(ind_ETHE,k)
+!  vm(13)=vmean(ind_ALKE,k)
+!  vm(14)=vmean(ind_AROM,k)
+  vm(15)=vmean(ind_ACO2,k)
+  vm(16)=vmean(ind_ACTA,k)
+  vm(17)=vmean(ind_HCHO,k)
+  vm(18)=vmean(ind_ALD2,k)
+  vm(19)=vmean(ind_H2O2,k)
+  vm(20)=vmean(ind_ROOH,k)
+  vm(21)=vmean(ind_HONO,k)
+  vm(22)=vmean(ind_PAN,k)
+!  vm(23)=vmean(ind_TPAN,k)
+!  vm(24)=vmean(ind_KET,k)
+!  vm(25)=vmean(ind_CRES,k)
+!  vm(26)=vmean(ind_DIAL,k)
+!  vm(27)=vmean(ind_GLYX,k)
+!  vm(28)=vmean(ind_MGLY,k)
+!  vm(29)=vmean(ind_NH4NO3,k)
+  vm(30)=vmean(ind_HCl,k)
+!  vm(31)=vmean(ind_R3N2,k)
+!  vm(32)=vmean(ind_RAN2,k)
+!  vm(33)=vmean(ind_RAN1,k)
+  vm(34)=vmean(ind_N2O5,k)
+  vm(35)=vmean(ind_HNO4,k)
+  vm(36)=vmean(ind_NO3,k)
+  vm(37)=vmean(ind_DMS,k)
+  vm(38)=vmean(ind_HOCl,k)
+  vm(39)=vmean(ind_ClNO2,k)
+  vm(40)=vmean(ind_ClNO3,k)
+  vm(41)=vmean(ind_Cl2,k)
+  vm(42)=vmean(ind_HBr,k)
+  vm(43)=vmean(ind_HOBr,k)
+  vm(44)=vmean(ind_BrNO2,k)
+  vm(45)=vmean(ind_BrNO3,k)
+  vm(46)=vmean(ind_Br2,k)
+  vm(47)=vmean(ind_BrCl,k)
+  vm(48)=vmean(ind_HI,k)
+  vm(49)=vmean(ind_HOI,k)
+  vm(50)=vmean(ind_I2O2,k)
+  vm(51)=vmean(ind_INO2,k)
+  vm(52)=vmean(ind_INO3,k)
+  vm(53)=vmean(ind_I2,k)
+  vm(54)=vmean(ind_ICl,k)
+  vm(55)=vmean(ind_IBr,k)
+  vm(56)=vmean(ind_CH3I,k)
+  vm(57)=vmean(ind_CH2I2,k)
+  vm(58)=vmean(ind_CH2ClI,k)
+  vm(59)=vmean(ind_C3H7I,k)
+  vm(60)=vmean(ind_DMSO,k)
+  vm(61)=vmean(ind_CH3SO2,k)
+  vm(62)=vmean(ind_CH3SO3,k)
+  vm(63)=vmean(ind_CH3SO3H,k) !MSA=CH3S(OO)OH
+  vm(64)=vmean(ind_CO,k)
+  vm(65)=vmean(ind_Cl2O2,k)
+  vm(66)=vmean(ind_DMOO,k) ! CH3SCH2OO
+  vm(67)=vmean(ind_CH3S,k)
+  vm(68)=vmean(ind_CH3SO,k)
+  vm(69)=vmean(ind_CH3SO2H,k) ! MSIA=CH3S(O)OH
+  vm(70)=vmean(ind_DMSO2,k)
+  vm(71)=vmean(ind_CH2BrI,k)
+!  vm(72)=vmean(ind_CHBr2I,k)
+  vm(73)=vmean(ind_C2H5I,k)
+  vm(74)=vmean(ind_HIO3,k)
+!  vm(75)=vmean(ind_NUCV,k)
+  vm(76)=vmean(ind_SO3,k)
+  vm(77)=vmean(ind_HOSO2,k)
+  vm(78)=vmean(ind_CO2,k)
+!  vm(79)=vmean(ind_I2O,k)
+!  vm(80)=vmean(ind_I2O3,k)
+!  vm(81)=vmean(ind_I2O4,k)
+!  vm(82)=vmean(ind_I2O5,k)
+!  vm(83)=vmean(ind_INO,k)
+  vm(84)=vmean(ind_Br2O,k)
+  vm(85)=vmean(ind_ClONO,k)
+  vm(86)=vmean(ind_ClO3,k)
+  vm(87)=vmean(ind_Cl2O3,k)
+  vm(88)=vmean(ind_CH3OH,k)
+  vm(89)=vmean(ind_C2H5OH,k)
+  vm(90)=vmean(ind_H2,k)
+  vm(91)=vmean(ind_NHS,k)
+  vm(92)=vmean(ind_RCl,k)
+  vm(93)=vmean(ind_RBr,k)
+  vm(94)=vmean(ind_XOR,k)
+  vm(95)=vmean(ind_SOR,k)
+  vm(96)=vmean(ind_SPAN,k)
+!  vm(97)=vmean(ind_Hg,k)
+!  vm(98)=vmean(ind_HgO,k)
+!  vm(99)=vmean(ind_HgCl,k)
+!  vm(100)=vmean(ind_HgCl2,k)
+!  vm(101)=vmean(ind_HgBr,k)
+!  vm(102)=vmean(ind_HgBr2,k)
 
-!     vm(radical 29)=vmean(ind_OIO,k)
+!  vm(radical 29)=vmean(ind_OIO,k)
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
       !!do jspec = 1,j1
@@ -5568,1272 +5567,1443 @@ end subroutine activ_init
       !!end do
 
 ! jjb add hs explicit initialisation
-      hs(:) = 0._dp
+  hs(:) = 0._dp
 
 ! get henry constant for j1-order from KPP names and calculate Hstar
-      sac=10.**(-8.1d0) ![H+]=10^(- pH), pH=8.1
-      hs(1)=henry(ind_NO,k)
-      hs(2)=henry(ind_NO2,k)
-      hs(3)=henry(ind_HNO3,k)
-      hs(4)=henry(ind_NH3,k)
-      hs(5)=henry(ind_SO2,k)
-      hs(6)=henry(ind_H2SO4,k)
-      hs(7)=henry(ind_O3,k)
-      hs(8)=henry(ind_CH4,k)
-      hs(9)=henry(ind_C2H6,k)
-!      hs(10)=henry(ind_C3H8,k)
-!      hs(11)=henry(ind_ALKA,k)
-      hs(12)=henry(ind_ETHE,k)
-!      hs(13)=henry(ind_ALKE,k)
-!      hs(14)=henry(ind_AROM,k)
-      hs(15)=henry(ind_ACO2,k)
-      hs(16)=henry(ind_ACTA,k)
-      hs(17)=henry(ind_HCHO,k)
-      hs(18)=henry(ind_ALD2,k)
-      hs(19)=henry(ind_H2O2,k)
-      hs(20)=henry(ind_ROOH,k)
-      hs(21)=henry(ind_HONO,k)
-      hs(22)=henry(ind_PAN,k)
-!      hs(23)=henry(ind_TPAN,k)
-!      hs(24)=henry(ind_KET,k)
-!      hs(25)=henry(ind_CRES,k)
-!      hs(26)=henry(ind_DIAL,k)
-!      hs(27)=henry(ind_GLYX,k)
-!      hs(28)=henry(ind_MGLY,k)
-!      hs(29)=henry(ind_NH4NO3,k)
-      hs(30)=henry(ind_HCl,k)
-!      hs(31)=henry(ind_R3N2,k)
-!      hs(32)=henry(ind_RAN2,k)
-!      hs(33)=henry(ind_RAN1,k)
-      if (.not.lpJoyce14bc) hs(34)=-1.!henry(ind_N2O5,k)
-      hs(35)=henry(ind_HNO4,k)
-      hs(36)=henry(ind_NO3,k)
-      hs(37)=henry(ind_DMS,k)
-      hs(38)=henry(ind_HOCl,k)
-      hs(39)=henry(ind_ClNO2,k)
-      if (.not.lpJoyce14bc) hs(40)=-1.!henry(ind_ClNO3,k)
-      hs(41)=henry(ind_Cl2,k)
-      hs(42)=henry(ind_HBr,k)
-      hs(43)=henry(ind_HOBr,k)
-      hs(44)=henry(ind_BrNO2,k)
-      if (.not.lpJoyce14bc) hs(45)=-1.!henry(ind_BrNO3,k)
-      hs(46)=henry(ind_Br2,k)
-      hs(47)=henry(ind_BrCl,k)
-      if (.not.lpJoyce14bc) hs(48)=-1.!henry(ind_HI,k)!*(1. + /sac)
-      hs(49)=henry(ind_HOI,k)!*(1. + /sac)
-      hs(50)=henry(ind_I2O2,k)
-      hs(51)=henry(ind_INO2,k)
-      if (.not.lpJoyce14bc) hs(52)=-1.!henry(ind_INO3,k)
-      hs(53)=henry(ind_I2,k)
-      hs(54)=henry(ind_ICl,k)
-      hs(55)=henry(ind_IBr,k)
-      hs(56)=henry(ind_CH3I,k)
-      hs(57)=henry(ind_CH2I2,k)
-      hs(58)=henry(ind_CH2ClI,k)
-      hs(59)=henry(ind_C3H7I,k)
-      hs(60)=henry(ind_DMSO,k)
-      hs(61)=henry(ind_CH3SO2,k)
-      hs(62)=henry(ind_CH3SO3,k)
-      hs(63)=henry(ind_CH3SO3H,k)! MSA=CH3S(OO)OH
-      hs(64)=henry(ind_CO,k)
-      hs(65)=henry(ind_Cl2O2,k)
-      hs(66)=henry(ind_DMOO,k) ! CH3SCH2OO
-      hs(67)=henry(ind_CH3S,k)
-      hs(68)=henry(ind_CH3SO,k)
-      hs(69)=henry(ind_CH3SO2H,k) ! MSIA=CH3S(O)OH
-      hs(70)=henry(ind_DMSO2,k)
-      hs(71)=henry(ind_CH2BrI,k)
-!      hs(72)=henry(ind_CHBr2I,k)
-      hs(73)=henry(ind_C2H5I,k)
-      hs(74)=henry(ind_HIO3,k)
-!      hs(75)=henry(ind_NUCV,k)
-      hs(76)=henry(ind_SO3,k)
-      hs(77)=henry(ind_HOSO2,k)
-      hs(78)=henry(ind_CO2,k)
-!      hs(79)=henry(ind_I2O,k)
-!      hs(80)=henry(ind_I2O3,k)
-!      hs(81)=henry(ind_I2O4,k)
-!      hs(82)=henry(ind_I2O5,k)
-!      hs(83)=henry(ind_INO,k)
-      hs(84)=henry(ind_Br2O,k)
-      hs(85)=henry(ind_ClONO,k)
-      hs(86)=henry(ind_ClO3,k)
-      hs(87)=henry(ind_Cl2O3,k)
-      hs(88)=henry(ind_CH3OH,k)
-      hs(89)=henry(ind_C2H5OH,k)
-      hs(90)=henry(ind_H2,k)
-      hs(91)=henry(ind_NHS,k)
-      hs(92)=henry(ind_RCl,k)
-      hs(93)=henry(ind_RBr,k)
-      hs(94)=henry(ind_XOR,k)
-      hs(95)=henry(ind_SOR,k)
-      hs(96)=henry(ind_SPAN,k)
-!      hs(97)=henry(ind_Hg,k)
-!      hs(98)=henry(ind_HgO,k)
-!      hs(99)=henry(ind_HgCl,k)
-!      hs(100)=henry(ind_HgCl2,k)
-!      hs(101)=henry(ind_HgBr,k)
-!      hs(102)=henry(ind_HgBr2,k)
+  sac=10.**(-8.1d0) ![H+]=10^(- pH), pH=8.1
+  hs(1)=henry(ind_NO,k)
+  hs(2)=henry(ind_NO2,k)
+  hs(3)=henry(ind_HNO3,k)
+  hs(4)=henry(ind_NH3,k)
+  hs(5)=henry(ind_SO2,k)
+  hs(6)=henry(ind_H2SO4,k)
+  hs(7)=henry(ind_O3,k)
+  hs(8)=henry(ind_CH4,k)
+  hs(9)=henry(ind_C2H6,k)
+!  hs(10)=henry(ind_C3H8,k)
+!  hs(11)=henry(ind_ALKA,k)
+  hs(12)=henry(ind_ETHE,k)
+!  hs(13)=henry(ind_ALKE,k)
+!  hs(14)=henry(ind_AROM,k)
+  hs(15)=henry(ind_ACO2,k)
+  hs(16)=henry(ind_ACTA,k)
+  hs(17)=henry(ind_HCHO,k)
+  hs(18)=henry(ind_ALD2,k)
+  hs(19)=henry(ind_H2O2,k)
+  hs(20)=henry(ind_ROOH,k)
+  hs(21)=henry(ind_HONO,k)
+  hs(22)=henry(ind_PAN,k)
+!  hs(23)=henry(ind_TPAN,k)
+!  hs(24)=henry(ind_KET,k)
+!  hs(25)=henry(ind_CRES,k)
+!  hs(26)=henry(ind_DIAL,k)
+!  hs(27)=henry(ind_GLYX,k)
+!  hs(28)=henry(ind_MGLY,k)
+!  hs(29)=henry(ind_NH4NO3,k)
+  hs(30)=henry(ind_HCl,k)
+!  hs(31)=henry(ind_R3N2,k)
+!  hs(32)=henry(ind_RAN2,k)
+!  hs(33)=henry(ind_RAN1,k)
+  if (.not.lpJoyce14bc) hs(34)=-1._dp !henry(ind_N2O5,k)
+  hs(35)=henry(ind_HNO4,k)
+  hs(36)=henry(ind_NO3,k)
+  hs(37)=henry(ind_DMS,k)
+  hs(38)=henry(ind_HOCl,k)
+  hs(39)=henry(ind_ClNO2,k)
+  if (.not.lpJoyce14bc) hs(40)=-1._dp !henry(ind_ClNO3,k)
+  hs(41)=henry(ind_Cl2,k)
+  hs(42)=henry(ind_HBr,k)
+  hs(43)=henry(ind_HOBr,k)
+  hs(44)=henry(ind_BrNO2,k)
+  if (.not.lpJoyce14bc) hs(45)=-1._dp !henry(ind_BrNO3,k)
+  hs(46)=henry(ind_Br2,k)
+  hs(47)=henry(ind_BrCl,k)
+  if (.not.lpJoyce14bc) hs(48)=-1._dp !henry(ind_HI,k)!*(1. + /sac)
+  hs(49)=henry(ind_HOI,k)!*(1. + /sac)
+  hs(50)=henry(ind_I2O2,k)
+  hs(51)=henry(ind_INO2,k)
+  if (.not.lpJoyce14bc) hs(52)=-1._dp !henry(ind_INO3,k)
+  hs(53)=henry(ind_I2,k)
+  hs(54)=henry(ind_ICl,k)
+  hs(55)=henry(ind_IBr,k)
+  hs(56)=henry(ind_CH3I,k)
+  hs(57)=henry(ind_CH2I2,k)
+  hs(58)=henry(ind_CH2ClI,k)
+  hs(59)=henry(ind_C3H7I,k)
+  hs(60)=henry(ind_DMSO,k)
+  hs(61)=henry(ind_CH3SO2,k)
+  hs(62)=henry(ind_CH3SO3,k)
+  hs(63)=henry(ind_CH3SO3H,k)! MSA=CH3S(OO)OH
+  hs(64)=henry(ind_CO,k)
+  hs(65)=henry(ind_Cl2O2,k)
+  hs(66)=henry(ind_DMOO,k) ! CH3SCH2OO
+  hs(67)=henry(ind_CH3S,k)
+  hs(68)=henry(ind_CH3SO,k)
+  hs(69)=henry(ind_CH3SO2H,k) ! MSIA=CH3S(O)OH
+  hs(70)=henry(ind_DMSO2,k)
+  hs(71)=henry(ind_CH2BrI,k)
+!  hs(72)=henry(ind_CHBr2I,k)
+  hs(73)=henry(ind_C2H5I,k)
+  hs(74)=henry(ind_HIO3,k)
+!  hs(75)=henry(ind_NUCV,k)
+  hs(76)=henry(ind_SO3,k)
+  hs(77)=henry(ind_HOSO2,k)
+  hs(78)=henry(ind_CO2,k)
+!  hs(79)=henry(ind_I2O,k)
+!  hs(80)=henry(ind_I2O3,k)
+!  hs(81)=henry(ind_I2O4,k)
+!  hs(82)=henry(ind_I2O5,k)
+!  hs(83)=henry(ind_INO,k)
+  hs(84)=henry(ind_Br2O,k)
+  hs(85)=henry(ind_ClONO,k)
+  hs(86)=henry(ind_ClO3,k)
+  hs(87)=henry(ind_Cl2O3,k)
+  hs(88)=henry(ind_CH3OH,k)
+  hs(89)=henry(ind_C2H5OH,k)
+  hs(90)=henry(ind_H2,k)
+  hs(91)=henry(ind_NHS,k)
+  hs(92)=henry(ind_RCl,k)
+  hs(93)=henry(ind_RBr,k)
+  hs(94)=henry(ind_XOR,k)
+  hs(95)=henry(ind_SOR,k)
+  hs(96)=henry(ind_SPAN,k)
+!  hs(97)=henry(ind_Hg,k)
+!  hs(98)=henry(ind_HgO,k)
+!  hs(99)=henry(ind_HgCl,k)
+!  hs(100)=henry(ind_HgCl2,k)
+!  hs(101)=henry(ind_HgBr,k)
+!  hs(102)=henry(ind_HgBr2,k)
 
 ! henry constant were already transformed into dimensionless values
-      FCT=0.0820577*tt(k)
-      do i=1,j1
-         if (hs(ind_gas(i)).ne.0.)hs(ind_gas(i))=1./(hs(ind_gas(i))*FCT)
-         f0(ind_gas(i))=0.1
-      enddo
+  FCT=0.0820577*tt(k)
+  do i=1,j1
+     if (hs(ind_gas(i)).ne.0.) hs(ind_gas(i))=1./(hs(ind_gas(i))*FCT)
+     f0(ind_gas(i)) = 0.1_dp
+  enddo
 ! some species dissociate:
-      hs(3)=hs(3)*(1. +funa(1.54d+1,8700.d0,k)/sac)
-      hs(4)=hs(4)*(1. + funa(1.7d-5,-4325.d0,k)* &
-           sac/funa(1.d-14,-6710.d0,k))
-      hs(5)=hs(5)*(1.+ funa(1.7d-2,2090.d0,k)/sac + &
-           funa(1.7d-2,2090.d0,k)*funa(6.0d-8,1120.d0,k) /sac**2)
-      hs(6)=hs(6)*(1. + 1.0d+3/sac + &
-           1.0d+3*funa(1.02d-2,2720.d0,k)/sac**2)
-      hs(30)=hs(30)*(1. + funa(1.7d6,6896.d0,k)/sac)
-      hs(38)=hs(38)*(1. + 3.2d-8/sac)
-      hs(42)=hs(42)*(1. + 1.d9/sac)
-      hs(43)=hs(43)*(1. + funa(2.3d-9,-3091.d0,k)/sac)
+  hs(3)=hs(3)*(1._dp +funa(1.54d+1,8700.d0,k)/sac)
+  hs(4)=hs(4)*(1._dp + funa(1.7d-5,-4325.d0,k)* &
+       sac/funa(1.d-14,-6710.d0,k))
+  hs(5)=hs(5)*(1._dp + funa(1.7d-2,2090.d0,k)/sac + &
+       funa(1.7d-2,2090.d0,k)*funa(6.0d-8,1120.d0,k) /sac**2)
+  hs(6)=hs(6)*(1._dp + 1.0d+3/sac + &
+       1.0d+3*funa(1.02d-2,2720.d0,k)/sac**2)
+  hs(30)=hs(30)*(1._dp + funa(1.7d6,6896.d0,k)/sac)
+  hs(38)=hs(38)*(1._dp + 3.2d-8/sac)
+  hs(42)=hs(42)*(1._dp + 1.d9/sac)
+  hs(43)=hs(43)*(1._dp + funa(2.3d-9,-3091.d0,k)/sac)
 ! define some f_0 that deviate from standard (Pandis and Seinfeld, Table 19.3):
-      f0(1) =0.  !NO
-      f0(3) =0.  !HNO3
-      f0(4) =0.  !NH3
-      f0(5) =0.  !SO2
-      f0(7) =1.  !O3
-      f0(8) =0.  !CH4
-      f0(9) =0.  !C2H6
-      f0(10)=0.  !C3H8
-      f0(11)=0.  !ALKA
-      f0(14)=0.  !AROM
-      f0(15)=0.  !HCOOH, formic acid
-      f0(16)=0.  !CH3COOH, acetic acid
-      f0(17)=0.  !HCHO
-      f0(19)=1.  !H2O2
-      f0(20)=1.  !ROOH
-      f0(30)=0.  !HCl
-!      f0(34)=1.  !N2O5
-      f0(35)=0.  !HNO4
-      f0(36)=1.  !NO3
-      f0(42)=0.  !HBr
-!      f0(43)=1. !HOBr - didn't find a reference for that, so I commented it again
-!      f0(49)=1. !HOI
-!      f0() =0.  !CH3CHO, acetaldehyde
-!      f0() =0.  !CH3CH2CHO, propionaldehyde
-!      f0() =0.3 !CH3OOH, methylhydroperoxide
+  f0(1) = 0._dp  !NO
+  f0(3) = 0._dp  !HNO3
+  f0(4) = 0._dp  !NH3
+  f0(5) = 0._dp  !SO2
+  f0(7) = 1._dp  !O3
+  f0(8) = 0._dp  !CH4
+  f0(9) = 0._dp  !C2H6
+  f0(10)= 0._dp  !C3H8
+  f0(11)= 0._dp  !ALKA
+  f0(14)= 0._dp  !AROM
+  f0(15)= 0._dp  !HCOOH, formic acid
+  f0(16)= 0._dp  !CH3COOH, acetic acid
+  f0(17)= 0._dp  !HCHO
+  f0(19)= 1._dp  !H2O2
+  f0(20)= 1._dp  !ROOH
+  f0(30)= 0._dp  !HCl
+!  f0(34)= 1._dp  !N2O5
+  f0(35)= 0._dp  !HNO4
+  f0(36)= 1._dp  !NO3
+  f0(42)= 0._dp  !HBr
+!  f0(43)= 1._dp  !HOBr - didn't find a reference for that, so I commented it again
+!  f0(49)= 1._dp  !HOI
+!  f0() = 0._dp   !CH3CHO, acetaldehyde
+!  f0() = 0._dp   !CH3CH2CHO, propionaldehyde
+!  f0() = 0.3_dp  !CH3OOH, methylhydroperoxide
 
 ! calculate vg from rb and rc for each species
-!     rb_fact=5./ustern*(xnu*freep(k)/3.)**(2./3.) ! jjb mistake ?
-      rb_fact=5./ustern*(3.*xnu/freep(k))**(2./3.)
-!      rc_fact=2.54d+4/(tt(k)*ustern)  !Sehmel, 1980
-!      print *,rb_fact,rc_fact
-      do i=1,j1
-       if (vm(ind_gas(i)).eq.0.) then
-         vg(i)=0.
-       else
+!  rb_fact=5./ustern*(xnu*freep(k)/3.)**(2./3.) ! jjb mistake ?
+  rb_fact=5./ustern*(3.*xnu/freep(k))**(2./3.)
+!  rc_fact=2.54d+4/(tt(k)*ustern)  !Sehmel, 1980
+!  print *,rb_fact,rc_fact
+  do i=1,j1
+     if (vm(ind_gas(i)).eq.0.) then
+        vg(i)=0._dp
+     else
         if (.not.lpJoyce14bc) then
 ! ======= GENERAL CASE =========
-         if (hs(ind_gas(i)).ne.0.) then
-!           vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
-!                 (rc_fact/hs(ind_gas(i)))) !Sehmel, 1980
-            vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
-                  1./(hs(ind_gas(i))*1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+           if (hs(ind_gas(i)).ne.0.) then
+!              vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
+!                  (rc_fact/hs(ind_gas(i)))) !Sehmel, 1980
+              vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
+                   1./(hs(ind_gas(i))*1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
-!            vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+1./(hs(ind_gas(i))* &
-!                 1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+!              vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+1./(hs(ind_gas(i))* &
+!                  1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
 
-         else
-!            vg(i)= 1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
+           else
+!              vg(i)= 1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
 !                   (rc_fact/1.d-7)) !hs=0 => 1/hs -> infinity,
                                                               !here just a value for hstar is chosen
                                                               !to get a small v_dd
-            if (f0(ind_gas(i)) > 0.) then
-!               print*,xra,rb_fact,vm(i),f0(ind_gas(i))
-               vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.))) &
-                     +1./(f0(ind_gas(i))/2000.))
-            else
-               vg(i)=0.
-            end if
-         endif
-         if (hs(ind_gas(i)).eq.(-1./FCT)) &
-              vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1)     ! "infinite solubility"
+              if (f0(ind_gas(i)) > 0.) then
+!                 print*,xra,rb_fact,vm(i),f0(ind_gas(i))
+                 vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.))) &
+                      +1./(f0(ind_gas(i))/2000.))
+              else
+                 vg(i)=0._dp
+              end if
+           endif
+           if (hs(ind_gas(i)).eq.(-1./FCT)) &
+                vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1)     ! "infinite solubility" ! jjb need to check +.1
+
 ! ======= SPECIAL CASE =========
         else if (lpJoyce14bc) then
 ! no need to check if hs=0 as long as not both hs=0 and f0=0
-          xrb = rb_fact/(vm(ind_gas(i))**(2./3.))
+           xrb = rb_fact/(vm(ind_gas(i))**(2./3.))
 ! rc = 1/ ((1/r_dc+r_cl) + 1/(r_ac + r_gs)); (19.50)
 ! land use type: 6, mixed forest, wet-lands
 ! season: 4 - winter, snow, subfreezing
-          xr_clS =  400.d0
-          xr_clO =  600.d0
-          xr_ac  = 1500.d0
-          xr_gsS =  100.d0
-          xr_gsO = 3500.d0
+           xr_clS =  400._dp
+           xr_clO =  600._dp
+           xr_ac  = 1500._dp
+           xr_gsS =  100._dp
+           xr_gsO = 3500._dp
 ! the following equations are 19.54 - 19.56
-          xr_dc = 100.d0*(1.d0+1000.d0/(sk+10.d0)) ! assume flat terrain, so last term in 19.54 = 1.
-          xr_cl = 1.d0/(hs(ind_gas(i))*1.d-5/xr_clS &
-               + f0(ind_gas(i))/xr_clO)
-          xr_gs = 1.d0/(hs(ind_gas(i))*1.d-5/xr_gsS &
-               + f0(ind_gas(i))/xr_gsO)
-          xrc = 1.d0/(1.d0/(xr_dc + xr_cl) + 1.d0/(xr_ac + xr_gs))
-          vg(i)=1.d0/(xra+xrb+xrc)
+           xr_dc = 100.d0*(1.d0+1000.d0/(sk+10.d0)) ! assume flat terrain, so last term in 19.54 = 1.
+           xr_cl = 1.d0/(hs(ind_gas(i))*1.d-5/xr_clS &
+                + f0(ind_gas(i))/xr_clO)
+           xr_gs = 1.d0/(hs(ind_gas(i))*1.d-5/xr_gsS &
+                + f0(ind_gas(i))/xr_gsO)
+           xrc = 1.d0/(1.d0/(xr_dc + xr_cl) + 1.d0/(xr_ac + xr_gs))
+           vg(i)=1.d0/(xra+xrb+xrc)
 
         end if ! general/special case (lpJoyce14bc)
 
-       endif ! vm == 0
-      enddo
+     endif ! vm == 0
+  enddo
 
-      end subroutine gasdrydep
+end subroutine gasdrydep
 
 
 !
 !-----------------------------------------------------------------------------
 !
 
-      subroutine mass_ch
-! calculates total number of Br and Cl atoms in all phases [mol/m2]
-! including deposited atoms
-! emitted atoms (see SR aer_source) are subtracted
+subroutine mass_ch
 
-      USE config, ONLY: &
-           nkc_l
+! Description :
+! -----------
+  ! calculates total number of Br and Cl atoms in all phases [mol/m2]
+  ! including deposited atoms
+  ! emitted atoms (see SR aer_source) are subtracted
 
-      USE gas_common, ONLY: &
-           s1, &
-           j1_br, ind_gas_br, &
-           j1_cl, ind_gas_cl, &
-           s3, &
-           j5_br, ind_rad_br, &
-           j5_cl, ind_rad_cl
+! Modifications :
+! -------------
+  ! jjb: added all declarations and implicit none
 
-      USE global_params, ONLY : &
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE config, ONLY: &
+       nkc_l
+
+  USE file_unit, ONLY : &
+       jpfunmass
+
+  USE gas_common, ONLY: &
+       s1, &
+       j1_br, ind_gas_br, &
+       j1_cl, ind_gas_cl, &
+       s3, &
+       j5_br, ind_rad_br, &
+       j5_cl, ind_rad_cl
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j3, &
-           j6, &
-           n, &
-           nkc
+       j2, &
+       j3, &
+       j6, &
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit double precision (a-h,o-z)
-      logical cl_out
+! Local scalars:
+  integer :: j, k
+  logical :: cl_out
+  real (kind=dp) :: brg, brgd, brgp, clg, clgd, clgp
+  real (kind=dp) :: bra1, bra2, bra3, bra4, bra1d, bra2d, bra3d, bra4d
+  real (kind=dp) :: cla1, cla2, cla3, cla4, cla1d, cla2d, cla3d, cla4d
+  real (kind=dp) :: xnaa2, xnaa2d
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      double precision sl1, sion1
+! Common blocks:
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      real (kind=dp) :: detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /sss/ brsss,clsss,xnasss
+  common /sss/ brsss,clsss,xnasss
+  real (kind=dp) :: brsss, clsss, xnasss
 
-      if ((lday.eq.0.and.lst.eq.0.and.lmin.le.1).or.lmin/30*30.eq.lmin) &
-           then
-      cl_out=.false.
-      if (nkc_l.gt.2) cl_out=.true.
+! == End of declarations =======================================================
+
+  if ((lday.eq.0.and.lst.eq.0.and.lmin.le.1).or.lmin/30*30.eq.lmin) then
+     ! compute or not droplet bins (#3 and #4)
+     if (nkc_l.gt.2) then
+        cl_out=.true.
+     else
+        cl_out=.false.
+     end if
+
 ! gas phase----------------------------
 ! atmosphere
-      brg=0.
-      clg=0.
-      brgd=0.
-      clgd=0.
-      do k=2,n
-         ! Brominated species
-         brgp=0.
-         do j=1,j1_br
-            brgp=brgp+ind_gas_br(1,j)*s1(ind_gas_br(2,j),k)
-         end do
-         do j=1,j5_br
-            brgp=brgp+ind_rad_br(1,j)*s3(ind_rad_br(2,j),k)
-         end do
-         brg=brg+brgp*detw(k) ! to get mol/m^2
+     brg=0.
+     clg=0.
+     brgd=0.
+     clgd=0.
+     do k=2,n
+        ! Brominated species
+        brgp=0.
+        do j=1,j1_br
+           brgp=brgp+ind_gas_br(1,j)*s1(ind_gas_br(2,j),k)
+        end do
+        do j=1,j5_br
+           brgp=brgp+ind_rad_br(1,j)*s3(ind_rad_br(2,j),k)
+        end do
+        brg=brg+brgp*detw(k) ! to get mol/m^2
 
-         ! ditto for chlorinated species
-         clgp=0.
-         do j=1,j1_cl
-            clgp=clgp+ind_gas_cl(1,j)*s1(ind_gas_cl(2,j),k)
-         end do
-         do j=1,j5_cl
-            clgp=clgp+ind_rad_cl(1,j)*s3(ind_rad_cl(2,j),k)
-         end do
-         clg=clg+clgp*detw(k)
-      enddo
+        ! ditto for chlorinated species
+        clgp=0.
+        do j=1,j1_cl
+           clgp=clgp+ind_gas_cl(1,j)*s1(ind_gas_cl(2,j),k)
+        end do
+        do j=1,j5_cl
+           clgp=clgp+ind_rad_cl(1,j)*s3(ind_rad_cl(2,j),k)
+        end do
+        clg=clg+clgp*detw(k)
+     enddo
 
 !  + deposited ! already in mol/m^2
-      do j=1,j1_br
-         brgd=brgd+ind_gas_br(1,j)*s1(ind_gas_br(2,j),1)
-      end do
-      do j=1,j5_br
-         brgd=brgd+ind_rad_br(1,j)*s3(ind_rad_br(2,j),1)
-      end do
+     do j=1,j1_br
+        brgd=brgd+ind_gas_br(1,j)*s1(ind_gas_br(2,j),1)
+     end do
+     do j=1,j5_br
+        brgd=brgd+ind_rad_br(1,j)*s3(ind_rad_br(2,j),1)
+     end do
 
-      do j=1,j1_cl
-         clgd=clgd+ind_gas_cl(1,j)*s1(ind_gas_cl(2,j),1)
-      end do
-      do j=1,j5_cl
-         clgd=clgd+ind_rad_cl(1,j)*s3(ind_rad_cl(2,j),1)
-      end do
+     do j=1,j1_cl
+        clgd=clgd+ind_gas_cl(1,j)*s1(ind_gas_cl(2,j),1)
+     end do
+     do j=1,j5_cl
+        clgd=clgd+ind_rad_cl(1,j)*s3(ind_rad_cl(2,j),1)
+     end do
 
 ! aqueous phase-------------------------
 ! atmosphere
-      bra1=0.
-      bra2=0.
-      bra3=0.
-      bra4=0.
-      cla1=0.
-      cla2=0.
-      cla3=0.
-      cla4=0.
-      xnaa2=0.
-      bra1d=0.
-      bra2d=0.
-      bra3d=0.
-      bra4d=0.
-      cla1d=0.
-      cla2d=0.
-      cla3d=0.
-      cla4d=0.
-      xnaa2d=0.
-      do k=2,n
-         bra1=bra1+(sl1(42,1,k)+sl1(43,1,k)+sl1(44,1,k)+sl1(45,1,k)+ &
-              2.*sl1(46,1,k)+sl1(47,1,k)+sl1(55,1,k)+sl1(j2-j3+9,1,k) &
-              +sion1(24,1,k)+2.*sion1(25,1,k)+sion1(26,1,k)+ &
-          sion1(27,1,k)+sion1(28,1,k)+2.*sion1(29,1,k)+2.*sion1(38,1,k)) &
-              *detw(k)
-         bra2=bra2+(sl1(42,2,k)+sl1(43,2,k)+sl1(44,2,k)+sl1(45,2,k)+ &
-              2.*sl1(46,2,k)+sl1(47,2,k)+sl1(55,2,k)+sl1(j2-j3+9,2,k) &
-              +sion1(24,2,k)+2.*sion1(25,2,k)+sion1(26,2,k)+ &
-          sion1(27,2,k)+sion1(28,2,k)+2.*sion1(29,2,k)+2.*sion1(38,2,k)) &
-              *detw(k)
-         if (cl_out) then
-         bra3=bra3+(sl1(42,3,k)+sl1(43,3,k)+sl1(44,3,k)+sl1(45,3,k)+ &
-              2.*sl1(46,3,k)+sl1(47,3,k)+sl1(55,3,k)+sl1(j2-j3+9,3,k) &
-              +sion1(24,3,k)+2.*sion1(25,3,k)+sion1(26,3,k)+ &
-          sion1(27,3,k)+sion1(28,3,k)+2.*sion1(29,3,k)+2.*sion1(38,3,k)) &
-              *detw(k)
-         bra4=bra4+(sl1(42,4,k)+sl1(43,4,k)+sl1(44,4,k)+sl1(45,4,k)+ &
-              2.*sl1(46,4,k)+sl1(47,4,k)+sl1(55,4,k)+sl1(j2-j3+9,4,k) &
-              +sion1(24,4,k)+2.*sion1(25,4,k)+sion1(26,4,k)+ &
-          sion1(27,4,k)+sion1(28,4,k)+2.*sion1(29,4,k)+2.*sion1(38,4,k)) &
-              *detw(k)
-         endif
+     bra1=0.
+     bra2=0.
+     bra3=0.
+     bra4=0.
+     cla1=0.
+     cla2=0.
+     cla3=0.
+     cla4=0.
+     xnaa2=0.
+     bra1d=0.
+     bra2d=0.
+     bra3d=0.
+     bra4d=0.
+     cla1d=0.
+     cla2d=0.
+     cla3d=0.
+     cla4d=0.
+     xnaa2d=0.
+     do k=2,n
+        bra1=bra1+(sl1(42,1,k)+sl1(43,1,k)+sl1(44,1,k)+sl1(45,1,k)+ &
+             2.*sl1(46,1,k)+sl1(47,1,k)+sl1(55,1,k)+sl1(j2-j3+9,1,k) &
+             +sion1(24,1,k)+2.*sion1(25,1,k)+sion1(26,1,k)+ &
+             sion1(27,1,k)+sion1(28,1,k)+2.*sion1(29,1,k)+2.*sion1(38,1,k)) &
+             *detw(k)
+        bra2=bra2+(sl1(42,2,k)+sl1(43,2,k)+sl1(44,2,k)+sl1(45,2,k)+ &
+             2.*sl1(46,2,k)+sl1(47,2,k)+sl1(55,2,k)+sl1(j2-j3+9,2,k) &
+             +sion1(24,2,k)+2.*sion1(25,2,k)+sion1(26,2,k)+ &
+             sion1(27,2,k)+sion1(28,2,k)+2.*sion1(29,2,k)+2.*sion1(38,2,k)) &
+             *detw(k)
+        if (cl_out) then
+           bra3=bra3+(sl1(42,3,k)+sl1(43,3,k)+sl1(44,3,k)+sl1(45,3,k)+ &
+                2.*sl1(46,3,k)+sl1(47,3,k)+sl1(55,3,k)+sl1(j2-j3+9,3,k) &
+                +sion1(24,3,k)+2.*sion1(25,3,k)+sion1(26,3,k)+ &
+                sion1(27,3,k)+sion1(28,3,k)+2.*sion1(29,3,k)+2.*sion1(38,3,k)) &
+                *detw(k)
+           bra4=bra4+(sl1(42,4,k)+sl1(43,4,k)+sl1(44,4,k)+sl1(45,4,k)+ &
+                2.*sl1(46,4,k)+sl1(47,4,k)+sl1(55,4,k)+sl1(j2-j3+9,4,k) &
+                +sion1(24,4,k)+2.*sion1(25,4,k)+sion1(26,4,k)+ &
+                sion1(27,4,k)+sion1(28,4,k)+2.*sion1(29,4,k)+2.*sion1(38,4,k)) &
+                *detw(k)
+        endif
 
-         cla1=cla1+(sl1(30,1,k)+sl1(38,1,k)+sl1(39,1,k)+sl1(40,1,k)+ &
+        cla1=cla1+(sl1(30,1,k)+sl1(38,1,k)+sl1(39,1,k)+sl1(40,1,k)+ &
              2.*sl1(41,1,k)+sl1(47,1,k)+sl1(54,1,k)+sl1(58,1,k) &
              +sl1(j2-j3+8,1,k) &
              +sion1(14,1,k)+2.*sion1(15,1,k)+sion1(22,1,k)+sion1(23,1,k) &
              +2.*sion1(28,1,k)+sion1(29,1,k)+2.*sion1(37,1,k))*detw(k)
-         cla2=cla2+(sl1(30,2,k)+sl1(38,2,k)+sl1(39,2,k)+sl1(40,2,k)+ &
+        cla2=cla2+(sl1(30,2,k)+sl1(38,2,k)+sl1(39,2,k)+sl1(40,2,k)+ &
              2.*sl1(41,2,k)+sl1(47,2,k)+sl1(54,2,k)+sl1(58,2,k) &
              +sl1(j2-j3+8,2,k) &
              +sion1(14,2,k)+2.*sion1(15,2,k)+sion1(22,2,k)+sion1(23,2,k) &
              +2.*sion1(28,2,k)+sion1(29,2,k)+2.*sion1(37,2,k))*detw(k)
         if (cl_out) then
-         cla3=cla3+(sl1(30,3,k)+sl1(38,3,k)+sl1(39,3,k)+sl1(40,3,k)+ &
-             2.*sl1(41,3,k)+sl1(47,3,k)+sl1(54,3,k)+sl1(58,3,k) &
-             +sl1(j2-j3+8,3,k) &
-             +sion1(14,3,k)+2.*sion1(15,3,k)+sion1(22,3,k)+sion1(23,3,k) &
-             +2.*sion1(28,3,k)+sion1(29,3,k)+2.*sion1(37,3,k))*detw(k)
-         cla4=cla4+(sl1(30,4,k)+sl1(38,4,k)+sl1(39,4,k)+sl1(40,4,k)+ &
-             2.*sl1(41,4,k)+sl1(47,4,k)+sl1(54,4,k)+sl1(58,4,k) &
-             +sl1(j2-j3+8,4,k) &
-             +sion1(14,4,k)+2.*sion1(15,4,k)+sion1(22,4,k)+sion1(23,4,k) &
-             +2.*sion1(28,4,k)+sion1(29,4,k)+2.*sion1(37,4,k))*detw(k)
+           cla3=cla3+(sl1(30,3,k)+sl1(38,3,k)+sl1(39,3,k)+sl1(40,3,k)+ &
+                2.*sl1(41,3,k)+sl1(47,3,k)+sl1(54,3,k)+sl1(58,3,k) &
+                +sl1(j2-j3+8,3,k) &
+                +sion1(14,3,k)+2.*sion1(15,3,k)+sion1(22,3,k)+sion1(23,3,k) &
+                +2.*sion1(28,3,k)+sion1(29,3,k)+2.*sion1(37,3,k))*detw(k)
+           cla4=cla4+(sl1(30,4,k)+sl1(38,4,k)+sl1(39,4,k)+sl1(40,4,k)+ &
+                2.*sl1(41,4,k)+sl1(47,4,k)+sl1(54,4,k)+sl1(58,4,k) &
+                +sl1(j2-j3+8,4,k) &
+                +sion1(14,4,k)+2.*sion1(15,4,k)+sion1(22,4,k)+sion1(23,4,k) &
+                +2.*sion1(28,4,k)+sion1(29,4,k)+2.*sion1(37,4,k))*detw(k)
         endif
 
-         xnaa2=xnaa2+sion1(20,2,k)*detw(k)
-      enddo
+        xnaa2=xnaa2+sion1(20,2,k)*detw(k)
+     enddo
 
 ! + deposited
-      bra1d=sl1(42,1,1)+sl1(43,1,1)+sl1(44,1,1)+sl1(45,1,1)+ &
-           2.*sl1(46,1,1)+sl1(47,1,1)+sl1(55,1,1)+sl1(j2-j3+9,1,1) &
-           +sion1(24,1,1)+2.*sion1(25,1,1)+sion1(26,1,1)+ &
-           sion1(27,1,1)+sion1(28,1,1)+2.*sion1(29,1,1)+ &
-           2.*sion1(38,1,1)
-      bra2d=sl1(42,2,1)+sl1(43,2,1)+sl1(44,2,1)+sl1(45,2,1)+ &
-           2.*sl1(46,2,1)+sl1(47,2,1)+sl1(55,2,1)+sl1(j2-j3+9,2,1) &
-           +sion1(24,2,1)+2.*sion1(25,2,1)+sion1(26,2,1)+ &
-           sion1(27,2,1)+sion1(28,2,1)+2.*sion1(29,2,1)+ &
-           2.*sion1(38,2,1)
-       if (cl_out) then
-      bra3d=sl1(42,3,1)+sl1(43,3,1)+sl1(44,3,1)+sl1(45,3,1)+ &
-           2.*sl1(46,3,1)+sl1(47,3,1)+sl1(55,3,1)+sl1(j2-j3+9,3,1) &
-           +sion1(24,3,1)+2.*sion1(25,3,1)+sion1(26,3,1)+ &
-           sion1(27,3,1)+sion1(28,3,1)+2.*sion1(29,3,1)+ &
-           2.*sion1(38,3,1)
-      bra4d=sl1(42,4,1)+sl1(43,4,1)+sl1(44,4,1)+sl1(45,4,1)+ &
-           2.*sl1(46,4,1)+sl1(47,4,1)+sl1(55,4,1)+sl1(j2-j3+9,4,1) &
-           +sion1(24,4,1)+2.*sion1(25,4,1)+sion1(26,4,1)+ &
-           sion1(27,4,1)+sion1(28,4,1)+2.*sion1(29,4,1)+ &
-           2.*sion1(38,4,1)
-        endif
+     bra1d=sl1(42,1,1)+sl1(43,1,1)+sl1(44,1,1)+sl1(45,1,1)+ &
+          2.*sl1(46,1,1)+sl1(47,1,1)+sl1(55,1,1)+sl1(j2-j3+9,1,1) &
+          +sion1(24,1,1)+2.*sion1(25,1,1)+sion1(26,1,1)+ &
+          sion1(27,1,1)+sion1(28,1,1)+2.*sion1(29,1,1)+ &
+          2.*sion1(38,1,1)
+     bra2d=sl1(42,2,1)+sl1(43,2,1)+sl1(44,2,1)+sl1(45,2,1)+ &
+          2.*sl1(46,2,1)+sl1(47,2,1)+sl1(55,2,1)+sl1(j2-j3+9,2,1) &
+          +sion1(24,2,1)+2.*sion1(25,2,1)+sion1(26,2,1)+ &
+          sion1(27,2,1)+sion1(28,2,1)+2.*sion1(29,2,1)+ &
+          2.*sion1(38,2,1)
+     if (cl_out) then
+        bra3d=sl1(42,3,1)+sl1(43,3,1)+sl1(44,3,1)+sl1(45,3,1)+ &
+             2.*sl1(46,3,1)+sl1(47,3,1)+sl1(55,3,1)+sl1(j2-j3+9,3,1) &
+             +sion1(24,3,1)+2.*sion1(25,3,1)+sion1(26,3,1)+ &
+             sion1(27,3,1)+sion1(28,3,1)+2.*sion1(29,3,1)+ &
+             2.*sion1(38,3,1)
+        bra4d=sl1(42,4,1)+sl1(43,4,1)+sl1(44,4,1)+sl1(45,4,1)+ &
+             2.*sl1(46,4,1)+sl1(47,4,1)+sl1(55,4,1)+sl1(j2-j3+9,4,1) &
+             +sion1(24,4,1)+2.*sion1(25,4,1)+sion1(26,4,1)+ &
+             sion1(27,4,1)+sion1(28,4,1)+2.*sion1(29,4,1)+ &
+             2.*sion1(38,4,1)
+     endif
 
-      cla1d=sl1(30,1,1)+sl1(38,1,1)+sl1(39,1,1)+sl1(40,1,1)+ &
-           2.*sl1(41,1,1)+sl1(47,1,1)+sl1(54,1,1)+sl1(58,1,1) &
-           +sl1(j2-j3+8,1,1) &
-           +sion1(14,1,1)+2.*sion1(15,1,1)+sion1(22,1,1)+sion1(23,1,1) &
-           +2.*sion1(28,1,1)+sion1(29,1,1)+2.*sion1(37,1,1)
-      cla2d=sl1(30,2,1)+sl1(38,2,1)+sl1(39,2,1)+sl1(40,2,1)+ &
-           2.*sl1(41,2,1)+sl1(47,2,1)+sl1(54,2,1)+sl1(58,2,1) &
-           +sl1(j2-j3+8,2,1) &
-           +sion1(14,2,1)+2.*sion1(15,2,1)+sion1(22,2,1)+sion1(23,2,1) &
-           +2.*sion1(28,2,1)+sion1(29,2,1)+2.*sion1(37,2,1)
-       if (cl_out) then
-      cla3d=sl1(30,3,1)+sl1(38,3,1)+sl1(39,3,1)+sl1(40,3,1)+ &
-           2.*sl1(41,3,1)+sl1(47,3,1)+sl1(54,3,1)+sl1(58,3,1) &
-           +sl1(j2-j3+8,3,1) &
-           +sion1(14,3,1)+2.*sion1(15,3,1)+sion1(22,3,1)+sion1(23,3,1) &
-           +2.*sion1(28,3,1)+sion1(29,3,1)+2.*sion1(37,3,1)
-      cla4d=sl1(30,4,1)+sl1(38,4,1)+sl1(39,4,1)+sl1(40,4,1)+ &
-           2.*sl1(41,4,1)+sl1(47,4,1)+sl1(54,4,1)+sl1(58,4,1) &
-           +sl1(j2-j3+8,4,1) &
-           +sion1(14,4,1)+2.*sion1(15,4,1)+sion1(22,4,1)+sion1(23,4,1) &
-           +2.*sion1(28,4,1)+sion1(29,4,1)+2.*sion1(37,4,1)
-      endif
+     cla1d=sl1(30,1,1)+sl1(38,1,1)+sl1(39,1,1)+sl1(40,1,1)+ &
+          2.*sl1(41,1,1)+sl1(47,1,1)+sl1(54,1,1)+sl1(58,1,1) &
+          +sl1(j2-j3+8,1,1) &
+          +sion1(14,1,1)+2.*sion1(15,1,1)+sion1(22,1,1)+sion1(23,1,1) &
+          +2.*sion1(28,1,1)+sion1(29,1,1)+2.*sion1(37,1,1)
+     cla2d=sl1(30,2,1)+sl1(38,2,1)+sl1(39,2,1)+sl1(40,2,1)+ &
+          2.*sl1(41,2,1)+sl1(47,2,1)+sl1(54,2,1)+sl1(58,2,1) &
+          +sl1(j2-j3+8,2,1) &
+          +sion1(14,2,1)+2.*sion1(15,2,1)+sion1(22,2,1)+sion1(23,2,1) &
+          +2.*sion1(28,2,1)+sion1(29,2,1)+2.*sion1(37,2,1)
+     if (cl_out) then
+        cla3d=sl1(30,3,1)+sl1(38,3,1)+sl1(39,3,1)+sl1(40,3,1)+ &
+             2.*sl1(41,3,1)+sl1(47,3,1)+sl1(54,3,1)+sl1(58,3,1) &
+             +sl1(j2-j3+8,3,1) &
+             +sion1(14,3,1)+2.*sion1(15,3,1)+sion1(22,3,1)+sion1(23,3,1) &
+             +2.*sion1(28,3,1)+sion1(29,3,1)+2.*sion1(37,3,1)
+        cla4d=sl1(30,4,1)+sl1(38,4,1)+sl1(39,4,1)+sl1(40,4,1)+ &
+             2.*sl1(41,4,1)+sl1(47,4,1)+sl1(54,4,1)+sl1(58,4,1) &
+             +sl1(j2-j3+8,4,1) &
+             +sion1(14,4,1)+2.*sion1(15,4,1)+sion1(22,4,1)+sion1(23,4,1) &
+             +2.*sion1(28,4,1)+sion1(29,4,1)+2.*sion1(37,4,1)
+     endif
 
-      xnaa2d=sion1(20,1,1)+sion1(20,2,1)+sion1(20,3,1)+sion1(20,4,1)
+     xnaa2d=sion1(20,1,1)+sion1(20,2,1)+sion1(20,3,1)+sion1(20,4,1)
 
 ! output
 
-
  100  continue
-      open (74,file='mass.out',status='unknown', position='append' &
-           ,err=100)
-      write (74,10) lday,lst,lmin
-       if (cl_out) then
-        write (74,20) brg, brgd, bra1, bra2, bra1d,bra2d, brsss*detw(1), &
-           brg+bra1+bra2+brgd+bra1d+bra2d-brsss*detw(1)
-        write (74,20) brg, brgd, bra3, bra4,bra3d, bra4d, brsss*detw(1), &
-           brg+bra3+bra4+brgd+bra3d+bra4d-brsss*detw(1),brg+bra1+bra2+ &
-           brgd+bra1d+bra2d+bra3+bra4+brgd+bra3d+bra4d-brsss*detw(1)
-        write (74,25) clg, clgd, cla1, cla2,cla1d, cla2d, clsss*detw(1), &
-           clg+cla1+cla2+clgd+cla1d+cla2d-clsss*detw(1)
-        write (74,25) clg, clgd, cla3, cla4,cla3d, cla4d, clsss*detw(1), &
-           clg+cla3+cla4+clgd+cla3d+cla4d-clsss*detw(1),clg+cla1+cla2+ &
-           clgd+cla1d+cla2d+cla3+cla4+clgd+cla3d+cla4d-clsss*detw(1)
-        write (74,30) xnaa2, xnaa2d,xnasss*detw(1),xnaa2+xnaa2d-xnasss* &
-           detw(1)
-       else
-        write (74,20) brg, brgd, bra1, bra2, bra1d,bra2d, brsss*detw(1), &
-           brg+bra1+bra2+brgd+bra1d+bra2d-brsss*detw(1)
-        write (74,25) clg, clgd, cla1, cla2, cla1d,cla2d, clsss*detw(1), &
-           clg+cla1+cla2+clgd+cla1d+cla2d-clsss*detw(1)
-        write (74,30) xnaa2, xnaa2d,  xnasss*detw(1), xnaa2+xnaa2d &
-           -xnasss*detw(1)
-       endif
-      close (74)
+     open (jpfunmass,file='mass.out',status='unknown', position='append' &
+          ,err=100)
+     write (jpfunmass,10) lday,lst,lmin
+     if (cl_out) then
+        write (jpfunmass,20) brg, brgd, bra1, bra2, bra1d,bra2d, brsss*detw(1), &
+             brg+bra1+bra2+brgd+bra1d+bra2d-brsss*detw(1)
+        write (jpfunmass,20) brg, brgd, bra3, bra4,bra3d, bra4d, brsss*detw(1), &
+             brg+bra3+bra4+brgd+bra3d+bra4d-brsss*detw(1),brg+bra1+bra2+ &
+             brgd+bra1d+bra2d+bra3+bra4+brgd+bra3d+bra4d-brsss*detw(1)
+        write (jpfunmass,25) clg, clgd, cla1, cla2,cla1d, cla2d, clsss*detw(1), &
+             clg+cla1+cla2+clgd+cla1d+cla2d-clsss*detw(1)
+        write (jpfunmass,25) clg, clgd, cla3, cla4,cla3d, cla4d, clsss*detw(1), &
+             clg+cla3+cla4+clgd+cla3d+cla4d-clsss*detw(1),clg+cla1+cla2+ &
+             clgd+cla1d+cla2d+cla3+cla4+clgd+cla3d+cla4d-clsss*detw(1)
+        write (jpfunmass,30) xnaa2, xnaa2d,xnasss*detw(1),xnaa2+xnaa2d-xnasss*detw(1)
+     else
+        write (jpfunmass,20) brg, brgd, bra1, bra2, bra1d,bra2d, brsss*detw(1), &
+             brg+bra1+bra2+brgd+bra1d+bra2d-brsss*detw(1)
+        write (jpfunmass,25) clg, clgd, cla1, cla2, cla1d,cla2d, clsss*detw(1), &
+             clg+cla1+cla2+clgd+cla1d+cla2d-clsss*detw(1)
+        write (jpfunmass,30) xnaa2, xnaa2d,  xnasss*detw(1), xnaa2+xnaa2d &
+             -xnasss*detw(1)
+     endif
+     close (jpfunmass)
 
  10   format(3i3)
  20   format('br: ',8d15.7)
  25   format('cl: ',8d15.7)
  30   format('na: ',45x,d15.7,15x,3d15.7)
 
-      endif
+  endif
 
-      end subroutine mass_ch
-
+end subroutine mass_ch
 
 
 !
 !----------------------------------------------------------------
 !
 
+subroutine ave_parms (n_bl,nz_box)
 
-      subroutine ave_parms (n_bl,nz_box)
-! average cw and rc over BL in box model if BL_box=.true.
-!      implicit double precision (a-h,o-z)
+! Description :
+! -----------
+  ! average cw and rc over BL in box model if BL_box=.true.
 
-      USE global_params, ONLY : &
+! Modifications :
+! -------------
+  ! jjb: removed unused: acmsum (acm), convsum (conv2), am32s (am3(k,2)) and cm32s (cm3(k,2))
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           n, &
-           nkc
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'gas_Parameters.h' !additional common blocks and other definitions
+  include 'gas_Parameters.h' !additional common blocks and other definitions
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /blck01/ am3(n),cm3(n)
-      real (kind=dp) :: am3, cm3
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-      common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
-      real (kind=dp) :: xkmtd, henry, xeq
+! Subroutine arguments
+  integer, intent(in) :: n_bl, nz_box
 
+! Local scalars:
+  integer :: j, k, kc, nstart
+  real (kind=dp) :: cmsum, cwsum, rcsum
+  real (kind=dp) :: am3s, cm3s, ps, rhos, ts, xkmtds
+
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  real (kind=dp) :: xkmtd, henry, xeq
+
+! == End of declarations =======================================================
 
 ! note: activity coeff. are being correctly calculated with the averaged
 ! concentrations in layer n_bl
 
 ! start averaging one level above "working level"
 ! - semi hard coded for n_bl = 2
-      nstart = 2
-      if (n_bl.eq.2) nstart = 3
+  nstart = 2
+  if (n_bl.eq.2) nstart = 3
 
-      do k=nstart,nz_box
-         cwsum  = 0.
-         rcsum = 0.
-         cmsum  = 0.
-!         cwmsum = 0.
-!         acmsum = 0. ! jjb removed
-!         convsum= 0. ! jjb unused below, now removed
-         do kc=1,nkc
-            cwsum  = cwsum  + cw(kc,k)
-            rcsum = rcsum + rc(kc,k)
-            cmsum  = cmsum  + cm(kc,k)
-!            acmsum = acmsum + acm(k,kc) ! jjb removed
-!            convsum= convsum+ conv2(k,kc) ! jjb unused
-         enddo
-         cw(kc,n_bl)  = cwsum / (nz_box-nstart+1)
-         rc(kc,n_bl) = rcsum / (nz_box-nstart+1)
-         cm(kc,n_bl)  = cmsum / (nz_box-nstart+1)
-!         cwm(kc,n_bl) = cwmsum / (nz_box-nstart+1)
-!         acm(n_bl,kc) = acmsum / (nz_box-nstart+1) ! jjb removed
-      enddo
+  do k=nstart,nz_box
+     cwsum = 0._dp
+     rcsum = 0._dp
+     cmsum = 0._dp
+     do kc=1,nkc
+        cwsum = cwsum + cw(kc,k)
+        rcsum = rcsum + rc(kc,k)
+        cmsum = cmsum + cm(kc,k)
+     enddo
+     cw(kc,n_bl) = cwsum / (nz_box-nstart+1)
+     rc(kc,n_bl) = rcsum / (nz_box-nstart+1)
+     cm(kc,n_bl) = cmsum / (nz_box-nstart+1)
+  enddo
 
-
-      am3s = 0.
-!      am32s = 0.
-      cm3s = 0.
-!      cm32s = 0.
-      ps    = 0.
-      rhos  = 0.
-      ts    = 0.
-
-      do k=nstart,nz_box
-         am3s = am3s + am3(k)
-!         am32s = am32s + am3(k,2)
-         cm3s = cm3s + cm3(k)
-!         cm32s = cm32s + cm3(k,2)
-         ps    = ps    + p(k)
-         rhos  = rhos  + rho(k)
-         ts    = ts    + t(k)
-      enddo
-      am3(n_bl) = am3s / (nz_box-nstart+1)
-!      am3(n_bl,2) = am32s / (nz_box-nstart+1)
-      cm3(n_bl) = cm3s / (nz_box-nstart+1)
-!      cm3(n_bl,2) = cm32s / (nz_box-nstart+1)
-
-      p(n_bl)     = ps   / (nz_box-nstart+1)
-      rho(n_bl)   = rhos / (nz_box-nstart+1)
-      t(n_bl)     = ts   / (nz_box-nstart+1)
+  am3s = 0._dp
+  cm3s = 0._dp
+  ps   = 0._dp
+  rhos = 0._dp
+  ts   = 0._dp
+  do k=nstart,nz_box
+     am3s = am3s + am3(k)
+     cm3s = cm3s + cm3(k)
+     ps   = ps   + p(k)
+     rhos = rhos + rho(k)
+     ts   = ts   + t(k)
+  enddo
+  am3(n_bl) = am3s / (nz_box-nstart+1)
+  cm3(n_bl) = cm3s / (nz_box-nstart+1)
+  p(n_bl)   = ps   / (nz_box-nstart+1)
+  rho(n_bl) = rhos / (nz_box-nstart+1)
+  t(n_bl)   = ts   / (nz_box-nstart+1)
 
 
-      do j=1,NSPEC
-         do kc=1,2
-            xkmtds = 0.
-            do k=nstart,nz_box
-               xkmtds = xkmtds + xkmtd(k,kc,j)
-            enddo
-            xkmtd(n_bl,kc,j) = xkmtds / (nz_box-nstart+1)
-         enddo
-      enddo
+  do kc=1,2
+     do j=1,NSPEC
+        xkmtds = 0._dp
+        do k=nstart,nz_box
+           xkmtds = xkmtds + xkmtd(k,kc,j)
+        enddo
+        xkmtd(n_bl,kc,j) = xkmtds / (nz_box-nstart+1)
+     enddo
+  enddo
 
-      end subroutine ave_parms
+end subroutine ave_parms
 
 
 !
 !-------------------------------------------------------
 !
 
-      subroutine ave_j (nz_box,n_bl)
-! calculate average photolysis rates for BL and put these values on level n_bl
+subroutine ave_j (nz_box,n_bl)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! calculate average photolysis rates for BL and put these values on level n_bl
+
+! Modifications :
+! -------------
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           n, &
-           nphrxn
+       n, &
+       nphrxn
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      common /band_rat/ photol_j(nphrxn,n)
-      double precision photol_j
+  implicit none
+
+! Subroutine arguments
+  integer, intent(in) :: n_bl, nz_box
+
+! Local scalars:
+  integer :: j, k, nstart
+  real (kind=dp) :: xjsum
+
+! Common blocks:
+  common /band_rat/ photol_j(nphrxn,n)
+  real (kind=dp) :: photol_j
+
+! == End of declarations =======================================================
 
 ! start averaging one level above "working level"
 ! - semi hard coded for n_bl = 2
-      nstart = 2
-      if (n_bl.eq.2) nstart = 3
+  nstart = 2
+  if (n_bl.eq.2) nstart = 3
 
-      do j=1,nphrxn ! jjb
-         xjsum = 0.
-         do k=nstart,nz_box
-            xjsum = xjsum + photol_j(j,k)
-         enddo
-         photol_j(j,n_bl) = xjsum/(nz_box-nstart+1)
-      enddo
+  do j=1,nphrxn
+     xjsum = 0._dp
+     do k=nstart,nz_box
+        xjsum = xjsum + photol_j(j,k)
+     enddo
+     photol_j(j,n_bl) = xjsum/(nz_box-nstart+1)
+  enddo
 
-      end subroutine ave_j
+end subroutine ave_j
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine ave_aer (n_bl,nz_box)
-! average k_mt over BL in box model if BL_box=.true.
+subroutine ave_aer (n_bl,nz_box)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! average k_mt over BL in box model if BL_box=.true.
+
+! Modifications :
+! -------------
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           nkc
+       nf, &
+       nkc
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  implicit none
 
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-!     dimension fs(n,nka),ffsum(nka) ! jjb both not used here
+  include 'aer_Parameters.h' !additional common blocks and other definitions
+
+! Subroutine arguments
+  integer, intent(in) :: n_bl, nz_box
+
+! Local scalars:
+  integer :: j, k, kc, nstart
+  real (kind=dp) :: xalsum, xhensum, xkbsum, xkfsum, xkmsum, xvmsum
+! Local arrays:
+!  real (kind=dp) :: fs(n,nka),ffsum(nka)
+
+! Common blocks:
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real (kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+
+! == End of declarations =======================================================
 
 ! start averaging one level above "working level"
 ! - semi hard coded for n_bl = 2
-      nstart = 2
-      if (n_bl.eq.2) nstart = 3
+  nstart = 2
+  if (n_bl.eq.2) nstart = 3
 
 
-      do j=1,NSPEC
-         do kc=1,2
-            xkmsum = 0.
-            xkfsum = 0.
-            xkbsum = 0.
-            do k=nstart,nz_box
-               xkmsum = xkmsum + xkmt(k,kc,j)
-               xkfsum = xkfsum + xkef(k,kc,j)
-               xkbsum = xkbsum + xkeb(k,kc,j)
-            enddo
-            xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
-            xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
-            xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
-         enddo
-      enddo
+  do j=1,NSPEC
+     do kc=1,2
+        xkmsum = 0._dp
+        xkfsum = 0._dp
+        xkbsum = 0._dp
+        do k=nstart,nz_box
+           xkmsum = xkmsum + xkmt(k,kc,j)
+           xkfsum = xkfsum + xkef(k,kc,j)
+           xkbsum = xkbsum + xkeb(k,kc,j)
+        enddo
+        xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
+        xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
+        xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
+     enddo
+  enddo
 
-      do j=1,NSPEC
-         xhensum = 0.
-         xalsum  = 0.
-         xvmsum  = 0.
-         do k=nstart,nz_box
-            xhensum = xhensum + henry(j,k)
-            xalsum  = xalsum  + alpha(j,k)
-            xvmsum  = xvmsum  + vmean(j,k)
-         enddo
-         henry(j,n_bl)  = xhensum / (nz_box-nstart+1)
-         alpha(j,n_bl)  = xalsum  / (nz_box-nstart+1)
-         vmean(j,n_bl)  = xvmsum  / (nz_box-nstart+1)
-      enddo
+  do j=1,NSPEC
+     xhensum = 0._dp
+     xalsum  = 0._dp
+     xvmsum  = 0._dp
+     do k=nstart,nz_box
+        xhensum = xhensum + henry(j,k)
+        xalsum  = xalsum  + alpha(j,k)
+        xvmsum  = xvmsum  + vmean(j,k)
+     enddo
+     henry(j,n_bl)  = xhensum / (nz_box-nstart+1)
+     alpha(j,n_bl)  = xalsum  / (nz_box-nstart+1)
+     vmean(j,n_bl)  = xvmsum  / (nz_box-nstart+1)
+  enddo
 
 ! particle size distribution
 ! some logical mistake - leeds to very low LWC after next call to SR cw_rc
 !      do ia=1,nka
-!         ffsum(ia) = 0.
+!         ffsum(ia) = 0._dp
 !      enddo
 !! "dry" the aerosol and sum up
 !      do k=nstart,nz_box
 !         do ia=1,nka
 !            do jt=1,nkt
-!               fs(k,ia)=fs(k,ia)+ff(jt,ia,k)
+!               fs(ia,k)=fs(ia,k)+ff(jt,ia,k)
 !            enddo
-!            ffsum(ia)=ffsum(ia)+fs(k,ia)
+!            ffsum(ia)=ffsum(ia)+fs(ia,k)
 !         enddo
 !      enddo
 !! average
 !      do ia=1,nka
-!         ff(1,ia,n_bl)=ffsum(ia)  / (nz_box-nstart+1)
+!         ff(1,ia,n_bl) = ffsum(ia) / (nz_box-nstart+1)
 !         do jt=2,nkt
-!            ff(jt,ia,n_bl)=0.
+!            ff(jt,ia,n_bl) = 0._dp
 !         enddo
 !      enddo
 
-      end subroutine ave_aer
+end subroutine ave_aer
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine ave_tot (n_bl,nz_box)
-! average k_mt over BL in box model if BL_box=.true.
+subroutine ave_tot (n_bl,nz_box)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! average k_mt over BL in box model if BL_box=.true.
+
+! Modifications :
+! -------------
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           nkc
+       nf, &
+       nkc
 
   USE precision, ONLY : &
 ! Imported Parameters:
        dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'tot_Parameters.h' !additional common blocks and other definitions
+  include 'tot_Parameters.h' !additional common blocks and other definitions
 
-      common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      real(kind=dp) :: henry, xkmt, xkef, xkeb
-      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+! Subroutine arguments
+  integer, intent(in) :: n_bl, nz_box
+
+! Local scalars:
+  integer :: j, k, kc, nstart
+  real (kind=dp) :: xalsum, xhensum, xkbsum, xkfsum, xkmsum, xvmsum
+
+! Common blocks:
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real(kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+
+! == End of declarations =======================================================
 
 ! start averaging one level above "working level"
 ! - semi hard coded for n_bl = 2
-      nstart = 2
-      if (n_bl.eq.2) nstart = 3
+  nstart = 2
+  if (n_bl.eq.2) nstart = 3
 
 
-      do j=1,NSPEC
-         do kc=1,nkc
-            xkmsum = 0.
-            xkfsum = 0.
-            xkbsum = 0.
-            do k=nstart,nz_box
-               xkmsum = xkmsum + xkmt(k,kc,j)
-               xkfsum = xkfsum + xkef(k,kc,j)
-               xkbsum = xkbsum + xkeb(k,kc,j)
-            enddo
-            xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
-            xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
-            xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
-         enddo
-      enddo
+  do j=1,NSPEC
+     do kc=1,nkc
+        xkmsum = 0._dp
+        xkfsum = 0._dp
+        xkbsum = 0._dp
+        do k=nstart,nz_box
+           xkmsum = xkmsum + xkmt(k,kc,j)
+           xkfsum = xkfsum + xkef(k,kc,j)
+           xkbsum = xkbsum + xkeb(k,kc,j)
+        enddo
+        xkmt(n_bl,kc,j) = xkmsum / (nz_box-nstart+1)
+        xkef(n_bl,kc,j) = xkfsum / (nz_box-nstart+1)
+        xkeb(n_bl,kc,j) = xkbsum / (nz_box-nstart+1)
+     enddo
+  enddo
 
-      do j=1,NSPEC
-         xhensum = 0.
-         xalsum  = 0.
-         xvmsum  = 0.
-         do k=nstart,nz_box
-            xhensum = xhensum + henry(j,k)
-            xalsum  = xalsum  + alpha(j,k)
-            xvmsum  = xvmsum  + vmean(j,k)
-         enddo
-         henry(j,n_bl)  = xhensum / (nz_box-nstart+1)
-         alpha(j,n_bl)  = xalsum  / (nz_box-nstart+1)
-         vmean(j,n_bl)  = xvmsum  / (nz_box-nstart+1)
-      enddo
+  do j=1,NSPEC
+     xhensum = 0._dp
+     xalsum  = 0._dp
+     xvmsum  = 0._dp
+     do k=nstart,nz_box
+        xhensum = xhensum + henry(j,k)
+        xalsum  = xalsum  + alpha(j,k)
+        xvmsum  = xvmsum  + vmean(j,k)
+     enddo
+     henry(j,n_bl)  = xhensum / (nz_box-nstart+1)
+     alpha(j,n_bl)  = xalsum  / (nz_box-nstart+1)
+     vmean(j,n_bl)  = xvmsum  / (nz_box-nstart+1)
+  enddo
 
-      end subroutine ave_tot
+end subroutine ave_tot
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine print_k_mt_a
+subroutine print_k_mt_a
+! jjb: this routine is currently not called
 
-
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           nkc
+       nf, &
+       nkc
 
   USE precision, ONLY : &
 ! Imported Parameters:
        dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  include 'aer_Parameters.h' !additional common blocks and other definitions
 
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+! Local scalars:
+  integer :: k
 
-      print *,'print aerosol kmt'
-      do k=1,nf
-         print *,k,xkmt(k,1,ind_O3),xkmt(k,2,ind_O3)
-      enddo
+! Common blocks:
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real (kind=dp) :: henry, xkmt, xkef, xkeb
 
-      end subroutine print_k_mt_a
+  print *,'print aerosol kmt'
+  do k=1,nf
+     print *,k,xkmt(k,1,ind_O3),xkmt(k,2,ind_O3)
+  enddo
 
+end subroutine print_k_mt_a
 
 
 !
 !-------------------------------------------------------
 !
 
-      subroutine set_box_gas (nlevbox,n_bl)
-!     pick the values from the designated level: nlevbox
+subroutine set_box_gas (nlevbox,n_bl)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! pick the values from the designated level: nlevbox
+
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           n
+       n
 
   USE precision, ONLY : &
 ! Imported Parameters:
        dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'gas_Parameters.h' !additional common blocks and other definitions
+  include 'gas_Parameters.h' !additional common blocks and other definitions
 
-      common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
-      real (kind=dp) :: xkmtd, henry, xeq
+! Subroutine arguments
+  integer, intent(in) :: nlevbox, n_bl
 
-      do kc=1,2!nkc
-         do j=1,NSPEC
-            xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
-         enddo
-      enddo
+! Local scalars:
+  integer :: j, kc
 
-      end subroutine set_box_gas
+! Common blocks:
+  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  real (kind=dp) :: xkmtd, henry, xeq
+
+! == End of declarations =======================================================
+
+  do kc=1,2!nkc
+     do j=1,NSPEC
+        xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
+     enddo
+  enddo
+
+end subroutine set_box_gas
 
 !
 !-------------------------------------------------------
 !
 
-      subroutine set_box_lev_a (nlevbox,n_bl)
-!     pick the values from the designated level: nlevbox
+subroutine set_box_lev_a (nlevbox,n_bl)
 
-      USE global_params, ONLY : &
+! Description :
+! -----------
+  ! pick the values from the designated level: nlevbox
+
+! Modifications :
+! -------------
+  ! jjb: removed unused: acm
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nka, &
-           nkt, &
-           nkc, &
-           mb
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc, &
+       mb
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  include 'aer_Parameters.h' !additional common blocks and other definitions
 
-      common /cb11/ totrad (mb,n)
-      double precision totrad
+! Subroutine arguments
+  integer, intent(in) :: nlevbox, n_bl
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+! Local scalars:
+  integer :: ia, j, jt, kc
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /blck01/ am3(n),cm3(n)
-      real (kind=dp) :: am3, cm3
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /blck13/ conv2(nkc,n)
-      real (kind=dp) :: conv2
-!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /blck13/ conv2(nkc,n)
+  real (kind=dp) :: conv2
+
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-      common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+  real (kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+  common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+  real (kind=dp) :: xkmtd, xeq
 
-      do kc=1,2!nkc
-!         acm(n_bl,kc)  = acm(nlevbox,kc) ! jjb removed
-!        conv2(n_bl,kc)= conv2(nlevbox,kc)! jjb updated
-         conv2(kc,n_bl) = conv2(kc,nlevbox)
-         cw(kc,n_bl)   = cw(kc,nlevbox)
-         rc(kc,n_bl)  = rc(kc,nlevbox)
-         do j=1,NSPEC
-            xkmt(n_bl,kc,j) = xkmt(nlevbox,kc,j)
-            xkef(n_bl,kc,j) = xkef(nlevbox,kc,j)
-            xkeb(n_bl,kc,j) = xkeb(nlevbox,kc,j)
-            xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
-         enddo
-      enddo
+! == End of declarations =======================================================
 
-      am3(n_bl) = am3(nlevbox)
-!      am3(n_bl,2) = am3(nlevbox,2)
-      cm3(n_bl) = cm3(nlevbox)
-!      cm3(n_bl,2) = cm3(nlevbox,2)
+  do kc=1,2!nkc
+     conv2(kc,n_bl) = conv2(kc,nlevbox)
+     cw(kc,n_bl)    = cw(kc,nlevbox)
+     rc(kc,n_bl)    = rc(kc,nlevbox)
+     do j=1,NSPEC
+        xkmt(n_bl,kc,j)  = xkmt(nlevbox,kc,j)
+        xkef(n_bl,kc,j)  = xkef(nlevbox,kc,j)
+        xkeb(n_bl,kc,j)  = xkeb(nlevbox,kc,j)
+        xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
+     enddo
+  enddo
 
-      p(n_bl)     = p(nlevbox)
-      rho(n_bl)   = rho(nlevbox)
-      t(n_bl)     = t(nlevbox)
-      totrad(1,n_bl) = totrad(1,nlevbox) ! jjb check this. Why is only the first wavelength band picked up?
+  am3(n_bl) = am3(nlevbox)
+  cm3(n_bl) = cm3(nlevbox)
+  p(n_bl)   = p(nlevbox)
+  rho(n_bl) = rho(nlevbox)
+  t(n_bl)   = t(nlevbox)
+  totrad(1,n_bl) = totrad(1,nlevbox) ! jjb check this. Why is only the first wavelength band picked up?
 
-      do j=1,NSPEC
-         alpha(j,n_bl) = alpha(j,nlevbox)
-         henry(j,n_bl) = henry(j,nlevbox)
-         vmean(j,n_bl) = vmean(j,nlevbox)
-      enddo
+  do j=1,NSPEC
+     alpha(j,n_bl) = alpha(j,nlevbox)
+     henry(j,n_bl) = henry(j,nlevbox)
+     vmean(j,n_bl) = vmean(j,nlevbox)
+  enddo
 
 ! SR cw_rc is still being called, therefore also init f
-      do ia=1,nka
-         do jt=1,nkt
-            ff(jt,ia,n_bl) = ff(jt,ia,nlevbox)
-         enddo
-      enddo
+  do ia=1,nka
+     do jt=1,nkt
+        ff(jt,ia,n_bl) = ff(jt,ia,nlevbox)
+     enddo
+  enddo
 
-      end subroutine set_box_lev_a
-
-!
-!-------------------------------------------------------
-!
-
-
-      subroutine set_box_lev_t (nlevbox,n_bl)
-!     pick the values from the designated level: nlevbox
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-           nf, &
-           n, &
-           nkc, &
-           mb
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit double precision (a-h,o-z)
-
-      include 'tot_Parameters.h' !additional common blocks and other definitions
-
-      common /cb11/ totrad (mb,n)
-      double precision totrad
-
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /blck01/ am3(n),cm3(n)
-      real (kind=dp) :: am3, cm3
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /blck13/ conv2(nkc,n)
-      real (kind=dp) :: conv2
-!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-      common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      real(kind=dp) :: henry, xkmt, xkef, xkeb
-      common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
-
-
-      xph3=0.
-      xph4=0.
-      if (cm(n_bl,3).gt.0.) xph3 = 1.
-      if (cm(n_bl,4).gt.0.) xph4 = 1.
-
-      if (xph3.eq.1..and.xph4.eq.1.) return
-
-      do kc=1,nkc
-!         acm(n_bl,kc)  = acm(nlevbox,kc) ! jjb removed
-!        conv2(n_bl,kc)= conv2(nlevbox,kc) ! jjb updated
-         conv2(kc,n_bl) = conv2(kc,nlevbox)
-         cw(kc,n_bl) = cw(kc,nlevbox)
-         rc(kc,n_bl) = rc(kc,nlevbox)
-         do j=1,NSPEC
-            xkmt(n_bl,kc,j) = xkmt(nlevbox,kc,j)
-            xkef(n_bl,kc,j) = xkef(nlevbox,kc,j)
-            xkeb(n_bl,kc,j) = xkeb(nlevbox,kc,j)
-         enddo
-      enddo
-
-      am3(n_bl) = am3(nlevbox)
-!      am3(n_bl,2) = am3(nlevbox,2)
-      cm3(n_bl) = cm3(nlevbox)
-!      cm3(n_bl,2) = cm3(nlevbox,2)
-
-      p(n_bl)     = p(nlevbox)
-      rho(n_bl)   = rho(nlevbox)
-      t(n_bl)     = t(nlevbox)
-      totrad(1,n_bl) = totrad(1,nlevbox) ! jjb check this. Why is only the first wavelength band picked up?
-
-      do j=1,NSPEC
-         alpha(j,n_bl) = alpha(j,nlevbox)
-         henry(j,n_bl) = henry(j,nlevbox)
-         vmean(j,n_bl) = vmean(j,nlevbox)
-      enddo
-
-      end subroutine set_box_lev_t
-
+end subroutine set_box_lev_a
 
 !
 !-------------------------------------------------------
 !
 
-      subroutine print_vals (nlevbox,n_bl)
+
+subroutine set_box_lev_t (nlevbox,n_bl)
+
+! Description :
+! -----------
+  ! pick the values from the designated level: nlevbox
+
+! Modifications :
+! -------------
+  ! jjb: removed unused: acm
+  ! jjb: added all declarations and implicit none
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nf, &
+       n, &
+       nkc, &
+       mb
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  include 'tot_Parameters.h' !additional common blocks and other definitions
+
+! Subroutine arguments
+  integer, intent(in) :: nlevbox, n_bl
+
+! Local scalars:
+  integer :: j, kc
+  real (kind=dp) :: xph3, xph4
+
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /blck13/ conv2(nkc,n)
+  real (kind=dp) :: conv2
+
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+  common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real(kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
+
+! == End of declarations =======================================================
+
+  xph3 = 0._dp
+  xph4 = 0._dp
+  if (cm(3,n_bl).gt.0.) xph3 = 1._dp
+  if (cm(4,n_bl).gt.0.) xph4 = 1._dp
+
+  if (xph3.eq.1._dp .and. xph4.eq.1._dp) return ! jjb ??? that is the purpose of this SR to deal with bins 1-4
+
+  do kc=1,nkc
+     conv2(kc,n_bl) = conv2(kc,nlevbox)
+     cw(kc,n_bl)    = cw(kc,nlevbox)
+     rc(kc,n_bl)    = rc(kc,nlevbox)
+     do j=1,NSPEC
+        xkmt(n_bl,kc,j) = xkmt(nlevbox,kc,j)
+        xkef(n_bl,kc,j) = xkef(nlevbox,kc,j)
+        xkeb(n_bl,kc,j) = xkeb(nlevbox,kc,j)
+     enddo
+  enddo
+
+  am3(n_bl) = am3(nlevbox)
+  cm3(n_bl) = cm3(nlevbox)
+  p(n_bl)   = p(nlevbox)
+  rho(n_bl) = rho(nlevbox)
+  t(n_bl)   = t(nlevbox)
+  totrad(1,n_bl) = totrad(1,nlevbox) ! jjb check this. Why is only the first wavelength band picked up?
+
+  do j=1,NSPEC
+     alpha(j,n_bl) = alpha(j,nlevbox)
+     henry(j,n_bl) = henry(j,nlevbox)
+     vmean(j,n_bl) = vmean(j,nlevbox)
+  enddo
+
+end subroutine set_box_lev_t
+
+
+!
+!-------------------------------------------------------
+!
+
+subroutine print_vals (nlevbox,n_bl)
 !     test output
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           nf, &
-           n, &
-           nkc, &
-           mb
+       nf, &
+       n, &
+       nkc, &
+       mb
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      include 'aer_Parameters.h' !additional common blocks and other definitions
+  include 'aer_Parameters.h' !additional common blocks and other definitions
 
-      common /cb11/ totrad (mb,n)
-      double precision totrad
+! Subroutine arguments
+  integer, intent(in) :: nlevbox, n_bl
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Local scalars:
+  integer :: j, kc, k
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /blck01/ am3(n),cm3(n)
-      real (kind=dp) :: am3, cm3
-      common /blck11/ rc(nkc,n)
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /blck13/ conv2(nkc,n)
-      real (kind=dp) :: conv2
-!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-      common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
-           xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
-      common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck11/ rc(nkc,n)
+  real (kind=dp) :: rc
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /blck13/ conv2(nkc,n)
+  real (kind=dp) :: conv2
+
+  common /cb11/ totrad (mb,n)
+  real (kind=dp) :: totrad
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+
+  common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
+       xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+  real(kind=dp) :: henry, xkmt, xkef, xkeb
+  common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
+  real (kind=dp) :: alpha, vmean
 
 
-      print *,'output info', lst,lmin
+  print *,'output info', lst,lmin
 
-      k=n_bl
+  k=n_bl
 
-      print *,'k = ',k
-      do kc=1,2!nkc
-         print *,'kc = ',kc
-!        print *,acm(k,kc),conv2(k,kc),cw(k,kc) ! jjb acm removed
-         print *,conv2(kc,k),cw(kc,k)
-         print *,rc(kc,k),cm(kc,k)
-         do j=1,NSPEC
-            print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
-         enddo
-      enddo
+  print *,'k = ',k
+  do kc=1,2!nkc
+     print *,'kc = ',kc
+     print *,conv2(kc,k),cw(kc,k)
+     print *,rc(kc,k),cm(kc,k)
+     do j=1,NSPEC
+        print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
+     enddo
+  enddo
 
-      print *,'parameters'
-!     print *,am3(k,1),am3(k,2),p(k) ! jjb am3 CO removed
-      print *,am3(k),p(k)
-!     print *,cm3(k,1),cm3(k,2),rho(k) ! jjb cm3 CO removed
-      print *,cm3(k),rho(k)
-      print *,t(k), totrad(1,k)
+  print *,'parameters'
+  print *,am3(k),p(k)
+  print *,cm3(k),rho(k)
+  print *,t(k), totrad(1,k)
 
-      print *,'alpha,henry,vmean'
-      do j=1,NSPEC
-         print *,alpha(j,k), henry(j,k), vmean(j,k)
-      enddo
+  print *,'alpha,henry,vmean'
+  do j=1,NSPEC
+     print *,alpha(j,k), henry(j,k), vmean(j,k)
+  enddo
 
-      k=nlevbox
+  k=nlevbox
 
-      print *,'crap'
+  print *,'crap'
 
-      print *,'k = ',k
-      do kc=1,2!nkc
-         print *,'kc = ',kc
-!        print *,acm(k,kc),conv2(k,kc),cw(k,kc) ! jjb acm removed
-         print *,conv2(kc,k),cw(kc,k)
-         print *,rc(kc,k),cm(kc,k)
-         do j=1,NSPEC
-            print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
-         enddo
-      enddo
+  print *,'k = ',k
+  do kc=1,2!nkc
+     print *,'kc = ',kc
+     print *,conv2(kc,k),cw(kc,k)
+     print *,rc(kc,k),cm(kc,k)
+     do j=1,NSPEC
+        print *,xkmt(k,kc,j),xkef(k,kc,j),xkeb(k,kc,j)
+     enddo
+  enddo
 
-      print *,'parameters'
-!     print *,am3(k,1),am3(k,2),p(k) ! jjb am3 CO removed
-      print *,am3(k),p(k)
-!     print *,cm3(k,1),cm3(k,2),rho(k) ! jjb cm3 CO removed
-      print *,cm3(k),rho(k)
-      print *,t(k), totrad(1,k)
+  print *,'parameters'
+  print *,am3(k),p(k)
+  print *,cm3(k),rho(k)
+  print *,t(k), totrad(1,k)
 
-      print *,'alpha,henry,vmean'
-      do j=1,NSPEC
-         print *,alpha(j,k), henry(j,k), vmean(j,k)
-      enddo
+  print *,'alpha,henry,vmean'
+  do j=1,NSPEC
+     print *,alpha(j,k), henry(j,k), vmean(j,k)
+  enddo
 
-      print *,' used for k=n_bl'
-      k=n_bl
-      do kc=1,2                 !nkc
-         print *,k,kc,cw(kc,k)
-         print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
-                 xkmt(k,kc,ind_HNO3)
-      enddo
+  print *,' used for k=n_bl'
+  k=n_bl
+  do kc=1,2                 !nkc
+     print *,k,kc,cw(kc,k)
+     print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
+             xkmt(k,kc,ind_HNO3)
+  enddo
 
-      print *,'now column vals'
-      do k=1,nf
-         do kc=1,2!nkc
-            print *,k,kc,cw(kc,k)
-            print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
-                 xkmt(k,kc,ind_HNO3)
-         enddo
-      enddo
+  print *,'now column vals'
+  do k=1,nf
+     do kc=1,2!nkc
+        print *,k,kc,cw(kc,k)
+        print *,xkmt(k,kc,ind_O3),xkmt(k,kc,ind_HCl), &
+                xkmt(k,kc,ind_HNO3)
+     enddo
+  enddo
 
-      end subroutine print_vals
+end subroutine print_vals
 
 !
 !-------------------------------------------------------
 !
 ! jjb commented as unused 24/03/2016
 
-!$$$      subroutine gamma_surf (box,n_bl)
-!$$$c     calculation of reaction rate coefficients for surface reactions
-!$$$c     note that the value that is used here for the accommodation
-!$$$c     coefficient is in fact a reaction probability (=gamma)
-!$$$c     after Knipping and Dabdub 2002 (#1692) and von Glasow (2006)
-!$$$
-!$$$! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
-!$$$! but no mean values used (like in SR k_mt_a/t) but integrated values
-!$$$
-!$$$      USE global_params, ONLY : &
-!$$$! Imported Parameters:
-!$$$           j2,
-!$$$           j6,
-!$$$           nf,
-!$$$           n,
-!$$$           nka,
-!$$$           nkt,
-!$$$           nkc
-!$$$
-!$$$      USE precision, ONLY : &
-!$$$! Imported Parameters:
-!$$$           dp
-!$$$
-!$$$      implicit double precision (a-h,o-z)
-!$$$      logical box
-!$$$
-!$$$      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-!$$$                    e(nkt),dew(nkt),rq(nkt,nka)
-!$$$      double precision enw,ew,rn,rw,en,e,dew,rq
-!$$$      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-!$$$      real (kind=dp) :: ff, fsum
-!$$$      integer :: nar
-!$$$
-!$$$      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-!$$$      real(kind=dp) :: theta, thetl, t, talt, p, rho
-!$$$      common /blck06/ kw(nka),ka
-!$$$      integer :: kw, ka
-!$$$      common /blck12/ cw(nkc,n),cm(nkc,n)
-!$$$      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-!$$$      real (kind=dp) :: sl1, sion1
-!$$$!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-!$$$!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
-!$$$!           (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-!$$$!     common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc) ! jjb none of the objects of the common block is used
-!$$$!     real (kind=dp) :: vt, vd, vdm
-!$$$      common /k_surf/ xkmt_OHClm(nf,nkc)
-!$$$
-!$$$      dimension freep(nf),rqm(nkt,nka),xkmt_surf(nf,nkc)
-!$$$
-!$$$      func(a,k)=dsqrt(t(k)/a)*4.60138
-!$$$
-!$$$! change rq in um to rqm in m
-!$$$      do ia=1,nka
-!$$$         do jt=1,nkt
-!$$$            rqm(jt,ia)=rq(jt,ia)*1.d-6
-!$$$         enddo
-!$$$      enddo
-!$$$
-!$$$      nmin=2
-!$$$      nmax=nf
-!$$$      if (box) then
-!$$$        nmin=n_bl
-!$$$        nmax=n_bl
-!$$$      endif
-!$$$
-!$$$! free path length (lambda=freep):
-!$$$      do k=nmin,nmax
-!$$$         freep(k)=2.28d-5 * t(k) / p(k)
-!$$$      enddo
-!$$$! loop over vertical grid
-!$$$      do 1000 k=nmin,nmax
-!$$$         vmean_OH= func(1.7d-2,k)
-!$$$! loop over the nkc different chemical bins
-!$$$         do kc=1,4
-!$$$            if (cm(kc,k).eq.0.) goto 1001 ! switch changed from cw
-!$$$! define summation limits (1) ---
-!$$$            if (kc.eq.1) then
-!$$$               iia_0=1
-!$$$               iia_e=ka
-!$$$            endif
-!$$$            if (kc.eq.2) then
-!$$$               iia_0=ka+1
-!$$$               iia_e=nka
-!$$$            endif
-!$$$            if (kc.eq.3) then
-!$$$               iia_0=1
-!$$$               iia_e=ka
-!$$$            endif
-!$$$            if (kc.eq.4) then
-!$$$               iia_0=ka+1
-!$$$               iia_e=nka
-!$$$            endif
-!$$$! fast version without logarithmic integration
-!$$$            x1=0.
-!$$$            xk1=0.
-!$$$! --- OH + Cl- --> 0.5 Cl2 + OH- ---
-!$$$! "best guess": use alpha from Knipping and Dabdub and gas phase limitation:
-!$$$! alpha = 0.02 * gamma_s * [Cl-], where [Cl-] is in mol/l, gamma_s=2
-!$$$! C(ind_Clmlx) / LWC *1.d-3:  in mol/m3_air * m3_air/m3_aq * m3_aq/l_aq
-!$$$            if (cw(kc,k).gt.0.) then
-!$$$               gamma = min(1.,4.d-5*sion1(14,kc,k)/cw(kc,k))
-!$$$            else
-!$$$               gamma = 0.d0
-!$$$            end if
-!$$$            if (gamma.gt.0.) x1= 4./(3. * gamma)
-!$$$! -------------------------------------------
-!$$$            do ia=iia_0,iia_e
-!$$$! define summation limits (2)
-!$$$               if (kc.eq.1) then
-!$$$                  jjt_0=1
-!$$$                  jjt_e=kw(ia)
-!$$$               endif
-!$$$               if (kc.eq.2) then
-!$$$                  jjt_0=1
-!$$$                  jjt_e=kw(ia)
-!$$$               endif
-!$$$               if (kc.eq.3) then
-!$$$                  jjt_0=kw(ia)+1
-!$$$                  jjt_e=nkt
-!$$$               endif
-!$$$               if (kc.eq.4) then
-!$$$                  jjt_0=kw(ia)+1
-!$$$                  jjt_e=nkt
-!$$$               endif
-!$$$               do jt=jjt_0,jjt_e
-!$$$! conversion: um      --> m               :10^-6
-!$$$                  rqq=rqm(jt,ia)
-!$$$! kt=1./(r^2/(3*D_g)+4*r/(3*vmean*alpha))=vmean/r*1/(r/lambda+4/(3*alpha))
-!$$$!     with D_g=lambda*vmean/3.
-!$$$! here a volume weighted value is calculated, therefore weighting with r^3:
-!$$$! kmt=4/3*piL*/sum(a)*sum(r){r^3*N*kt}
-!$$$! --- OH + Cl- --> 0.5 Cl2 + OH- ----
-!$$$                  x2=vmean_OH/(rqq/freep(k)+x1) ![1/s]
-!$$$! conversion: 1/cm^3 --> 1/m^3(air):10^6
-!$$$                  xk1=xk1+x2*rqq*rqq*ff(jt,ia,k)*1.d6
-!$$$               enddo            !jt
-!$$$            enddo               !ia
-!$$$! k_mt=4*pi/(3*LWC)*sum
-!$$$            if (cw(kc,k).gt.0.d0) then
-!$$$!               xkmt_surf(k,kc)=4.*3.1415927/(3.*cw(kc,k))*xk1 ![1/s]
-!$$$               xkmt_surf(k,kc)=4.*pi/(3.*cw(kc,k))*xk1 ![1/s]
-!$$$            end if
-!$$$
-!$$$! kmt is supposed to be a first-order rate coefficient but in KPP kmt will
-!$$$! be multiplied by [Cl-]/[Br-], so divide by [X-] here:
-!$$$
-!$$$            if (sion1(14,kc,k).gt.0.) &
-!$$$                 xkmt_OHClm(k,kc)=xkmt_surf(k,kc)/sion1(14,kc,k)
-!$$$
-!$$$!            print *,'SR gamma_surf'
-!$$$!            print *,lday,lst,lmin
-!$$$!            print *,k,kc,cw(k,kc)!,sion1(14,kc,k)
-!$$$!            print *,xkmt_OHClm(k,kc)
-!$$$! multiply with conc of X- to get "real" kmt:
-!$$$!            print *,xkmt_OHClm(k,kc)*sion1(14,kc,k),xkmt_OHClm(k,kc)* &
-!$$$!                 sion1(24,kc,k)
-!$$$
-!$$$ 1001       continue
-!$$$         enddo                  ! kc
-!$$$
-!$$$ 1000 continue                  !k
-!$$$
-!$$$      end subroutine gamma_surf
-
+!!$subroutine gamma_surf (box,n_bl, freep)
+!!$!     calculation of reaction rate coefficients for surface reactions
+!!$!     note that the value that is used here for the accommodation
+!!$!     coefficient is in fact a reaction probability (=gamma)
+!!$!     after Knipping and Dabdub 2002 (#1692) and von Glasow (2006)
+!!$
+!!$! transfer coefficient after Schwarz, 1986 (see Sander & Crutzen '96, JGR, 9127)
+!!$! but no mean values used (like in SR k_mt_a/t) but integrated values
+!!$
+!!$  USE constants, ONLY : &
+!!$! Imported Parameters:
+!!$       pi
+!!$
+!!$  USE global_params, ONLY : &
+!!$! Imported Parameters:
+!!$       j2, &
+!!$       j6, &
+!!$       nf, &
+!!$       n, &
+!!$       nka, &
+!!$       nkt, &
+!!$       nkc
+!!$
+!!$  USE precision, ONLY : &
+!!$! Imported Parameters:
+!!$       dp
+!!$
+!!$  implicit none
+!!$
+!!$  logical, intent(in) :: box
+!!$  integer, intent(in) :: n_bl
+!!$  real (kind=dp), intent(in) :: freep(n)
+!!$
+!!$  integer :: ia, iia_0, iia_e, jt, jjt_0, jjt_e
+!!$  integer :: k, kc, nmin, nmax
+!!$  real (kind=dp) :: gamma, rqq, vmean_OH, x1, x2, xk1
+!!$  real (kind=dp) :: rqm(nkt,nka),xkmt_surf(nf,nkc)
+!!$
+!!$  common /blck06/ kw(nka),ka
+!!$  integer :: kw, ka
+!!$  common /blck12/ cw(nkc,n),cm(nkc,n)
+!!$  real(kind=dp) :: cw, cm
+!!$  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+!!$  real (kind=dp) :: sl1, sion1
+!!$
+!!$  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+!!$                e(nkt),dew(nkt),rq(nkt,nka)
+!!$  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+!!$  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+!!$  real (kind=dp) :: ff, fsum
+!!$  integer :: nar
+!!$  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+!!$  real(kind=dp) :: theta, thetl, t, talt, p, rho
+!!$  common /k_surf/ xkmt_OHClm(nf,nkc)
+!!$  real (kind=dp) :: xkmt_OHClm
+!!$
+!!$! Statement function
+!!$  real (kind=dp) :: func, a
+!!$  func(a,k)=dsqrt(t(k)/a)*4.60138
+!!$
+!!$! change rq in um to rqm in m
+!!$  do ia=1,nka
+!!$     do jt=1,nkt
+!!$        rqm(jt,ia)=rq(jt,ia)*1.d-6
+!!$     enddo
+!!$  enddo
+!!$
+!!$  nmin=2
+!!$  nmax=nf
+!!$  if (box) then
+!!$     nmin=n_bl
+!!$     nmax=n_bl
+!!$  endif
+!!$
+!!$! loop over vertical grid
+!!$  do k=nmin,nmax
+!!$     vmean_OH = func(1.7d-2,k)
+!!$! loop over the nkc different chemical bins
+!!$     do kc=1,4
+!!$        if (cm(kc,k).gt.0.) then ! switch changed from cw
+!!$! define summation limits (1) ---
+!!$           if (kc.eq.1) then
+!!$              iia_0=1
+!!$              iia_e=ka
+!!$           endif
+!!$           if (kc.eq.2) then
+!!$              iia_0=ka+1
+!!$              iia_e=nka
+!!$           endif
+!!$           if (kc.eq.3) then
+!!$              iia_0=1
+!!$              iia_e=ka
+!!$           endif
+!!$           if (kc.eq.4) then
+!!$              iia_0=ka+1
+!!$              iia_e=nka
+!!$           endif
+!!$! fast version without logarithmic integration
+!!$           x1=0._dp
+!!$           xk1=0._dp
+!!$! --- OH + Cl- --> 0.5 Cl2 + OH- ---
+!!$! "best guess": use alpha from Knipping and Dabdub and gas phase limitation:
+!!$! alpha = 0.02 * gamma_s * [Cl-], where [Cl-] is in mol/l, gamma_s=2
+!!$! C(ind_Clmlx) / LWC *1.d-3:  in mol/m3_air * m3_air/m3_aq * m3_aq/l_aq
+!!$           if (cw(kc,k).gt.0.) then
+!!$              gamma = min(1.,4.d-5*sion1(14,kc,k)/cw(kc,k))
+!!$           else
+!!$              gamma = 0.d0
+!!$           end if
+!!$           if (gamma.gt.0.) x1= 4./(3. * gamma)
+!!$! -------------------------------------------
+!!$           do ia=iia_0,iia_e
+!!$! define summation limits (2)
+!!$              if (kc.eq.1) then
+!!$                 jjt_0=1
+!!$                 jjt_e=kw(ia)
+!!$              endif
+!!$              if (kc.eq.2) then
+!!$                 jjt_0=1
+!!$                 jjt_e=kw(ia)
+!!$              endif
+!!$              if (kc.eq.3) then
+!!$                 jjt_0=kw(ia)+1
+!!$                 jjt_e=nkt
+!!$              endif
+!!$              if (kc.eq.4) then
+!!$                 jjt_0=kw(ia)+1
+!!$                 jjt_e=nkt
+!!$              endif
+!!$              do jt=jjt_0,jjt_e
+!!$! conversion: um      --> m               :10^-6
+!!$                 rqq=rqm(jt,ia)
+!!$! kt=1./(r^2/(3*D_g)+4*r/(3*vmean*alpha))=vmean/r*1/(r/lambda+4/(3*alpha))
+!!$!     with D_g=lambda*vmean/3.
+!!$! here a volume weighted value is calculated, therefore weighting with r^3:
+!!$! kmt=4/3*piL*/sum(a)*sum(r){r^3*N*kt}
+!!$! --- OH + Cl- --> 0.5 Cl2 + OH- ----
+!!$                 x2=vmean_OH/(rqq/freep(k)+x1) ![1/s]
+!!$! conversion: 1/cm^3 --> 1/m^3(air):10^6
+!!$                 xk1=xk1+x2*rqq*rqq*ff(jt,ia,k)*1.d6
+!!$              enddo            !jt
+!!$           enddo               !ia
+!!$! k_mt=4*pi/(3*LWC)*sum
+!!$           if (cw(kc,k).gt.0.d0) then
+!!$!               xkmt_surf(k,kc)=4.*3.1415927/(3.*cw(kc,k))*xk1 ![1/s]
+!!$              xkmt_surf(k,kc)=4.*pi/(3.*cw(kc,k))*xk1 ![1/s]
+!!$           end if
+!!$
+!!$! kmt is supposed to be a first-order rate coefficient but in KPP kmt will
+!!$! be multiplied by [Cl-]/[Br-], so divide by [X-] here:
+!!$
+!!$           if (sion1(14,kc,k).gt.0.) &
+!!$                xkmt_OHClm(k,kc)=xkmt_surf(k,kc)/sion1(14,kc,k)
+!!$
+!!$!            print *,'SR gamma_surf'
+!!$!            print *,lday,lst,lmin
+!!$!            print *,k,kc,cw(k,kc)!,sion1(14,kc,k)
+!!$!            print *,xkmt_OHClm(k,kc)
+!!$! multiply with conc of X- to get "real" kmt:
+!!$!            print *,xkmt_OHClm(k,kc)*sion1(14,kc,k),xkmt_OHClm(k,kc)* &
+!!$!                 sion1(24,kc,k)
+!!$
+!!$        end if
+!!$     enddo                  ! kc
+!!$  end do                  !k
+!!$
+!!$end subroutine gamma_surf
 
 
 !
@@ -6845,422 +7015,462 @@ end subroutine activ_init
 ! third body reaction rate constants are formulated as pseudo
 ! second order: cm^3/s, so [aircc]=cm^3/s has to be used
 
-      double precision function farr (a,b)
+function farr (a,b)
 ! Arrhenius relation
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a
-      integer :: b
+  real (kind=dp) :: farr
+  real (kind=dp), intent(in) :: a
+  integer, intent(in) :: b
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      farr=a*exp(b/te)
-      end function farr
+  farr=a*exp(b/te)
+
+end function farr
 
 !----------------------------------------------------------------
 
-      double precision function farr_sp (a,b,c,d)
+function farr_sp (a,b,c,d)
 ! Arrhenius relation (with complex temperature dependence)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a,c
-      integer :: b,d
+  real (kind=dp) :: farr_sp
+  real (kind=dp), intent(in) :: a, c
+  integer, intent(in) :: b,d
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      farr_sp=a*((te/b)**c)*exp(d/te)
-      end function farr_sp
+  farr_sp=a*((te/b)**c)*exp(d/te)
+
+end function farr_sp
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3 (a1,a2,b1,b2,fc)
+function ATK_3 (a1,a2,b1,b2,fc)
 ! calculate third body reactions according to Atkinson '92
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
+  real (kind=dp) :: ATK_3
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,fc
+  real (kind=dp) :: a0,b0,x2
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,fc,x2
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  a0=a1*aircc*(te/300.)**a2
+  b0=b1*(te/300.)**b2
+  x2=fc
 
-      a0=a1*aircc*(te/300.)**a2
-      b0=b1*(te/300.)**b2
-      x2=fc
+  atk_3=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
 
-      atk_3=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3
+end function ATK_3
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3a (a1,a2,b1,b2,tfc)
+function ATK_3a (a1,a2,b1,b2,tfc)
 ! calculate third body reactions according to Atkinson '92
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,tfc,x2
+  real (kind=dp) :: ATK_3a
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,tfc
+  real (kind=dp) :: a0,b0,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*aircc*(te/300.)**a2
-      b0=b1*(te/300.)**b2
-      x2=exp(-te/tfc)
-      atk_3a=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3a
+  a0=a1*aircc*(te/300.)**a2
+  b0=b1*(te/300.)**b2
+  x2=exp(-te/tfc)
+  atk_3a=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+
+end function ATK_3a
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3c (a1,b1,fc)
+function ATK_3c (a1,b1,fc)
 ! calculate third body reactions according to Atkinson '92
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,b1,fc,x2
+  real (kind=dp) :: ATK_3c
+  real (kind=dp), intent(in) ::a1,b1,fc
+  real (kind=dp) :: a0,b0,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*exp(-10000./te)*aircc
-      b0=b1*exp(-10900./te)
-      x2=fc
-      if (fc.eq.0.) x2=exp(-te/250.)+exp(-1050./te)
-      atk_3c=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3c
+  a0=a1*exp(-10000./te)*aircc
+  b0=b1*exp(-10900./te)
+  x2=fc
+  if (fc.eq.0._dp) x2=exp(-te/250.)+exp(-1050./te)
+  atk_3c=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+
+end function ATK_3c
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3d (a1,b1,fc)
+function ATK_3d (a1,b1,fc)
 ! calculate third body reactions according to IUPAC 2004
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,b1,fc,x2
+  real (kind=dp) :: ATK_3d
+  real (kind=dp), intent(in) :: a1,b1,fc
+  real (kind=dp) :: a0,b0,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*exp(-8000./te)*aircc
-      b0=b1*exp(-8820./te)
-      x2=fc
-      atk_3d=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3d
+  a0=a1*exp(-8000./te)*aircc
+  b0=b1*exp(-8820./te)
+  x2=fc
+  atk_3d=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+
+end function ATK_3d
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3e (a1,a2,b1,b2,fc)
+function ATK_3e (a1,a2,b1,b2,fc)
 ! calculate third body reactions according to Atkinson '92 (used for OH + OIO)
 !  NOT USED: Plane et al., 2006 reported a pressure dependent rate coefficient
 !  from a theoretical study, however they suggested an Arrhenius relationship
 !  for use in atmospheric modelling
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,fc,x2
+  real (kind=dp) :: ATK_3e
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,fc
+  real (kind=dp) :: a0,b0,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*aircc*(te/300.)**a2
-      b0=b1*(te/300.)**b2*exp(46./te)
-      x2=fc
+  a0=a1*aircc*(te/300.)**a2
+  b0=b1*(te/300.)**b2*exp(46./te)
+  x2=fc
 
-      atk_3e=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3e
+  atk_3e=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+
+end function ATK_3e
 
 !----------------------------------------------------------------
 
-      double precision function ATK_3f (a1,a2,b1,b2,fc)
+function ATK_3f (a1,a2,b1,b2,fc)
 ! calculate third body reactions according to Atkinson '92 (used for OCLO + O3P)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,fc,x2
+  real (kind=dp) :: ATK_3f
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,fc
+  real (kind=dp) :: a0,b0,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*aircc*(te/298.)**a2
-      b0=b1*(te/298.)**b2
-      x2=fc
+  a0=a1*aircc*(te/298.)**a2
+  b0=b1*(te/298.)**b2
+  x2=fc
 
-      atk_3f=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      end function ATK_3f
+  atk_3f=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+
+end function ATK_3f
 
 !----------------------------------------------------------------
 
-      double precision function sHNO3 (a1,b1,a2,b2,a3,b3)
+function sHNO3 (a1,b1,a2,b2,a3,b3)
 ! calculate special rate function for OH + HNO3 (JPL 2003)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,a1,a2,a3,func,tte
-      integer :: b0,b1,b2,b3
+  real (kind=dp) :: sHNO3
+  real (kind=dp), intent(in) :: a1,a2,a3
+  integer, intent(in) :: b1,b2,b3
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      func(a0,b0)=a0*exp(b0*tte)
-      tte=1./te
-      sHNO3=func(a1,b1)+(func(a3,b3)*aircc/ &
-           (1+func(a3,b3)*aircc/func(a2,b2)))
-      end function sHNO3
+! Statement function:
+  real (kind=dp) :: a0, func, tte
+  integer :: b0
+  func(a0,b0)=a0*exp(b0*tte)
+
+  tte=1./te
+  sHNO3=func(a1,b1)+(func(a3,b3)*aircc/ &
+       (1+func(a3,b3)*aircc/func(a2,b2)))
+end function sHNO3
 
 !----------------------------------------------------------------
 
-      double precision function fbck (a1,a2,b1,b2,fc,ak,bk)
+function fbck (a1,a2,b1,b2,fc,ak,bk)
 ! calculate thermal decomposition rate from forward and
 ! equilibrium rate
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,fc,x1,x2,ak,bk
+  real (kind=dp) :: fbck
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,fc,ak,bk
+  real (kind=dp) :: a0,b0,x1,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*aircc*(te/300.d0)**a2
-      b0=b1*(te/300.d0)**b2
-      x2=fc
+  a0=a1*aircc*(te/300.d0)**a2
+  b0=b1*(te/300.d0)**b2
+  x2=fc
 
-      x1=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      fbck=x1/(ak*dexp(bk/te))
-      end function fbck
+  x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+  fbck=x1/(ak*dexp(bk/te))
+
+end function fbck
 
 !----------------------------------------------------------------
 
-      double precision function fbckJ (a1,a2,b1,b2,ak,bk)
+function fbckJ (a1,a2,b1,b2,ak,bk)
 ! calculate thermal decomposition rate from forward and
 ! equilibrium rate
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,x1,x2,ak,bk
+  real (kind=dp) :: fbckJ
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,ak,bk
+  real (kind=dp) :: a0,b0,x1,x2
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      a0=a1*aircc*(te/300.d0)**a2
-      b0=b1*(te/300.d0)**b2
-      x2= 0.6d0
+  a0=a1*aircc*(te/300.d0)**a2
+  b0=b1*(te/300.d0)**b2
+  x2= 0.6d0
 
-      x1=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      fbckJ=x1/(ak*dexp(bk/te))
-      end function fbckJ
+  x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+  fbckJ=x1/(ak*dexp(bk/te))
+
+end function fbckJ
 
 !----------------------------------------------------------------
 
-      double precision function fbck2 (a1,a2,b1,b2,fc,ck)
+function fbck2 (a1,a2,b1,b2,fc,ck)
 ! calculate thermal decomposition rate from forward and
 ! equilibrium rate (used for BrNO3 decomposition)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,b0,a1,a2,b1,b2,fc,x1,x2,ak,bk,ck
+  real (kind=dp) :: fbck2
+  real (kind=dp), intent(in) :: a1,a2,b1,b2,fc,ck
+  real (kind=dp) :: a0,b0,x1,x2,ak,bk
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
 ! parameters to calculate K_eq in atm-1 (Orlando and Tyndall, 1996)
-      ak=5.44d-9
-      bk=14192.d0
-      a0=a1*aircc*(te/300.)**a2
-      b0=b1*(te/300.)**b2
-      x2=fc
+  ak=5.44d-9
+  bk=14192.d0
+  a0=a1*aircc*(te/300.)**a2
+  b0=b1*(te/300.)**b2
+  x2=fc
 
-      x1=(a0/(1+a0/b0))*(x2**(1/(1+dlog10(a0/b0)* &
-           dlog10(a0/b0))))
-      fbck2 = 0.d0
-      if (ck.ne.0.d0) fbck2=x1/(ak*dexp(bk/te)*8.314/101325.*te/ck)
-      end function fbck2
+  x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+  fbck2 = 0.d0
+  if (ck.ne.0.d0) fbck2=x1/(ak*dexp(bk/te)*8.314/101325.*te/ck)
 
+end function fbck2
 
-!----------------------------------------------------------------
-
-      double precision function sp_17_old (a1)
-! calculate special rate function for rxn 17 (OH + CO)
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-      implicit none
-
-      real (kind=dp) :: a1
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
-
-      sp_17_old=a1*(1+0.6*pk/101325.) !(pressure in atm)
-      end function sp_17_old
 
 !----------------------------------------------------------------
 
-      double precision function sp_17 (a,b)
+function sp_17_old (a1)
 ! calculate special rate function for rxn 17 (OH + CO)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a,b
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: sp_17_old
+  real (kind=dp), intent(in) :: a1
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      sp_17=a*(1.d0+aircc/b) ! simpler IUPAC parametrization
+  sp_17_old=a1*(1+0.6*pk/101325.) !(pressure in atm)
+end function sp_17_old
+
+!----------------------------------------------------------------
+
+function sp_17 (a,b)
+! calculate special rate function for rxn 17 (OH + CO)
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real (kind=dp) :: sp_17
+  real (kind=dp), intent(in) :: a,b
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
+
+  sp_17=a*(1.d0+aircc/b) ! simpler IUPAC parametrization
 !$$$      sp_17=a1*(1+0.6*pk/101325.) !(pressure in atm)
-      end function sp_17
+end function sp_17
 
 !----------------------------------------------------------------
 
-      double precision function sp_23 (a1,b1,a2,b2,a3,b3)
+function sp_23 (a1,b1,a2,b2,a3,b3)
 ! calculate special rate function for rxn 23 (HO2+HO2 - including H2O correction)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0,a1,a2,a3,func,tte
-      integer :: b0,b1,b2,b3
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: sp_23
+  real (kind=dp), intent(in) :: a1,a2,a3
+  integer, intent(in) :: b1,b2,b3
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      func(a0,b0)=a0*exp(b0*tte)
-      tte=1./te
-      sp_23=(func(a1,b1)+func(a2*aircc,b2))* &
-           (1+(func(a3*aircc*h2oppm*1.0d-6,b3)))
-      end function sp_23
+! Statement function:
+  real (kind=dp) :: a0, func, tte
+  integer :: b0
+  func(a0,b0)=a0*exp(b0*tte)
+
+  tte=1./te
+  sp_23=(func(a1,b1)+func(a2*aircc,b2))* &
+       (1+(func(a3*aircc*h2oppm*1.0d-6,b3)))
+end function sp_23
 
 !----------------------------------------------------------------
 
-      double precision function sp_29 (a1,b1,a2,b2,c)
+function sp_29 (a1,b1,a2,b2,c)
 ! calculate special rate function for rxn 29
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a1,b1,a2,b2,c,fun1,fun2,fun3,num,den,z, &
-       a0,b0,c0,d0
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: sp_29
+  real (kind=dp), intent(in) :: a1,b1,a2,b2,c
+  real (kind=dp) :: num,den,z
 
-      fun1(a0,b0,c0)=a0*(b0**c0)
-      fun2(a0,b0)=1./(1.+(dlog10(a0/b0))*(dlog10(a0/b0)))
-      fun3(a0,b0,c0,d0)=a0/(1.+a0/b0)*(c0**d0)
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      num=aircc*fun1(a1,te,b1)
-      den=    fun1(a2,te,b2)
-      z=fun2(num,den)
-      sp_29=fun3(num,den,c,z)
-      end function sp_29
+! Statement functions:
+  real (kind=dp) :: a0, b0, c0, d0, fun1, fun2, fun3
+  fun1(a0,b0,c0)=a0*(b0**c0)
+  fun2(a0,b0)=1./(1._dp + (log10(a0/b0))*(log10(a0/b0)))
+  fun3(a0,b0,c0,d0)=a0/(1._dp + a0/b0)*(c0**d0)
+
+  num=aircc*fun1(a1,te,b1)
+  den=    fun1(a2,te,b2)
+  z=fun2(num,den)
+  sp_29=fun3(num,den,c,z)
+end function sp_29
 
 !----------------------------------------------------------------
 
-      double precision function fcn (x1)
+function fcn (x1)
 ! rate constant for thermal decomposition of ClNO3 (#2730)
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: x1,x2,xmg
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: fcn
+  real (kind=dp), intent(in) :: x1
+  real (kind=dp) :: x2,xmg
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      x2=8.314*te
-      xmg=pk/x2
-      fcn=10**(-6.16)*dexp(-90.7d3/x2)*xmg*x1
-      end function fcn
+  x2=8.314*te
+  xmg=pk/x2
+  fcn=10**(-6.16)*exp(-90.7d3/x2)*xmg*x1
+end function fcn
 
 !----------------------------------------------------------------
 
-      double precision function farr2 (a0,b0)
+function farr2 (a0,b0)
 ! Arrhenius function but with b0 as the value for T=298K
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      real (kind=dp) :: a0
-      integer :: b0
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: farr2
+  real (kind=dp), intent(in) :: a0
+  integer, intent(in) :: b0
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 ! 1/298.=3.3557d-3
-      farr2=a0*exp(dble(b0)*(1.d0/te-3.3557d-3))
-      end function farr2
+  farr2=a0*exp(dble(b0)*(1.d0/te-3.3557d-3))
+end function farr2
 
 !----------------------------------------------------------------
 
-      double precision function fhet_t (a0,b0,c0)
+function fhet_t (a0,b0,c0)
 ! heterogeneous rate function
 ! ClFCT     = 5.0D2                ; factor for H02/H01, i.e Cl-/H2O
 ! BrFCT     = 3.0D5                ; factor for H03/H01, i.e Br-/H2O
@@ -7269,215 +7479,217 @@ end subroutine activ_init
 ! c0=1..3  gas phase reactant:     N2O5, ClNO3, BrNO3
 
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      INCLUDE 'tot_Parameters.h'
-      INCLUDE 'tot_Global.h'
-      integer, intent(in) :: a0,b0,c0
+  INCLUDE 'tot_Parameters.h'
+  INCLUDE 'tot_Global.h'
 
-      real (kind=dp) :: h2oa, hetT
-      real (kind=dp) :: xbr, xtr
+  real (kind=dp) :: fhet_t
+  integer, intent(in) :: a0,b0,c0
 
-      if (a0.eq.1) then
-         h2oa=FIX(indf_H2Ol1)
-         hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
+  real (kind=dp) :: h2oa, hetT
+  real (kind=dp) :: xbr, xtr
 
-      else if (a0.eq.2) then
-         h2oa=FIX(indf_H2Ol2)
-         hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
+  if (a0.eq.1) then
+     h2oa=FIX(indf_H2Ol1)
+     hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
 
-      else if (a0.eq.3) then
-         h2oa=FIX(indf_H2Ol3)
-         hetT=h2oa + 5.0D2*C(ind_Clml3) + 3.0D5*C(ind_Brml3)
+  else if (a0.eq.2) then
+     h2oa=FIX(indf_H2Ol2)
+     hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
 
-      else if (a0.eq.4) then
-         h2oa=FIX(indf_H2Ol4)
-         hetT=h2oa + 5.0D2*C(ind_Clml4) + 3.0D5*C(ind_Brml4)
+  else if (a0.eq.3) then
+     h2oa=FIX(indf_H2Ol3)
+     hetT=h2oa + 5.0D2*C(ind_Clml3) + 3.0D5*C(ind_Brml3)
 
-      else ! undefined case, shouldn't happend
-         stop 'Wrong a0 index in function fhet_t'
-      endif
+  else if (a0.eq.4) then
+     h2oa=FIX(indf_H2Ol4)
+     hetT=h2oa + 5.0D2*C(ind_Clml4) + 3.0D5*C(ind_Brml4)
 
-
-      if (b0.eq.1) then
-         xbr=h2oa
-
-      else if (b0.eq.2) then
-         xbr=5.0D2
-
-      else if (b0.eq.3) then
-         xbr=3.0D5
-
-      else ! undefined case, shouldn't happend
-         stop 'Wrong b0 index in function fhet_t'
-      endif
+  else ! undefined case, shouldn't happend
+     stop 'Wrong a0 index in function fhet_t'
+  endif
 
 
-      if (c0.eq.1) then
-         xtr=yxkmt(a0,ind_N2O5)
-      else if (c0.eq.2) then
-         xtr=yxkmt(a0,ind_ClNO3)
-      else if (c0.eq.3) then
-         xtr=yxkmt(a0,ind_BrNO3)
-      else ! undefined case, shouldn't happend
-         stop 'Wrong c0 index in function fhet_t'
-      endif
+  if (b0.eq.1) then
+     xbr=h2oa
+
+  else if (b0.eq.2) then
+     xbr=5.0D2
+
+  else if (b0.eq.3) then
+     xbr=3.0D5
+
+  else ! undefined case, shouldn't happend
+     stop 'Wrong b0 index in function fhet_t'
+  endif
 
 
-      if (hetT.gt.0.d0) then
-         fhet_t=xtr * ycw(a0) * xbr /hetT
-      else
-         fhet_t=0.
-      endif
+  if (c0.eq.1) then
+     xtr=yxkmt(a0,ind_N2O5)
+  else if (c0.eq.2) then
+     xtr=yxkmt(a0,ind_ClNO3)
+  else if (c0.eq.3) then
+     xtr=yxkmt(a0,ind_BrNO3)
+  else ! undefined case, shouldn't happend
+     stop 'Wrong c0 index in function fhet_t'
+  endif
 
-      end function fhet_t
+
+  if (hetT.gt.0.d0) then
+     fhet_t=xtr * ycw(a0) * xbr /hetT
+  else
+     fhet_t=0.
+  endif
+
+end function fhet_t
 
 !----------------------------------------------------------------
 
-      double precision function fliq_60 (a1,b1,c,d)
+function fliq_60 (a1,b1,c,d)
 ! calculate special rate function for rxn 60
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: fliq_60
+  real (kind=dp) :: a1,c,d
+  integer :: b1
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
-      real (kind=dp) :: a1,c,d
-      integer :: b1
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
-
-      if (d.gt.0.d0) then
-!         fliq_60=farr2(a1,b1)*c/(c+0.1/d)
-         fliq_60=a1*dexp(dble(b1)*(1.d0/te-3.3557d-3))*c/(c+0.1d0/d)
-      else
-         fliq_60=0.
-      endif
-      end
+  if (d.gt.0.d0) then
+!     fliq_60=farr2(a1,b1)*c/(c+0.1/d)
+     fliq_60=a1*exp(dble(b1)*(1.d0/te-3.3557d-3))*c/(c+0.1d0/d)
+  else
+     fliq_60=0.
+  endif
+end function fliq_60
 
 !----------------------------------------------------------------
 
-      double precision function dmin2 (a)
+function dmin2 (a)
 ! confine rate constant to upper limit (diffusion control)
 ! a=k; dclim=upper limit due to diffusion-control
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: dmin2
+  real (kind=dp) :: a,dclim
 
-      real (kind=dp) :: a,dclim
+  dclim = 1.d10
 
-      dclim = 1.d10
+  dmin2 = dmin1(a,dclim )
 
-      dmin2 = dmin1(a,dclim )
-
-      end
+end function dmin2
 
 !----------------------------------------------------------------
 
-      double precision function dmin3 (a)
+function dmin3 (a)
 ! confine rate constant to upper limit (diffusion control)
 ! a=k; dclim=upper limit due to diffusion-control
 ! factor 2.d0 is to account for larger upper limit for
 !    2nd order reactions between differtly-charged ions
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: dmin3
+  real (kind=dp) :: a,dclim
 
-      real (kind=dp) :: a,dclim
+  dclim = 1.d10
 
-      dclim = 1.d10
+  dmin3 = dmin1(a,dclim*2.d0 )
 
-      dmin3 = dmin1(a,dclim*2.d0 )
-
-      end
+end function dmin3
 
 !----------------------------------------------------------------
 
-      double precision function flsc (a,b,c,d)
+function flsc (a,b,c,d)
 ! calculate special rate function
 ! after #s_364, Schmitz (1999), eq.(4) / #s_650, Schmitz (2000)
 !: dio3/dt = k1*[IO3-][H+]^2[I-]^2 + k2*[IO3-][H+]^2[I-]
 ! a=k1, b=H+, c=I-, d=cvvz
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: flsc
+  real (kind=dp), intent(in) :: a,b,c,d
 
-      real (kind=dp) :: a,b,c,d
-
-      if (d.gt.0.d0) then
-         flsc=( a*b**2*d**4 + 1.2d3*b**2/c*d**3 )
-      else
-         flsc=0.
-      endif
-      end
+  if (d.gt.0._dp) then
+     flsc = a * b**2 * d**4 + 1.2d3 * b**2 / c * d**3
+  else
+     flsc = 0._dp
+  endif
+end function flsc
 
 !----------------------------------------------------------------
 
-      double precision function flsc4 (a,b,c)
+function flsc4 (a,b,c)
 ! calculate special rate function
 ! after #s_650, Schmitz (2000)
 ! a=k4, b=H+, c=cvvz
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: flsc4
+  real (kind=dp), intent(in) :: a,b,c
 
-      real (kind=dp) :: a,b,c
-
-      if (c.gt.0.d0) then
-         flsc4=( a*b*c**3 )
-      else
-         flsc4=0.
-      endif
-      end
+  if (c.gt.0._dp) then
+     flsc4 = a * b * c**3
+  else
+     flsc4 = 0._dp
+  endif
+end function flsc4
 
 !----------------------------------------------------------------
 
-      double precision function flsc5 (a,b,c)
+function flsc5 (a,b,c)
 ! calculate special rate function
 ! after #s_650, Schmitz (2000)
 ! a=k5, b=H+, c=cvvz
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
+  real (kind=dp) :: flsc5
+  real (kind=dp), intent(in) :: a,b,c
 
-      real (kind=dp) :: a,b,c
-
-      if (c.gt.0.d0) then
-        flsc5=( a*b**2*c**4 )
-      else
-        flsc5=0.
-      endif
-      end
+  if (c.gt.0._dp) then
+     flsc5 = a * b**2 * c**4
+  else
+     flsc5 = 0._dp
+  endif
+end function flsc5
 
 !----------------------------------------------------------------
 
-      function flsc6 (a,b)
+function flsc6 (a,b)
 
 ! Description :
 ! -----------
@@ -7507,197 +7719,199 @@ end subroutine activ_init
 ! Declarations:
 ! ------------
 ! Modules used:
-      USE precision, ONLY: &
+  USE precision, ONLY: &
 ! Imported Type Definitions:
-           dp                   ! kind double precision real
+       dp                   ! kind double precision real
 
-      implicit none
+  implicit none
 
 ! Function result
-      real(kind=dp) :: flsc6
+  real(kind=dp) :: flsc6
 
 ! Function arguments
 ! Scalar arguments with intent(in):
-      real(kind=dp), intent(in) :: a
-      real(kind=dp), intent(in) :: b
+  real(kind=dp), intent(in) :: a
+  real(kind=dp), intent(in) :: b
 
 ! Local parameters:
-      real(kind=dp), parameter :: min_Hp = 1.e-15_dp ! <jjb> introduce a lower limit for [H+] to avoid overflow flsc6
+  real(kind=dp), parameter :: min_Hp = 1.e-15_dp ! <jjb> introduce a lower limit for [H+] to avoid overflow flsc6
 
 !- End of header ------------------------------------------------------------
 
-!      if (b.gt.0.d0) then
-      if (b.gt.min_Hp) then
-         flsc6= a/b
-      else
-         flsc6=0._dp
-         if (b.lt.0._dp) print*,"Warning: flsc6 encountered [H+]<0",b
-      endif
+!  if (b.gt.0.d0) then
+  if (b.gt.min_Hp) then
+     flsc6 = a/b
+  else
+     flsc6 = 0._dp
+     if (b.lt.0._dp) print*,"Warning: flsc6 encountered [H+]<0",b
+  endif
 
-      end function flsc6
+end function flsc6
 
 !----------------------------------------------------------------
 
-      double precision function uplim (a,b,c,d)
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-
-      implicit none
-
-      real (kind=dp) :: a,b,c,d,dclim
+function uplim (a,b,c,d)
 ! dclim = upper limit for diffusion-controlled reactions
 ! a=k-; b=k+; alpha=b/dclim; c=H+; d=cvvz;
 
-      dclim = 1.d10
-      if (d.gt.0.d0) then
-         if (c<0.) print*,"Warning uplim encountered [H+]<0" ! Track unexpected case
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real (kind=dp) :: uplim
+  real (kind=dp), intent(in) :: a,b,c,d
+  real (kind=dp) :: dclim
+
+  dclim = 1.d10
+  if (d.gt.0._dp) then
+     if (c < 0._dp) print*,"Warning uplim encountered [H+]<0" ! Track unexpected case
 !        uplim = ( a/(1.+b/dclim*c*d) )
-        uplim = ( a/(1.+b/dclim*max(c,0.d0)*d) ) ! <jjb> avoid unexpected values if [H+]<0
-      else
-        uplim = 0.
-      endif
-      end
+     uplim = a/(1._dp + b/dclim*max(c,0._dp)*d) ! <jjb> avoid unexpected values if [H+]<0
+  else
+     uplim = 0._dp
+  endif
+end function uplim
 
 !----------------------------------------------------------------
 
-      double precision function uparm (a0,b0,c,d,e)
+function uparm (a0,b0,c,d,e)
 ! Arrhenius function but with b0 as the value for T=298K
 ! dclim = upper limit for diffusion-controlled reactions
 ! c=k+; alpha=c/dclim; d=[H+]; e=cvvz
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
-
-      real (kind=dp) :: a0,c,d,e,dclim
-      integer :: b0
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: uparm, dclim
+  real (kind=dp), intent(in) :: a0,c,d,e
+  integer, intent(in) :: b0
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 ! 1/298.=3.3557d-3
 
-      dclim = 1.d10
-      if (d.gt.0.d0) then
-        uparm=a0*exp(dble(b0)*(1.d0/te-3.3557d-3))/(1.+c/dclim*d*e)
-      else
-        uparm=0.
-      endif
-      end
+  dclim = 1.d10
+  if (d.gt.0.d0) then
+     uparm = a0*exp(dble(b0)*(1._dp/te-3.3557d-3))/(1._dp+c/dclim*d*e)
+  else
+     uparm = 0._dp
+  endif
+end function uparm
 
 !----------------------------------------------------------------
 
-      double precision function uplip (a,b,c)
-
-      USE precision, ONLY : &
-! Imported Parameters:
-           dp
-
-
-      implicit none
-
-      real (kind=dp) :: a,b,c,dclim
+function uplip (a,b,c)
 ! dclim = upper limit for diffusion-controlled 3rd order reactions
 ! with H+ as reactant
 ! a=k+; b=[H+]; c=cvvz; alpha=a/dclim
 
-      dclim = 1.d10
-      if (c.gt.0.d0) then
-         if (b<0.) print*,"Warning uplip encountered [H+]<0" ! Track unexpected case
-!         uplip = ( a/(1.+a/dclim*b*c)*c**2 )
-         uplip = ( a/(1.+a/dclim*max(b,0.d0)*c)*c**2 ) ! <jjb> avoid unexpected values if [H+]<0
-      else
-        uplip = 0.
-      endif
-      end
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real (kind=dp) :: uplip, dclim
+  real (kind=dp), intent(in) :: a,b,c
+
+  dclim = 1.d10
+  if (c.gt.0.d0) then
+     if (b<0.) print*,"Warning uplip encountered [H+]<0" ! Track unexpected case
+!     uplip = ( a/(1.+a/dclim*b*c)*c**2 )
+     uplip = ( a/(1._dp + a/dclim*max(b,0.d0)*c)*c**2 ) ! <jjb> avoid unexpected values if [H+]<0
+  else
+     uplip = 0._dp
+  endif
+end function uplip
 
 !----------------------------------------------------------------
 
-      double precision function uparp (a0,b0,c,d)
+function uparp (a0,b0,c,d)
 ! Arrhenius function but with b0 as the value for T=298K
 ! dclim = upper limit for diffusion-controlled reactions
 ! c=H+; d=cvvz; alpha=f(a0,b0)/dclim
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
+  implicit none
 
-      implicit none
-
-      real (kind=dp) :: a0,c,d,dclim
-      integer :: b0
-      common /cb_1/ aircc,te,h2oppm,pk
-      real (kind=dp) :: aircc,te,h2oppm,pk
+  real (kind=dp) :: uparp, dclim
+  real (kind=dp), intent(in) :: a0,c,d
+  integer, intent(in) :: b0
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
 
 ! 1/298.=3.3557d-3
 
-      dclim = 1.d10
-      if (d.gt.0.d0) then
-        uparp=a0*exp(dble(b0)*(1.d0/te-3.3557d-3))/ &
-             (1.+(a0*exp(dble(b0)*(1.d0/te-3.3557d-3)))/dclim*c*d)*d**2
-      else
-        uparp=0.
-      endif
-      end
+  dclim = 1.d10
+  if (d.gt.0._dp) then
+     uparp=a0*exp(dble(b0)*(1._dp/te-3.3557d-3))/ &
+          (1._dp +(a0*exp(dble(b0)*(1._dp/te-3.3557d-3)))/dclim*c*d)*d**2
+  else
+     uparp=0._dp
+  endif
+end function uparp
 
 !----------------------------------------------------------------
 
 ! jjb: old function for heterogeneous rates, kept for legacy
 
-      double precision function fdhet_a (a0,b0,c0)
+function fdhet_a (a0,b0,c0)
 ! heterogeneous rate function
 
 ! a0=1..2  liquid size class
 ! b0=1     gas phase reactant:     HNO3
 ! c0=2..3  branch of het reaction: Cl-, Br-
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      INCLUDE 'aer_Parameters.h'
-      INCLUDE 'aer_Global.h'
+  INCLUDE 'aer_Parameters.h'
+  INCLUDE 'aer_Global.h'
 
-      integer, intent(in) :: a0,b0,c0
-      real (kind=dp) :: hetT, xbr, xkt
+  real (kind=dp) :: fdhet_a
+  integer, intent(in) :: a0,b0,c0
+  real (kind=dp) :: hetT, xbr, xkt
 
 ! calculate het_total
-      if (a0.eq.1) then
-         hetT=C(ind_Clml1) + C(ind_Brml1)
-!        branching ratio = 1, because f(X) is assumed to be 1
-!        in KPP the rate is multiplied with [Cl-/Br-] so the branching
-!        expression k1=k*cl-/hetT is correctly implemented
-         if (c0.eq.2) xbr=1.
-         if (c0.eq.3) xbr=1.
-      else if (a0.eq.2) then
-         hetT=C(ind_Clml2) + C(ind_Brml2)
-!        branching ratio
-         if (c0.eq.2) xbr=1.
-         if (c0.eq.3) xbr=1.
-      endif
+  if (a0.eq.1) then
+     hetT=C(ind_Clml1) + C(ind_Brml1)
+!    branching ratio = 1, because f(X) is assumed to be 1
+!    in KPP the rate is multiplied with [Cl-/Br-] so the branching
+!    expression k1=k*cl-/hetT is correctly implemented
+     if (c0.eq.2) xbr=1._dp
+     if (c0.eq.3) xbr=1._dp
+  else if (a0.eq.2) then
+     hetT=C(ind_Clml2) + C(ind_Brml2)
+!    branching ratio
+     if (c0.eq.2) xbr=1._dp
+     if (c0.eq.3) xbr=1._dp
+  endif
 ! mass transfer coefficient
-      if (b0.eq.1) xkt=yxkmtd(a0,ind_HNO3)
+  if (b0.eq.1) xkt=yxkmtd(a0,ind_HNO3)
 
 ! kmt in (m^3_air/(m^3_aq*s)) therefore multiplication with LWC (m^3_aq/m^3_air)
 ! to get k in 1/s
-      if (hetT.gt.0.d0) then
-         fdhet_a=xkt * ycwd(a0) * xbr /hetT
-      else
-         fdhet_a=0.
-      endif
+  if (hetT.gt.0.d0) then
+     fdhet_a = xkt * ycwd(a0) * xbr /hetT
+  else
+     fdhet_a = 0._dp
+  endif
 
-      end function fdhet_a
+end function fdhet_a
 
 !----------------------------------------------------------------
 
-      double precision function fhet_da (xliq,xhet,a0,b0,c0)
+function fhet_da (xliq,xhet,a0,b0,c0)
 ! heterogeneous rate function
 ! ClFCT     = 5.0D2                ; factor for H02/H01, i.e Cl-/H2O
 ! BrFCT     = 3.0D5                ; factor for H03/H01, i.e Br-/H2O
@@ -7705,75 +7919,87 @@ end subroutine activ_init
 ! b0=1..3  branch of het reaction: H2O, Cl-, Br-
 ! c0=1..3  gas phase reactant:     N2O5, ClNO3, BrNO3
 
-      implicit double precision (a-h,o-z)
 
-      INCLUDE 'aer_Parameters.h'
-      INCLUDE 'aer_Global.h'
-      integer a0,b0,c0
+! Modifications :
+! -------------
+  ! jjb: bugfix: wrong index adressing for c0, was 2, 3, 4 instead of 1, 2, 3 (xhet=1 case = middle else)
+  !          as a result, reaction with N2O5 was likely undefined, the one with ClNO3 defined with N2O5 values,
+  !          the one for BrNO3 defined with ClNO3 values
 
+! == End of header =============================================================
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      if (xhet.eq.0.) then
-         if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
-         if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
-         if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
-         if (a0.eq.1) then
-            h2oa=FIX(indf_H2Ol1)
-            hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
-            yw=ycw(a0)
-         else if (a0.eq.2) then
-            h2oa=FIX(indf_H2Ol2)
-            hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
-            yw=ycw(a0)
-         endif
-         if (xhal.eq.0.) then
-            if (c0.eq.2) xtr=0.
-            if (c0.eq.3) xtr=0.
-            if (a0.eq.1) hetT=FIX(indf_H2Ol1)
-            if (a0.eq.2) hetT=FIX(indf_H2Ol2)
-         endif
-      else
-!        if (c0.eq.2) xtr=yxkmtd(a0,ind_N2O5)  ! jjb wrong index
-!        if (c0.eq.3) xtr=yxkmtd(a0,ind_BrNO3) ! jjb wrong index
-!        if (c0.eq.4) xtr=yxkmtd(a0,ind_ClNO3) ! jjb wrong index
-         if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)  ! jjb corrected
-         if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3) ! jjb corrected
-         if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3) ! jjb corrected
-!         print*,xliq,a0,c0,xtr
-         if (a0.eq.1) then
-            h2oa=55.55*ycwd(1)*1.d+3
-            hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
-            yw=ycwd(a0)
-         else if (a0.eq.2) then
-            h2oa=55.55*ycwd(2)*1.d+3
-            hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
-            yw=ycwd(a0)
-         endif
-         if (xhal.eq.0.) then
-            if (c0.eq.2) xtr=0.
-            if (c0.eq.3) xtr=0.
-            if (a0.eq.1) hetT=55.55*ycwd(1)*1.d+3
-            if (a0.eq.2) hetT=55.55*ycwd(2)*1.d+3
-         endif
-      endif
+  implicit none
 
-      if (b0.eq.1) xbr=h2oa
-      if (b0.eq.2) xbr=5.0D2
-      if (b0.eq.3) xbr=3.0D5
+  INCLUDE 'aer_Parameters.h'
+  INCLUDE 'aer_Global.h'
+  real (kind=dp) :: fhet_da
+  real (kind=dp), intent(in) :: xliq, xhet
+  integer, intent(in) :: a0,b0,c0
+  real (kind=dp) :: h2oa, hetT, xbr, xtr, yw
 
-      if (hetT.gt.0.d0) then
-         fhet_da=xtr * yw * xbr /hetT
-      else
-         fhet_da=0.
-      endif
-      if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) &
-           fhet_da=0.
-      if (xliq.eq.0.) fhet_da=0.
-!      print*,xliq,a0,c0,fhet_da
-      end function fhet_da
+  if (xhet.eq.0.) then
+     if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
+     if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
+     if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
+     if (a0.eq.1) then
+        h2oa=FIX(indf_H2Ol1)
+        hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
+        yw=ycw(a0)
+     else if (a0.eq.2) then
+        h2oa=FIX(indf_H2Ol2)
+        hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
+        yw=ycw(a0)
+     endif
+     if (xhal.eq.0.) then
+        if (c0.eq.2) xtr=0.
+        if (c0.eq.3) xtr=0.
+        if (a0.eq.1) hetT=FIX(indf_H2Ol1)
+        if (a0.eq.2) hetT=FIX(indf_H2Ol2)
+     endif
+  else ! xhet.eq.1, thus xliq.eq.0
+     if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)
+     if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3)
+     if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3)
+!     print*,xliq,a0,c0,xtr
+     if (a0.eq.1) then
+        h2oa=55.55*ycwd(1)*1.d+3
+        hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
+        yw=ycwd(a0)
+     else if (a0.eq.2) then
+        h2oa=55.55*ycwd(2)*1.d+3
+        hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
+        yw=ycwd(a0)
+     endif
+     if (xhal.eq.0.) then
+        if (c0.eq.2) xtr = 0._dp
+        if (c0.eq.3) xtr = 0._dp
+        if (a0.eq.1) hetT = 55.55*ycwd(1)*1.d+3
+        if (a0.eq.2) hetT = 55.55*ycwd(2)*1.d+3
+     endif
+  endif
+
+  if (b0.eq.1) xbr = h2oa
+  if (b0.eq.2) xbr = 5.0D2
+  if (b0.eq.3) xbr = 3.0D5
+
+  if (hetT.gt.0.d0) then
+     fhet_da = xtr * yw * xbr /hetT
+  else
+     fhet_da = 0._dp
+  endif
+
+  if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) fhet_da = 0._dp
+!  if (xliq.eq.0.) fhet_da = 0._dp ! jjb plugged again
+
+!  print*,xliq,a0,c0,fhet_da
+end function fhet_da
 
 !----------------------------------------------------------
 
-      double precision function fhet_dt (xliq,xhet,a0,b0,c0)
+function fhet_dt (xliq,xhet,a0,b0,c0)
 ! heterogeneous rate function
 ! ClFCT     = 5.0D2                ; factor for H02/H01, i.e Cl-/H2O
 ! BrFCT     = 3.0D5                ; factor for H03/H01, i.e Br-/H2O
@@ -7781,76 +8007,86 @@ end subroutine activ_init
 ! b0=1..3  branch of het reaction: H2O, Cl-, Br-
 ! c0=1..3  gas phase reactant:     N2O5, ClNO3, BrNO3
 
-      implicit double precision (a-h,o-z)
 
-      INCLUDE 'tot_Parameters.h'
-      INCLUDE 'tot_Global.h'
-      integer a0,b0,c0
+! Modifications :
+! -------------
+  ! jjb: bugfix: wrong index adressing for c0, was 2, 3, 4 instead of 1, 2, 3
+  !          as a result, reaction with N2O5 was likely undefined, the one with ClNO3 defined with N2O5 values,
+  !          the one for BrNO3 defined with ClNO3 values
 
+! == End of header =============================================================
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      if (xhet.eq.0.) then
-         if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
-         if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
-         if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
-         if (a0.eq.1) then
-            h2oa=FIX(indf_H2Ol1)
-            hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
-            yw=ycw(a0)
-         endif
-         if (a0.eq.2) then
-            h2oa=FIX(indf_H2Ol2)
-            hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
-            yw=ycw(a0)
-         endif
-         if (xhal.eq.0.) then
-            if (c0.eq.2) xtr=0.
-            if (c0.eq.3) xtr=0.
-            if (a0.eq.1) hetT=FIX(indf_H2Ol1)
-            if (a0.eq.2) hetT=FIX(indf_H2Ol2)
-         endif
-      else
-!        if (c0.eq.2) xtr=yxkmtd(a0,ind_N2O5)  ! jjb wrong index
-!        if (c0.eq.3) xtr=yxkmtd(a0,ind_BrNO3) ! jjb wrong index
-!        if (c0.eq.4) xtr=yxkmtd(a0,ind_ClNO3) ! jjb wrong index
-         if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)  ! jjb corrected
-         if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3) ! jjb corrected
-         if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3) ! jjb corrected
-         if (a0.eq.1) then
-            h2oa=55.55*ycwd(1)*1.d+3
-            hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
-            yw=ycwd(a0)
-         endif
-         if (a0.eq.2) then
-            h2oa=55.55*ycwd(2)*1.d+3
-            hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
-            yw=ycwd(a0)
-         endif
-         if (xhal.eq.0.) then
-            if (c0.eq.2) xtr=0.
-            if (c0.eq.3) xtr=0.
-            if (a0.eq.1) hetT=55.55*ycwd(1)*1.d+3
-            if (a0.eq.2) hetT=55.55*ycwd(2)*1.d+3
-         endif
-      endif
+  implicit none
 
-      if (b0.eq.1) xbr=h2oa
-      if (b0.eq.2) xbr=5.0D2
-      if (b0.eq.3) xbr=3.0D5
+  INCLUDE 'tot_Parameters.h'
+  INCLUDE 'tot_Global.h'
+  real (kind=dp) :: fhet_dt
+  real (kind=dp), intent(in) :: xliq, xhet
+  integer, intent(in) :: a0,b0,c0
+  real (kind=dp) :: h2oa, hetT, xbr, xtr, yw
 
-      if (hetT.gt.0.d0) then
-         fhet_dt=xtr * yw * xbr /hetT
-      else
-         fhet_dt=0.
-      endif
-      if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) &
-           fhet_dt=0.
-      if (xliq.eq.0.) fhet_dt=0.
+  if (xhet.eq.0.) then
+     if (c0.eq.1) xtr=yxkmt(a0,ind_N2O5)
+     if (c0.eq.2) xtr=yxkmt(a0,ind_ClNO3)
+     if (c0.eq.3) xtr=yxkmt(a0,ind_BrNO3)
+     if (a0.eq.1) then
+        h2oa=FIX(indf_H2Ol1)
+        hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
+        yw=ycw(a0)
+     endif
+     if (a0.eq.2) then
+        h2oa=FIX(indf_H2Ol2)
+        hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
+        yw=ycw(a0)
+     endif
+     if (xhal.eq.0.) then
+        if (c0.eq.2) xtr=0._dp
+        if (c0.eq.3) xtr=0._dp
+        if (a0.eq.1) hetT=FIX(indf_H2Ol1)
+        if (a0.eq.2) hetT=FIX(indf_H2Ol2)
+     endif
+  else
+     if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)
+     if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3)
+     if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3)
+     if (a0.eq.1) then
+        h2oa=55.55*ycwd(1)*1.d+3
+        hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
+        yw=ycwd(a0)
+     endif
+     if (a0.eq.2) then
+        h2oa=55.55*ycwd(2)*1.d+3
+        hetT=h2oa + 5.0D2*C(ind_Clml2) + 3.0D5*C(ind_Brml2)
+        yw=ycwd(a0)
+     endif
+     if (xhal.eq.0.) then
+        if (c0.eq.2) xtr = 0._dp
+        if (c0.eq.3) xtr = 0._dp
+        if (a0.eq.1) hetT = 55.55*ycwd(1)*1.d+3
+        if (a0.eq.2) hetT = 55.55*ycwd(2)*1.d+3
+     endif
+  endif
 
-      end function fhet_dt
+  if (b0.eq.1) xbr = h2oa
+  if (b0.eq.2) xbr = 5.0D2
+  if (b0.eq.3) xbr = 3.0D5
+
+  if (hetT.gt.0.d0) then
+     fhet_dt = xtr * yw * xbr /hetT
+  else
+     fhet_dt = 0._dp
+  endif
+  if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) fhet_dt = 0._dp
+!  if (xliq.eq.0.) fhet_dt = 0._dp ! jjb plugged again
+
+end function fhet_dt
 
 !----------------------------------------------------------
 
-      double precision function fdhetg (na,nb)
+function fdhetg (na,nb)
 ! heterogeneous rate function
 ! a0=1..2  liquid size class
 
@@ -7861,14 +8097,21 @@ end subroutine activ_init
 !   3 NH3
 !   4 H2SO4
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      INCLUDE 'gas_Parameters.h'
-      INCLUDE 'gas_Global.h'
-      integer na,nb
+  implicit none
+
+  INCLUDE 'gas_Parameters.h'
+  INCLUDE 'gas_Global.h'
+  real (kind=dp) :: fdhetg
+  integer, intent(in) :: na,nb
+  real (kind=dp) :: caq, x1, x2, xkt
+
 ! net mass transfer coefficient including Henry's law equilibrium for HNO3
 
-      if (nb.eq.1) then
+  if (nb.eq.1) then
 ! not limited by Henry's law:
 !         xkt=yxkmtd(na,ind_HNO3) * ycwd(na)
 
@@ -7879,7 +8122,7 @@ end subroutine activ_init
 !     in x2 the "aqueous" concentration of HNO3 on the dry aerosol is calculated via
 !     Henry's law and a HARDCODED particle pH = 2
 
-         x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
 ! index out of bounds in C(ind_NO3mlz) as this is not known in gas_Parameters.h
 !         if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
 !              (yxeq(ind_HNO3) + 1.d-2)
@@ -7888,23 +8131,21 @@ end subroutine activ_init
 ! if pH=2, the fractionation between HNO3 and NO3- can be calculated with equil. const:
 ! [NO3-]=Kq [HNO3] 1/[H+] = 1500 [HNO3] at pH=2
 ! this is all VERY rough and should be replaced!!
-         if (na.eq.1) caq=((C(ind_HNO3l1)*1.5d3)*1.d-2)/ &
-              (yxeq(ind_HNO3) + 1.d-2)
-         if (na.eq.2) caq=((C(ind_HNO3l2)*1.5d3)*1.d-2)/ &
-              (yxeq(ind_HNO3) + 1.d-2)
-         x2 = 0.d0
-          if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-              x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
-         xkt = max(0.d0,(x1 + x2))
-      endif
+     if (na.eq.1) caq=((C(ind_HNO3l1)*1.5d3)*1.d-2)/(yxeq(ind_HNO3) + 1.d-2)
+     if (na.eq.2) caq=((C(ind_HNO3l2)*1.5d3)*1.d-2)/(yxeq(ind_HNO3) + 1.d-2)
+     x2 = 0.d0
+     if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
+          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+     xkt = max(0.d0,(x1 + x2))
+  endif
 ! kmt in (m^3_air/(m^3_aq*s)) therefore multiplication with LWC (m^3_aq/m^3_air)
 ! to get k in 1/s:
-      if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-      if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-      if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
 
 
-      fdhetg=xkt
+  fdhetg=xkt
 
 !      print *,k,na,nb
 !      print *,fdhetg,xkt,ycwd(na)
@@ -7912,167 +8153,187 @@ end subroutine activ_init
 !           * ycwd(na)
 ! 1001 format(3i4, 6d16.8)
 
-      end function fdhetg
+end function fdhetg
 
 !----------------------------------------------------------------
 
-      double precision function fdheta (na,nb)
+function fdheta (na,nb)
 ! heterogeneous rate function
 ! a0=1..2  liquid size class
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      INCLUDE 'aer_Parameters.h'
-      INCLUDE 'aer_Global.h'
-      integer na,nb
+  implicit none
+
+  INCLUDE 'aer_Parameters.h'
+  INCLUDE 'aer_Global.h'
+  real (kind=dp) :: fdheta
+  integer, intent(in) :: na,nb
+  real (kind=dp) :: caq, x1, x2, xkt
 ! see explanation in FCN fdhetg
 
-      if (nb.eq.1) then
-         x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
-         caq = 0.d0
-         if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
-            if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
-                 (yxeq(ind_HNO3) + 1.d-2)
-            if (na.eq.2) caq=((C(ind_HNO3l2)+C(ind_NO3ml2))*1.d-2)/ &
-                 (yxeq(ind_HNO3) + 1.d-2)
-         endif
-         x2 = 0.d0
-          if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-              x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
-         xkt = max(0.d0,(x1 + x2))
-      endif
-      if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-      if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-      if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.1) then
+     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     caq = 0.d0
+     if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
+        if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
+             (yxeq(ind_HNO3) + 1.d-2)
+        if (na.eq.2) caq=((C(ind_HNO3l2)+C(ind_NO3ml2))*1.d-2)/ &
+             (yxeq(ind_HNO3) + 1.d-2)
+     endif
+     x2 = 0.d0
+     if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
+          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+     xkt = max(0.d0,(x1 + x2))
+  endif
+  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
 
-      fdheta=xkt
+  fdheta=xkt
 
-      end function fdheta
+end function fdheta
 
 !-----------------------------------------------------------------------------
 
 
-      double precision function fdhett (na,nb)
+function fdhett (na,nb)
 ! heterogeneous rate function
 ! a0=1..2  liquid size class
 
-      implicit double precision (a-h,o-z)
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      INCLUDE 'tot_Parameters.h'
-      INCLUDE 'tot_Global.h'
-      integer na,nb
+  implicit none
+
+  INCLUDE 'tot_Parameters.h'
+  INCLUDE 'tot_Global.h'
+  real (kind=dp) :: fdhett
+  integer, intent(in) :: na,nb
+  real (kind=dp) :: caq, x1, x2, xkt
 ! see explanation in FCN fdhetg
 
-      if (nb.eq.1) then
-         x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
-         caq = 0.d0
-         if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
-            if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
-                 (yxeq(ind_HNO3) + 1.d-2)
-            if (na.eq.2) caq=((C(ind_HNO3l2)+C(ind_NO3ml2))*1.d-2)/ &
-                 (yxeq(ind_HNO3) + 1.d-2)
-         endif
-         x2 = 0.d0
-          if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-              x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
-         xkt = max(0.d0,(x1 + x2))
-      endif
-      if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-      if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-      if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.1) then
+     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     caq = 0.d0
+     if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
+        if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
+             (yxeq(ind_HNO3) + 1.d-2)
+        if (na.eq.2) caq=((C(ind_HNO3l2)+C(ind_NO3ml2))*1.d-2)/ &
+             (yxeq(ind_HNO3) + 1.d-2)
+     endif
+     x2 = 0.d0
+     if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
+          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+     xkt = max(0.d0,(x1 + x2))
+  endif
+  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
 
-      fdhett=xkt
+  fdhett=xkt
 
-      end function fdhett
+end function fdhett
 
 !-----------------------------------------------------------------------------
-!     double precision function DMS_add (c) ! jjb argument not used
-      double precision function DMS_add ()  ! jjb removed (also in mech/master_gas.eqn)
+function DMS_add ()
 ! calculate special rate function for DMS + OH addition; IUPAC 10/06
 ! k(298K)=2.2d-12 cm3/(mlc s)
-      implicit none
 
-      double precision o2,tte
+! Modifications :
+! -------------
+  ! jjb: removed unused argument 'c' (also in mech/master_gas.eqn)
 
-      common /cb_1/ aircc,te,h2oppm,pk
-      double precision aircc,te,h2oppm,pk
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      o2=0.21*aircc
-      tte=1./te
-      DMS_add=9.5d-39*exp(5270.*tte)*o2/(1.+7.5d-29*exp(5610.*tte)*o2)
-      end function DMS_add
+  implicit none
+
+  real (kind=dp) :: o2,tte, DMS_add
+
+  common /cb_1/ aircc,te,h2oppm,pk
+  real (kind=dp) :: aircc,te,h2oppm,pk
+
+  o2=0.21*aircc
+  tte=1./te
+  DMS_add=9.5d-39*exp(5270.*tte)*o2/(1._dp + 7.5d-29*exp(5610.*tte)*o2)
+end function DMS_add
 
 !----------------------------------------------------------------------------
 
-      function a_n2o5(k,kc)
+function a_n2o5(k,kc)
 !     reactive uptake coeff of N2O5 (Bertram and Thornton, 2009)  PJ
 
 ! jjb: adapt for Mistra v9, implicit none
       ! cleaning: remove /cb52a/ f_sum
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           n, &
-           nkc
+       j2, &
+       j6, &
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
-      integer, intent (in) :: k, kc
-      real(kind=dp) :: a_n2o5
-      real(kind=dp) :: denom, xclm, xh2o, xk2f, xno3m
-      real(kind=dp), parameter :: ppsmall = 1e-25_dp
+  implicit none
+  integer, intent (in) :: k, kc
+  real(kind=dp) :: a_n2o5
+  real(kind=dp) :: denom, xclm, xh2o, xk2f, xno3m
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real(kind=dp) :: sl1, sion1
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real(kind=dp) :: sl1, sion1
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-      if (cw(kc,k).gt.0.d0) then
+  if (cw(kc,k).gt.0.d0) then
 !     convert from (mol m-3) to (mol L-1), species 13: NO3-
 !     convert from (mol m-3) to (mol L-1), species 14: Cl-
-         xno3m = sion1(13,kc,k)/cw(kc,k) * 1e-3_dp
-         xclm  = sion1(14,kc,k)/cw(kc,k) * 1e-3_dp
-      else
-         xno3m = 0._dp
-         xclm = 0._dp
-      end if
+     xno3m = sion1(13,kc,k)/cw(kc,k) * 1e-3_dp
+     xclm  = sion1(14,kc,k)/cw(kc,k) * 1e-3_dp
+  else
+     xno3m = 0._dp
+     xclm = 0._dp
+  end if
 
-!     initialize water to (mol L-1)
-      xh2o = 0._dp
-      if (cm(1,k).gt.0._dp) then
-      if (cw(1,k).gt.0._dp) then
-         xh2o = 55.55_dp * (cm(1,k) / cw(1,k))
-      end if
-      end if
+! initialize water to (mol L-1)
+  xh2o = 0._dp
+  if (cm(1,k).gt.0._dp) then
+     if (cw(1,k).gt.0._dp) then
+        xh2o = 55.55_dp * (cm(1,k) / cw(1,k))
+     end if
+  end if
 
-!     big honking reactive uptake coefficient parameterization
-      xk2f = 1.15e6_dp - 1.15e6_dp * exp(-0.13_dp * xh2o)
+! big honking reactive uptake coefficient parameterization
+  xk2f = 1.15e6_dp - 1.15e6_dp * exp(-0.13_dp * xh2o)
 
-      denom = 1._dp
-      if (xno3m.gt.0.d0) &
-!      if (xno3m.gt.ppsmall) &
-           denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
-      a_n2o5 = 3.2e-8_dp * xk2f * (1._dp - (1._dp/denom))
+  denom = 1._dp
+  if (xno3m.gt.0.d0) &
+       denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
+  a_n2o5 = 3.2e-8_dp * xk2f * (1._dp - (1._dp/denom))
 
-!      if (k.eq.2) print *,'gamma(N2O5),k=2',k,a_n2o5,xh2o,xno3m &
-!           ,xclm,denom,t(k),p(k)
-!      if (k.eq.10) print *,'gamma(N2O5),k=10',k,a_n2o5,xh2o,xno3m &
-!           ,xclm,denom,t(k),p(k)
+!  if (k.eq.2) print *,'gamma(N2O5),k=2',k,a_n2o5,xh2o,xno3m &
+!       ,xclm,denom,t(k),p(k)
+!  if (k.eq.10) print *,'gamma(N2O5),k=10',k,a_n2o5,xh2o,xno3m &
+!       ,xclm,denom,t(k),p(k)
 
-      end function a_n2o5
+end function a_n2o5
 
 !-----------------------------------------------------------------------------
 
-!      double precision function xkHgBr (x1)
+!      function xkHgBr (x1)
 !! rate coefficient for recombination Hg+Br --> HgBr (Donohoue et al., 2006, #4161
-!      double precision aircc,te,h2oppm,pk,x1,x2
+!      implicit none
+!      real(kind=dp) :: xkHgBr
+!      real (kind=dp) :: aircc,te,h2oppm,pk,x1,x2
 !      common /cb_1/ aircc,te,h2oppm,pk
 !
 !! reaction is 3rd order, multiply with conversion factors here (instead of in
@@ -8083,9 +8344,11 @@ end subroutine activ_init
 
 !-----------------------------------------------------------------------------
 
-!      double precision function xkHgBrBr (x1)
+!      function xkHgBrBr (x1)
 !! rate coefficient for recombination HgBr+Br --> HgBr2 (Goodsite et al., 2004, #3244
-!      double precision aircc,te,h2oppm,pk,x1
+!      implicit none
+!      real(kind=dp) :: xkHgBrBr
+!      real (kind=dp) :: aircc,te,h2oppm,pk,x1
 !      common /cb_1/ aircc,te,h2oppm,pk
 !
 !! reaction is 2nd order, multiply with conversion factor here (instead of in
@@ -8095,11 +8358,13 @@ end subroutine activ_init
 
 !-----------------------------------------------------------------------------
 
-!      double precision function xkGood (x1)
+!      function xkGood (x1)
 !! rate coefficient for HgBr dissociation, use Goodsite et al., 2004
 !! (#3244) but scaled with ratio of Donohoue and Goodsite as
 !! suggested in Seigneur and Lohmann, 2008 (#4136)
-!      double precision aircc,te,h2oppm,pk,x1,x2,xkHgBr
+!      implicit none
+!      real(kind=dp) :: xkGood
+!      real (kind=dp) :: aircc,te,h2oppm,pk,x1,x2,xkHgBr
 !      common /cb_1/ aircc,te,h2oppm,pk
 !
 !      if (te.eq.0.d0) then
