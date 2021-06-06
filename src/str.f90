@@ -6385,7 +6385,7 @@ end subroutine ion_mass
       common /blck12/ cw(nkc,n),cm(nkc,n)
 
 !     dimension rc(nf,nkc),freep(nf) ! jjb rc now in blck11
-      dimension freep(nf)
+      dimension freep(n)
 
 ! == End of declarations =======================================================
 
@@ -6415,7 +6415,7 @@ end subroutine ion_mass
 !      if (lmin.eq.1.and.ij.eq.1) then
       if (box_switch.eq.1..and.lmin.eq.1.and.ij.eq.1) then
 !        free path length (lambda=freep):
-         do k=2,nf
+         do k=2,n
             freep(k)=2.28e-5 * t(k) / p(k)
          enddo
 
@@ -6438,7 +6438,7 @@ end subroutine ion_mass
          call equil_co_a (t,nf) ! jjb cw now passed as a CB
          call activ (fa_lse,nf)
          call dry_cw_rc (nf)
-         call dry_rates_g (t,p,nf)
+         call dry_rates_g (t,freep,nf)
          call dry_rates_a (freep,nf)
          xph3=0.
          xph4=0.

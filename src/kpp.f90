@@ -96,7 +96,9 @@ subroutine initc (box,n_bl)
        nlev, &
        nrxn
 
-  USE kpp_aer_Parameters, ONLY : & ! jjb rename NSPEC so that variables related to both mechanisms can be declared below
+  USE kpp_gas_Parameters, ONLY : & ! jjb rename NSPEC so that variables related to each mechanisms can be declared below
+       nspec_g=>NSPEC
+  USE kpp_aer_Parameters, ONLY : &
        nspec_a=>NSPEC
   USE kpp_tot_Parameters, ONLY : &
        nspec_t=>NSPEC
@@ -121,7 +123,7 @@ subroutine initc (box,n_bl)
 
 ! Local arrays:
   real (kind=dp) :: &
-       freep(nf), &
+       freep(n), &
        is4(n,3), &
        xm(n), &
        x4(n), &
@@ -158,6 +160,8 @@ subroutine initc (box,n_bl)
   logical :: cloudt
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
+  common /kpp_dryg/ xkmtd(n,2,NSPEC_g),henry(n,NSPEC_g),xeq(n,NSPEC_g)
+  real (kind=dp) :: xkmtd, henry, xeq
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(nf,nkc,NSPEC_a), &
        xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
   real (kind=dp) :: henry_la, xkmt_la, xkef_la, xkeb_la
@@ -205,6 +209,9 @@ subroutine initc (box,n_bl)
 
 ! jjb 14/02/2017
 !     initialise the reaction rate arrays
+  henry (:,:) = 0._dp    ! dryg
+  xeq   (:,:) = 0._dp    ! dryg
+  xkmtd (:,:,:) = 0._dp  ! dryg
   henry_la(:,:) = 0._dp
   henry_lt(:,:) = 0._dp
   xkmt_la(:,:,:) = 0._dp
@@ -475,7 +482,7 @@ subroutine initc (box,n_bl)
 
 ! initialize all levels also in box run
 ! free path length (lambda=freep):
-  do k=1,nf
+  do k=1,nf ! nf is enough here, even if freep(n)
      freep(k) = 2.28e-5_dp * t(k) / p(k)
   enddo
   tr_ue = .false. !.true.
@@ -499,6 +506,10 @@ subroutine liq_parm (xra,box,n_bl)
   ! nkc=4; 1: sulfate aerosol, 2: seasalt aerosol, 3: sulfate droplets
   !        4: seasalt droplets
   ! xra: aerodynamic resistence, needed for calculation of dry deposition velocities
+
+! Modifications :
+! -------------
+  ! jjb: freep now dimension n instead of nf, to avoid second calculation in dry_rates_g
 
 ! == End of header =============================================================
 
@@ -533,7 +544,7 @@ subroutine liq_parm (xra,box,n_bl)
   integer :: iph3, iph4, itime, k, kc, nmin, nmin2, nmaxf, nmax
   logical :: update_now
 ! Local arrays:
-  real (kind=dp) :: freep(nf)
+  real (kind=dp) :: freep(n)
 
 ! Common blocks:
   common /blck01/ am3(n),cm3(n)
@@ -565,7 +576,7 @@ subroutine liq_parm (xra,box,n_bl)
   endif
 
 ! free path length (lambda=freep):
-  do k=nmin,nmaxf
+  do k=nmin,nmax
      freep(k) = 2.28e-5_dp * t(k) / p(k)
   enddo
 
@@ -620,7 +631,7 @@ subroutine liq_parm (xra,box,n_bl)
 
 ! calculate rates for DRY heterogeneous reactions
   call dry_cw_rc (nmax)
-  call dry_rates_g (t,p,nmax)
+  call dry_rates_g (t,freep,nmax)
   call dry_rates_a (freep,nmaxf)
   call dry_rates_t (freep,nmaxf)
 
@@ -2447,7 +2458,7 @@ subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
   include 'tot_Parameters.h' !additional common blocks and other definitions
 
 ! Subroutine arguments:
-  real(kind=dp), intent(in) :: freep(nf)
+  real(kind=dp), intent(in) :: freep(n)
   logical, intent(in) :: box
   integer, intent(in) :: n_bl
 
@@ -2714,7 +2725,7 @@ subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
   include 'aer_Parameters.h' !additional common blocks and other definitions
 
 ! Subroutine arguments:
-  real(kind=dp), intent(in) :: freep(nf)
+  real(kind=dp), intent(in) :: freep(n)
   logical, intent(in) :: box
   integer, intent(in) :: n_bl
 
@@ -4601,115 +4612,131 @@ end subroutine dry_cw_rc
 !------------------------------------------------------------
 !
 
-      subroutine dry_rates_g (tt,pp,nmax)
-! calculates kmt for heterogeneous reactions on dry aerosol
-! for ALL levels without real aerosol chemistry
-! 1: sulfate aerosol, 2: seasalt aerosol
+subroutine dry_rates_g (tt,freep,nmax)
 
-! to be included in gas-phase mechanism
+! Description :
+! -----------
+  ! calculates kmt for heterogeneous reactions on dry aerosol
+  ! for ALL levels without real aerosol chemistry
+  ! 1: sulfate aerosol, 2: seasalt aerosol
 
-      USE global_params, ONLY : &
+  ! to be included in gas-phase mechanism
+
+! Modifications :
+! -------------
+  ! jjb: removed HCl from idr list, it was not defined later on. Reduce ndr accordingly
+  !      removed freep (re)definition, now argument (thus removed pp from arg list)
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           n, &
-           nkc
+       n, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit none
+  implicit none
 
-      include 'gas_Parameters.h'     !additional common blocks and other definitions
+  include 'gas_Parameters.h'     !additional common blocks and other definitions
 
-      real (kind=dp), intent(in) :: tt(n) ! Temperature
-      real (kind=dp), intent(in) :: pp(n) ! Pressure
-      integer, intent(in) :: nmax           ! Maximum layer for calculations
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  real (kind=dp), intent(in) :: tt(n) ! Temperature
+  real (kind=dp), intent(in) :: freep(n)
+  integer, intent(in) :: nmax         ! Maximum layer for calculations
 
-      integer,parameter :: ndr=4 ! number of species
-      integer :: idr(ndr)
-      integer :: k,kc,l
-      real (kind=dp) :: x1, FCT
-      real (kind=dp) :: xgamma(NSPEC,2),freep(n),vmean(NSPEC,n)
-      common /blck11/ rcd(nkc,n) ! average particle radius in chemical bin
-      real (kind=dp) :: rcd      !  note that in the context of this subroutine, this
-                                 !  radius is considered as a "dry" radius, thus labeled rcd
+! Local parameters:
+  integer,parameter :: ndr=4 ! number of species
+! Local scalars:
+  integer :: k,kc,l
+  real (kind=dp) :: x1, FCT
+! Local arrays:
+  integer :: idr(ndr)
+  real (kind=dp) :: xgamma(NSPEC,2),vmean(NSPEC,n)
 
-      common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
-      real (kind=dp) :: xkmtd, henry, xeq
+! Statement function
+  real (kind=dp) :: func, funa, func3 ! local function
+  real (kind=dp) :: a,a0,b0           !   and their variables
+  integer :: k0                       !   ...
+  func(a,k)       = sqrt(tt(k)/a)*4.60138             ! v_mean calculation
+  funa(a0,b0,k)   = a0*exp(b0*(1/tt(k)-3.354d-3))
+  func3(a0,b0,k0) = a0*exp(b0*((1/tt(k0))-3.3557d-3))
 
-      real (kind=dp) :: func, funa, func3 ! local function
-      real (kind=dp) :: a,a0,b0           !   and their variables
-      integer :: k0                       !   ...
+  common /blck11/ rcd(nkc,n) ! average particle radius in chemical bin
+  real (kind=dp) :: rcd      !  note that in the context of this subroutine, this
+                             !  radius is considered as a "dry" radius, thus labeled rcd
 
-!      data idr/ind_HNO3,ind_N2O5,ind_BrNO3,ind_ClNO3,ind_HOBr/
-!     data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4,ind_HCl/     ! jjb HCl is not handled here (but it should be, probably !)
-      data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4/           ! jjb removed at the moment
+  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  real (kind=dp) :: xkmtd, henry, xeq
 
-      func(a,k)=dsqrt(tt(k)/a)*4.60138
-      funa(a0,b0,k)=a0*exp(b0*(1/tt(k)-3.354d-3))
-      func3(a0,b0,k0)=a0*exp(b0*((1/tt(k0))-3.3557d-3))
+! == End of declarations =======================================================
 
-! calculate freep for all heights:
-      do k=2,nmax
-         freep(k)=2.28d-5 * tt(k) / pp(k)
-      enddo
+
+!  data idr/ind_HNO3,ind_N2O5,ind_BrNO3,ind_ClNO3,ind_HOBr/
+!  data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4,ind_HCl/
+  data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4/
 
 ! define gamma's for all species ----
-      xgamma(ind_HNO3,1)  = 0.02       !JPL 2003: uptake on halide salts
-      xgamma(ind_HNO3,2)  = 0.02       !JPL 2003: uptake on halide salts
-      xgamma(ind_N2O5,1)  = 0.02       !estimated from JPL 2003
-      xgamma(ind_N2O5,2)  = 0.02       !estimated from JPL 2003
-      xgamma(ind_NH3,1)   = 0.05       !Dentener and Crutzen, 1994, #744
-      xgamma(ind_NH3,2)   = 0.05       !Dentener and Crutzen, 1994, #744
-      xgamma(ind_H2SO4,1) = 0.1        !estimated from alpha=0.65
-      xgamma(ind_H2SO4,2) = 0.1        !estimated from alpha=0.65
-!      xgamma(ind_HCl,1)   =
-!      xgamma(ind_HCl,2)   =
-!      xgamma(ind_BrNO3,1) = 0.3
-!      xgamma(ind_BrNO3,2) = 0.3
-!      xgamma(ind_ClNO3,1) = 0.3
-!      xgamma(ind_ClNO3,2) = 0.3
-!      xgamma(ind_HOBr,1)  = 0.2
-!      xgamma(ind_HOBr,2)  = 0.2
-!      xgamma(ind_HOCl,1)  = 0.
-!      xgamma(ind_HOCl,2)  = 0.
-!      xgamma(ind_HOI,1)   = 0.
-!      xgamma(ind_HOI,2)   = 0.
+  xgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  xgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  xgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
+  xgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
+  xgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  xgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  xgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
+  xgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
+!  xgamma(ind_HCl,1)   =
+!  xgamma(ind_HCl,2)   =
+!  xgamma(ind_BrNO3,1) = 0.3_dp
+!  xgamma(ind_BrNO3,2) = 0.3_dp
+!  xgamma(ind_ClNO3,1) = 0.3_dp
+!  xgamma(ind_ClNO3,2) = 0.3_dp
+!  xgamma(ind_HOBr,1)  = 0.2_dp
+!  xgamma(ind_HOBr,2)  = 0.2_dp
+!  xgamma(ind_HOCl,1)  = 0._dp
+!  xgamma(ind_HOCl,2)  = 0._dp
+!  xgamma(ind_HOI,1)   = 0._dp
+!  xgamma(ind_HOI,2)   = 0._dp
 
 ! the following are needed to calculate dry rates w/ assumption of Henry's
 ! law equilibrium
 
 ! define equilibrium constant
 ! obviously without Pitzer coefficients
-      do k=2,nmax
-         xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
-      enddo
+  do k=2,nmax
+     xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
+  enddo
 
 ! define inverse Henry's constant
-      do k=2,nmax
-         henry(k,ind_HNO3)=func3(2.5d6/xeq(k,ind_HNO3),8694.d0,k) ! jjb note this is different in SR equil_co_*
-         FCT=0.0820577*tt(k)
-         do l=1,ndr
-            if (henry(k,idr(l)).ne.0.d0) henry(k,idr(l))=1./ & ! jjb .d0
-                 (henry(k,idr(l))*FCT)
+  do k=2,nmax
+     henry(k,ind_HNO3)=func3(2.5d6/xeq(k,ind_HNO3),8694.d0,k) ! jjb note this is different in SR equil_co_*
+     FCT=0.0820577*tt(k)
+     do l=1,ndr
+        if (henry(k,idr(l)).gt.0._dp) henry(k,idr(l))=1./(henry(k,idr(l))*FCT)
 ! "else": henry=0 <=> k_H^cc=infinity
-         enddo
-      enddo
+     enddo
+  enddo
 
 ! mean molecular speed (see SR v_mean_* for details)
 ! v_mean in m/s; sqrt(8*R_gas/pi)=4.60138
-      do k=2,nmax
-         vmean(ind_HNO3,k)  = func(6.3d-2,k)
-         vmean(ind_N2O5,k)  = func(1.08d-1,k)
-         vmean(ind_NH3,k)   = func(1.7d-2,k)
-         vmean(ind_H2SO4,k) = func(9.8d-2,k)
-!         vmean(ind_HCl,k)   = func(3.6d-2,k)
-!         vmean(ind_BrNO3,k) = func(1.42d-1,k)
-!         vmean(ind_ClNO3,k) = func(9.7d-2,k)
-!         vmean(ind_HOBr,k)  = func(9.7d-2,k)
-!         vmean(ind_HOCl,k)  = func(5.2d-2,k)
-!         vmean(ind_HOI,k)   = func(1.44d-1,k)
-      enddo
+  do k=2,nmax
+     vmean(ind_HNO3,k)  = func(6.3d-2,k)
+     vmean(ind_N2O5,k)  = func(1.08d-1,k)
+     vmean(ind_NH3,k)   = func(1.7d-2,k)
+     vmean(ind_H2SO4,k) = func(9.8d-2,k)
+!     vmean(ind_HCl,k)   = func(3.6d-2,k)
+!     vmean(ind_BrNO3,k) = func(1.42d-1,k)
+!     vmean(ind_ClNO3,k) = func(9.7d-2,k)
+!     vmean(ind_HOBr,k)  = func(9.7d-2,k)
+!     vmean(ind_HOCl,k)  = func(5.2d-2,k)
+!     vmean(ind_HOI,k)   = func(1.44d-1,k)
+  enddo
 
 ! calculate kmt ----
 
@@ -4718,31 +4745,29 @@ end subroutine dry_cw_rc
 ! k_mt=v_mean/(r**2/lambda+4*r/(3*alpha))
 
 ! lambda=freep : mean free path
-!     x1=0. ! jjb useless
-      do k=2,nmax
-         do l=1,ndr
-            do kc=1,2
-               if (xgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
-                  x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*xgamma &
-                       (idr(l),kc))))
-               else
-                  x1=0.
-               endif
-               xkmtd(k,kc,idr(l))=vmean(idr(l),k)*x1
-!                  print *,k,idr(l),kc
-!                  print *,xkmtd(k,kc,idr(l)),x1,vmean(idr(l),k)
-            enddo
-         enddo
-      enddo
+  do k=2,nmax
+     do kc=1,2
+        do l=1,ndr
+           if (xgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
+              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*xgamma(idr(l),kc))))
+           else
+              x1=0._dp
+           endif
+           xkmtd(k,kc,idr(l))=vmean(idr(l),k)*x1
+!           print *,k,idr(l),kc
+!           print *,xkmtd(k,kc,idr(l)),x1,vmean(idr(l),k)
+        enddo
+     enddo
+  enddo
 
-!      do k=2,n
-!            write (432, 1001) k,xkmtd(k,1,ind_HNO3),1./xkmtd(k,1,ind_HNO3), &
-!              xkmtd(k,2,ind_HNO3),1./xkmtd(k,2,ind_HNO3), &
-!              xkmtd(k,1,ind_HNO3)*cwd(k,1),xkmtd(k,2,ind_HNO3)*cwd(k,2)
-!      enddo
+!  do k=2,n
+!        write (432, 1001) k,xkmtd(k,1,ind_HNO3),1./xkmtd(k,1,ind_HNO3), &
+!          xkmtd(k,2,ind_HNO3),1./xkmtd(k,2,ind_HNO3), &
+!          xkmtd(k,1,ind_HNO3)*cwd(k,1),xkmtd(k,2,ind_HNO3)*cwd(k,2)
+!  enddo
 ! 1001 format(i4, 6d16.8)
 
-      end subroutine dry_rates_g
+end subroutine dry_rates_g
 
 
 !
@@ -4784,7 +4809,7 @@ end subroutine dry_cw_rc
       common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !      common /kpp_dryp/ rcd(n,2),cwd(n,2)
 !     dimension xgamma(NSPEC,2),freep(nf),idr(ndr),rqm(nkt,nka) ! jjb rqm is unreferenced
-      dimension xgamma(NSPEC,2),freep(nf),idr(ndr)              ! jjb thus removed
+      dimension xgamma(NSPEC,2),freep(n),idr(ndr)              ! jjb thus removed
 
 
 !      data idr/ind_HNO3,ind_N2O5,ind_BrNO3,ind_ClNO3,ind_HOBr/
@@ -4971,7 +4996,7 @@ end subroutine dry_cw_rc
       common /kpp_dryt/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
 !     common /kpp_dryp/ rcd(n,2),cwd(n,2)
 !     dimension xgamma(NSPEC,2),freep(nf),idr(ndr),rqm(nkt,nka) ! jjb rqm is unreferenced
-      dimension xgamma(NSPEC,2),freep(nf),idr(ndr)              ! jjb thus removed
+      dimension xgamma(NSPEC,2),freep(n),idr(ndr)              ! jjb thus removed
 
 
 !      data idr/ind_HNO3,ind_N2O5,ind_BrNO3,ind_ClNO3,ind_HOBr/
@@ -5331,7 +5356,7 @@ end subroutine dry_cw_rc
       include 'aer_Parameters.h'     !additional common blocks and other definitions
 
 ! Subroutine arguments
-      real (kind=dp), intent(in) :: xra,tt(n),rho(n),freep(nf)
+      real (kind=dp), intent(in) :: xra,tt(n),rho(n),freep(n)
 ! Local variables
       integer :: i, k
       real (kind=dp) :: FCT, rb_fact
@@ -5989,6 +6014,7 @@ end subroutine dry_cw_rc
       real(kind=dp) :: cw, cm
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+      real (kind=dp) :: xkmtd, henry, xeq
 !     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb unused now
 
 ! note: activity coeff. are being correctly calculated with the averaged
@@ -6249,6 +6275,10 @@ end subroutine dry_cw_rc
            nf, &
            nkc
 
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
       implicit double precision (a-h,o-z)
 
       include 'aer_Parameters.h' !additional common blocks and other definitions
@@ -6276,11 +6306,16 @@ end subroutine dry_cw_rc
 ! Imported Parameters:
            n
 
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
       implicit double precision (a-h,o-z)
 
       include 'gas_Parameters.h' !additional common blocks and other definitions
 
       common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+      real (kind=dp) :: xkmtd, henry, xeq
 
       do kc=1,2!nkc
          do j=1,NSPEC
