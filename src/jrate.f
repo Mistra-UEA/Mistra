@@ -109,13 +109,14 @@
 !       - update of subroutine calls after arguments removal
 !       - explicit definition of SW* switches (were assumed as real, when implicit DP was used)
 !       - reorganisation of SRs band, lookup and photo_cal:
-!            the former remover, the last 2 directly called by this SR
+!            the first removed, the last 2 directly called by this SR
 !            see more comments below
 !       - implicit none
 !
 
       USE global_params, ONLY :
      &     n_m=>n,
+     &     nphrxn,
      &     nrlay
 
       IMPLICIT NONE
@@ -133,11 +134,11 @@ c top layer in  MISTRA is already "infinity" in Jochens code "infinity" is layer
      $     PRESS(0:MAXLAY),  !pressure at model levels [hPa]
      $     RELO3(0:MAXLAY),  !O3 volumn mixing ratio [ppm]
      $     ALBEDO(MAXWAV),   !shortwave albedo
-     $     U0,              !cosine of solar zenith angle
-     $     SCALEO3              !total vert. ozone column for scaling
+     $     U0,               !cosine of solar zenith angle
+     $     SCALEO3           !total vert. ozone column for scaling
 
-      INTEGER
-     $     ITYPE(MAXLAY)         !aerosol type
+!      INTEGER
+!     $     ITYPE(MAXLAY)         !aerosol type
 
       DOUBLE PRECISION
      $     V2(0:MAXLAY),    !O2 column density [part./cm^2]
@@ -148,7 +149,7 @@ c top layer in  MISTRA is already "infinity" in Jochens code "infinity" is layer
      $     DV3(MAXLAY),     !diff. O3 column density [part./cm^2]
      $     V3S(0:MAXLAY),   !slant O3 column density [part./cm^2]
      $     DV3S(MAXLAY),    !diff. slant O2 column density [part./cm^2]
-     $     DENS(0:MAXLAY)   !densety of air molecules [part./cm^3]
+     $     DENS(0:MAXLAY)   !density of air molecules [part./cm^3]
 
 c     actinic fluxes
 
@@ -230,7 +231,7 @@ c     photolysis rates
       INTEGER K,L ! indexes of do loops
 
 c jrates for MISTRA
-      common /band_rat/ photol_j(47,n_m)
+      common /band_rat/ photol_j(nphrxn,n_m)
       double precision photol_j
 
       INTEGER SW2, SW4, SW7, SW12, SW13 ! jjb added 18/07/2015 for correct use below. Such integer definition was probably in Swich.dat (commented below) but was missing here.
@@ -255,8 +256,11 @@ c----------------------------------------------------------------------
 
       WRITE(*,'(8I4)')NWS
 
+!      CALL READ_DATA(TEMP,  PRESS,   RELO3,
+!     $               ITYPE, ALBEDO,  U0,    SCALEO3,
+!     $               SW4)
       CALL READ_DATA(TEMP,  PRESS,   RELO3,
-     $               ITYPE, ALBEDO,  U0,    SCALEO3,
+     $                      ALBEDO,  U0,    SCALEO3,
      $               SW4)
 
       CALL COLUMN(
@@ -390,8 +394,11 @@ c         photol_j(45,MAXLAY-k+1)= ??? !CHBr2I
 
 
 *******************************************************************
+!     SUBROUTINE READ_DATA(TEMP,    PRESS,  RELO3,
+!    $                     ITYPE,   ALBEDO,  U0,      SCALEO3,
+!    $                     SW4)
       SUBROUTINE READ_DATA(TEMP,    PRESS,  RELO3,
-     $                     ITYPE,   ALBEDO,  U0,      SCALEO3,
+     $                              ALBEDO,  U0,      SCALEO3,
      $                     SW4)
 
 ! Description:
@@ -451,8 +458,8 @@ C     OUTPUTS
      $     U0,               !cosine of solar zenith angle
      $     SCALEO3,          !total vert. ozone column for scaling
      $     Z(MAXLAY)         !hight of levels [m]                      ! jjb for output purpose only
-      INTEGER
-     $     ITYPE(MAXLAY)     !aerosol type
+!     INTEGER
+!    $     ITYPE(MAXLAY)     !aerosol type
 
 c commom blocks from MISTRA:
       common /cb02/ t_m(nrlev),p_m(nrlev),rho_m(nrlev),xm1_m(nrlev),ts_m
@@ -530,14 +537,16 @@ C----------------------------------------------------------------------
 C     CHECK DATA
 C----------------------------------------------------------------------
 
-      IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+!     IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+      IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3)
 
       END SUBROUTINE READ_DATA
 *******************************************************************
 
 
 ********************************************************************
-      subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+!     subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+      subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3)
 
 ! This SR writes atmospheric profiles after importing them from Mistra in the previous SR (read_data)
 ! In SR photol, this can be switched on/off using SW4
@@ -553,6 +562,9 @@ C----------------------------------------------------------------------
 !
 ! 23/10/2016 jjb
 !     removed FRAC, which was initialised to 0 in READ_DATA, and used nowhere
+!
+! 05/06/2021 jjb
+!     commented out ITYPE output, this variable is not linked to actual mistra aerosol type in jrate
 
 
       USE global_params, ONLY :
@@ -571,8 +583,8 @@ C----------------------------------------------------------------------
      $     Z(MAXLAY),        !hight of levels [m]
      $     RELO3(0:MAXLAY)   !O3 volumn mixing ratio [1]
 
-      INTEGER
-     $     ITYPE(MAXLAY)     !aerosol type
+!      INTEGER
+!     $     ITYPE(MAXLAY)     !aerosol type
 
       INTEGER K,FUN
       PARAMETER ( FUN = 7 ) ! file unit number
@@ -599,9 +611,9 @@ C----------------------------------------------------------------------
       WRITE(FUN,*)'MIXING RATIO OF OZON [1]'
       WRITE(FUN,13)(RELO3(K), K=1,MAXLAY)
 
-      WRITE(FUN,*)'AEROSOL TYPE '//
-     $          '(1=rural,2=maritime,3=urban,4=free troposphere)'
-      WRITE(FUN,'(10I2)')(ITYPE(K),K=1,MAXLAY)
+!      WRITE(FUN,*)'AEROSOL TYPE '//
+!     $          '(1=rural,2=maritime,3=urban,4=free troposphere)'
+!      WRITE(FUN,'(10I2)')(ITYPE(K),K=1,MAXLAY)
 
       CLOSE(FUN)
 

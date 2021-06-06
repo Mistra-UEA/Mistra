@@ -101,6 +101,7 @@ module global_params
   integer, parameter :: nkc = 4
 
   ! Number of photolysis reactions
+  !  (if updated here, *.def files for KPP must also be updated for the same variable)
   integer, parameter :: nphrxn = 47
 
   ! Number of levels to compute budget

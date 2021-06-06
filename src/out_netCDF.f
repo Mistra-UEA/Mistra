@@ -4037,7 +4037,8 @@ c
 
       USE global_params, ONLY :
 ! Imported Parameters:
-     &     n
+     &     n,
+     &     nphrxn
 
       USE precision, ONLY :
 ! Imported Parameters:
@@ -4065,7 +4066,7 @@ c
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
 
-      common /band_rat/ photol_j(47,n)
+      common /band_rat/ photol_j(nphrxn,n)
       real (kind=dp) :: photol_j
 
       ijratcount=ijratcount+1
@@ -4106,8 +4107,7 @@ c chemical species
       idimstart(3)=1
       idimstart(4)=ijratcount
 
-!     do ispec=1,46 ! jjb has to be increased
-      do ispec=1,47 ! jjb increased
+      do ispec=1,nphrxn
          field(1,1,:)=photol_j(ispec,1:n_bln)
          k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),idimstart,
      &        idimcount,field)

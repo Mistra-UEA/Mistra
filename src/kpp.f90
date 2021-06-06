@@ -1252,7 +1252,6 @@ subroutine v_mean_t (tt,nmaxf)
 ! Declarations :
 ! ------------
 ! Modules used:
-
   USE global_params, ONLY : &
 ! Imported Parameters:
        nf, &
@@ -4135,281 +4134,278 @@ end subroutine plo_ppH
 !-----------------------------------------------------------
 !
 
-      subroutine kpp_driver (box,dd_ch,n_bl)
-! interface between MISTRA and the KPP gas phase chemistry
+subroutine kpp_driver (box,dd_ch,n_bl)
 
-      USE config, ONLY : &
-           halo, &
-           iod, &
-           neula
+! Description :
+! -----------
+  ! interface between MISTRA and the KPP gas phase chemistry
 
-      USE constants, ONLY : &
+! Author :
+! ------
+  ! Roland von Glasow
+
+! Modifications :
+! -------------
+  ! jjb work done:
+  !  - bugfix: photol is defined for levels, use average for layer
+  !  - xhet1/2 nox passed to tot mechanism, for continuity (maybe useless, but not a problem anyways)
+  !  - ph_rat now passed as argument to each mechanism driver, to avoid (old) /ph_r/ multiply
+  !     defined in 3 block data, which is not correct in Fortran. Each mech has now its own /ph_r_m/
+  !  - change tkpp for KPP v2.x: the actual time has no impact on KPP, but it affects the numerical
+  !     precision in the test: if (T+H == T) where T is time, and H timestep. Having large tkpp (in
+  !     the 10^4 - 10^5 range for a run of a few days) limits the potential minimum H, and make it
+  !     evolve during the run which is not good. Problem solved by passing a constant (fake) tkpp = 0 or 1
+  !  - cleaning: removed old code handling ros2 integrator where timestep had to be adjusted by hand,
+  !     this is no longer needed in KPP v2.x (whatever the integrator)
+  !              removed co, passed conv1 from module directly to driver
+
+! == End of header =============================================================
+
+! Declarations :
+! ------------
+! Modules used:
+  USE config, ONLY : &
+       halo, &
+       iod, &
+       neula
+
+  USE constants, ONLY : &
 ! Imported Parameters:
        pi
 
-      USE gas_common, ONLY : &
+  USE gas_common, ONLY : &
 ! Imported Array Variables with intent (inout):
-           s1, &
-           s3, &
-           ind_gas_rev, nadvmax, nindadv, xadv ! for Eulerian advection
+       s1, &
+       s3, &
+       ind_gas_rev, nadvmax, nindadv, xadv ! for Eulerian advection
 
-
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           j2, &
-           j6, &
-           nf, &
-           n, &
-           nkc, &
-           nphrxn
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nkc, &
+       nphrxn
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-!     logical halo,iod,box,new_a,new_c,cloud,short,ros3 ! jjb ros3 removed, thus new_a, new_c & short as well
-      logical box,cloud
+  implicit none
 
-      common /blck01/ am3(n),cm3(n)
+! Subroutine arguments
+! Scalar arguments with intent(in):
+  logical, intent(in) :: box
+  real (kind=dp), intent(in) :: dd_ch
+  integer, intent(in) :: n_bl
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      real(kind=dp) :: cw, cm
-      common /blck13/ conv2(nkc,n)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      real (kind=dp) :: sl1, sion1
-      common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+! Local scalars:
+  integer :: i, j, k
+  integer :: n_max, n_min
+  real (kind=dp) :: air, airmolec
+  real (kind=dp) :: cvv1, cvv2, cvv3, cvv4
+  real (kind=dp) :: dt_ch, h2o, h2o_cc, tkpp
+  real (kind=dp) :: rlat, rdec, zeit, horang, u00, ru0, u0
+  real (kind=dp) :: xhal, xiod, xliq1, xliq2, xliq3, xliq4, xhet1, xhet2
+! Local arrays:
+  real (kind=dp) :: ph_rat(nphrxn)
 
-      common /cb40/ time,lday,lst,lmin,it,lcl,lct
-      real (kind=dp) :: time
-      integer :: lday, lst, lmin, it, lcl, lct
+! Common blocks:
+  common /blck01/ am3(n),cm3(n)
+  real (kind=dp) :: am3, cm3
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real(kind=dp) :: cw, cm
+  common /blck13/ conv2(nkc,n)
+  real (kind=dp) :: conv2
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /cb18/ alat,declin                ! for the SZA calculation
+  real (kind=dp) :: alat,declin
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /band_rat/ photol_j(nphrxn,n)
+  real (kind=dp) :: photol_j
+  common /kinv_i/ kinv
+  integer :: kinv
+  common /cb_1/ air_cc,te,h2oppm,pk
+  real (kind=dp) :: air_cc,te,h2oppm,pk
+  common /kpp_l1/ cloud(nkc,n)
+  logical :: cloud
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
-      common /band_rat/ photol_j(nphrxn,n)
-      common /kinv_i/ kinv
-      integer :: kinv
-      common /cb_1/ air_cc,te,h2oppm,pk
-!     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
-      common /kpp_l1/ cloud(nkc,n)
-!     common /kpp_mol/ cm(nf,nkc),xgamma(nf,j6,nkc) ! jjb updated
-!     common /ph_r/ ph_rat(47) ! jjb ! jjb test include in _a_g_t common blocks
-      dimension ph_rat(nphrxn)
+! == End of declarations =======================================================
 
-      airmolec=6.022d+20/18.0
+  airmolec=6.022d+20/18.0
 ! calculate u0 for prelim photolysis
-      rlat=alat*1.745329d-02
-      rdec=declin*1.745329d-02
-      zeit=lst*3600.+dfloat(lmin-1)*60.
+  rlat=alat*1.745329d-02
+  rdec=declin*1.745329d-02
+  zeit=lst*3600.+real(lmin-1,dp)*60.
 !      zeit=zeit+dtg  !quite exact, but photolysis rates are calculated in
 ! greater intervals and variable dtg is known only in the old chemical module
 !      horang=7.272205d-05*zeit-3.1415927
-      horang=7.272205d-05*zeit-pi
-      u00=dcos(rdec)*dcos(rlat)*dcos(horang)+dsin(rdec)*dsin(rlat)
-      ru0=6371.*u00
-      u0=8./(dsqrt(ru0**2+102000.)-ru0)
+  horang=7.272205d-05*zeit-pi
+  u00=cos(rdec)*cos(rlat)*cos(horang)+sin(rdec)*sin(rlat)
+  ru0=6371.*u00
+  u0=8./(sqrt(ru0**2+102000._dp)-ru0)
 
-      call mass_ch
+  call mass_ch
+
 ! loop over all vertical layers
-!      n_max=n
-      n_max=n-1
-      n_min=2
-      if (box) then
-         n_max=n_bl
-         n_min=n_bl
-      endif
+!  n_max=n
+  n_max=n-1
+  n_min=2
+  if (box) then
+     n_max=n_bl
+     n_min=n_bl
+  endif
 
 ! eliminate negative values
-      where (s1 < 0.d0) s1=0.d0 ! jjb new using where construct for array s1
-      where (s3 < 0.d0) s3=0.d0 ! jjb new using where construct for array s3
-      !where (sl1  < 0.d0)   sl1=0.d0
-      !where (sion1 < 0.d0) sion1=0.d0 ! at the moment, done in each mechanism
+  where (s1 < 0.d0) s1=0._dp
+  where (s3 < 0.d0) s3=0._dp
+  !where (sl1 < 0.d0)   sl1=0.d0
+  !where (sion1 < 0.d0) sion1=0.d0 ! at the moment, done in each mechanism
 
-      do k=n_min,n_max !c aer#
-!         if (k.eq.2) short=.false. !c aer# ! jjb ros2 only
-! cloud#      do k=n_max,2,-1 !c cloud#
-! cloud#         if (k.eq.n_max) short=.false. !c cloud#
+  do k=n_min,n_max
 
 ! define temp, H2O, air, ..
 ! air, h2o in mlc/cm^3 are used for 3rd order reactions that are
 ! formulated as quasi-2nd order
-         te=t(k)
-         air_cc=cm3(k)                      ![air] in mlc/cm^3
-         air=am3(k)                         ![air] in mol/m^3
-!        co=am3(k,2)                        ![co]  in mol/m^3 ! jjb removed, unused
-         h2o=xm1(k)*rho(k)/1.8d-2           ![h2o] in mol/m^3
-         h2o_cc=xm1(k)*airmolec*rho(k)      ![h2o] in mlc/cm^3
-         h2oppm=h2o_cc*1.d6/air_cc        ![h2o] in ppm=umol/mol
-         pk=p(k)
-         dt_ch=dd_ch
-         !tkpp=time
-         tkpp=1.d0
-         !tkpp=0.d0 ! jjb change here. kpp has not to know the real time, and having large TIN would reduce minimum timestep allowed in KPP
-!         if (k.lt.nf) then ! conv2 is dimension n now, and initialised to 0
-            cvv1=conv2(1,k)
-            cvv2=conv2(2,k)
-            cvv3=conv2(3,k)
-            cvv4=conv2(4,k)
-!         else ! jjb check that there is no pb with index nf
-!            cvv1=0.
-!            cvv2=0.
-!            cvv3=0.
-!            cvv4=0.
-!         endif
+     te=t(k)
+     air_cc=cm3(k)                      ![air] in mlc/cm^3
+     air=am3(k)                         ![air] in mol/m^3
+     h2o=xm1(k)*rho(k)/1.8d-2           ![h2o] in mol/m^3
+     h2o_cc=xm1(k)*airmolec*rho(k)      ![h2o] in mlc/cm^3
+     h2oppm=h2o_cc*1.d6/air_cc          ![h2o] in ppm=umol/mol
+     pk=p(k)
+     dt_ch=dd_ch
+     !tkpp=time
+     tkpp=1.d0
+     !tkpp=0.d0 ! jjb change here. kpp has not to know the real time, and having large TIN would reduce minimum timestep allowed in KPP
+!     if (k.lt.nf) then ! conv2 is dimension n now, and initialised to 0
+        cvv1=conv2(1,k)
+        cvv2=conv2(2,k)
+        cvv3=conv2(3,k)
+        cvv4=conv2(4,k)
+!     else ! jjb check that there is no pb with index nf
+!        cvv1=0.
+!        cvv2=0.
+!        cvv3=0.
+!        cvv4=0.
+!     endif
 
 ! photolysis rates
-         if (u0.ge.3.48d-2) then
-            do i=1,nphrxn
-               ph_rat(i)=( photol_j(i,k)+photol_j(i,k-1) ) / 2 ! jjb photol_j defined for levels, not for layers
-            enddo
+     if (u0.ge.3.48d-2) then
+        do i=1,nphrxn
+           ph_rat(i)=(photol_j(i,k-1)+photol_j(i,k)) / 2._dp ! jjb photol_j defined for levels, not for layers
+        enddo
 ! end of prelim j rates
-         else
-            do i=1,nphrxn
-               ph_rat(i)=0.
-            enddo
-         end if
+     else
+        do i=1,nphrxn
+           ph_rat(i)=0._dp
+        enddo
+     end if
 
 ! set halogen rates to zero (if wanted)
-         xhal=1.
-         xiod=1.
-         if (.not.halo) then
-            xhal=0.
-            xiod=0.
-         endif
-         if (.not.iod) xiod=0.
+     xhal=1._dp
+     xiod=1._dp
+     if (.not.halo) then
+        xhal=0._dp
+        xiod=0._dp
+     endif
+     if (.not.iod) xiod=0._dp
 ! set liquid rates to zero
-         xliq1=1.
-         xliq2=1.
-         xliq3=1.
-         xliq4=1.
+     xliq1=1._dp
+     xliq2=1._dp
+     xliq3=1._dp
+     xliq4=1._dp
 ! cm is switch now (not cw)
 ! avoid index out of bounds in cm:
-         if (k.ge.nf) then
-            xliq1=0.
-            xliq2=0.
-            xliq3=0.
-            xliq4=0.
-         else
-            if (cm(1,k).eq.0.) xliq1=0.
-            if (cm(2,k).eq.0.) xliq2=0.
-            if (cm(3,k).eq.0.) xliq3=0.
-            if (cm(4,k).eq.0.) xliq4=0.
-         endif
+     if (k.ge.nf) then
+        xliq1=0._dp
+        xliq2=0._dp
+        xliq3=0._dp
+        xliq4=0._dp
+     else
+        if (cm(1,k).eq.0.) xliq1=0._dp
+        if (cm(2,k).eq.0.) xliq2=0._dp
+        if (cm(3,k).eq.0.) xliq3=0._dp
+        if (cm(4,k).eq.0.) xliq4=0._dp
+     endif
 
-         if (xliq1.eq.1..and..not.cloud(1,k)) then
-            cloud(1,k)=.true.
-            print *,'new aerosol layer,l1 : ',k
-         endif
-         if (xliq2.eq.1..and..not.cloud(2,k)) then
-            cloud(2,k)=.true.
-            print *,'new aerosol layer,l2 : ',k
-         endif
-         if (xliq3.eq.1..and..not.cloud(3,k)) then
-            cloud(3,k)=.true.
-            print *,'new cloud layer,l3 : ',k
-         endif
-         if (xliq4.eq.1..and..not.cloud(4,k)) then
-            cloud(4,k)=.true.
-            print *,'new cloud layer,l4 : ',k
-         endif
-         if (xliq1.eq.0..and.cloud(1,k))  cloud(1,k)=.false.
-         if (xliq2.eq.0..and.cloud(2,k))  cloud(2,k)=.false.
-         if (xliq3.eq.0..and.cloud(3,k))  cloud(3,k)=.false.
-         if (xliq4.eq.0..and.cloud(4,k))  cloud(4,k)=.false.
+     if (xliq1.eq.1..and..not.cloud(1,k)) then
+        cloud(1,k)=.true.
+        print *,'new aerosol layer,l1 : ',k
+     endif
+     if (xliq2.eq.1..and..not.cloud(2,k)) then
+        cloud(2,k)=.true.
+        print *,'new aerosol layer,l2 : ',k
+     endif
+     if (xliq3.eq.1..and..not.cloud(3,k)) then
+        cloud(3,k)=.true.
+        print *,'new cloud layer,l3 : ',k
+     endif
+     if (xliq4.eq.1..and..not.cloud(4,k)) then
+        cloud(4,k)=.true.
+        print *,'new cloud layer,l4 : ',k
+     endif
+     if (xliq1.eq.0..and.cloud(1,k))  cloud(1,k)=.false.
+     if (xliq2.eq.0..and.cloud(2,k))  cloud(2,k)=.false.
+     if (xliq3.eq.0..and.cloud(3,k))  cloud(3,k)=.false.
+     if (xliq4.eq.0..and.cloud(4,k))  cloud(4,k)=.false.
 
 ! set heterogeneous rates to zero
-         xhet1=1.
-         xhet2=1.
-         if (xliq1.eq.1.) xhet1=0.
-         if (xliq2.eq.1.) xhet2=0.
+     xhet1=1._dp
+     xhet2=1._dp
+     if (xliq1.eq.1.) xhet1=0._dp
+     if (xliq2.eq.1.) xhet2=0._dp
 
 ! advection if eulerian view (neula=0), xadv in mol/(mol*day)
-
-         if (neula.eq.0) then
-            if (k.le.kinv) then
-               do j=1,nadvmax
-                  if (nindadv(j).ne.0) &
+     if (neula.eq.0) then
+        if (k.le.kinv) then
+           do j=1,nadvmax
+              if (nindadv(j).ne.0) &
          s1(ind_gas_rev(nindadv(j)),k)=s1(ind_gas_rev(nindadv(j)),k)+xadv(j)*dt_ch*air/86400.
-               enddo
-            endif
-         endif
+           enddo
+        endif
+     endif
 
-!         print('(i4,6f4.1)'),k,xliq1,xliq2,xliq3,xliq4,xhet1,xhet2
 ! call kpp chemical integrator
-            if (xliq1.eq.1..or.xliq2.eq.1.) then
-               if (xliq3.eq.1..or.xliq4.eq.1.) then
+     if (xliq1.eq.1..or.xliq2.eq.1.) then
+        if (xliq3.eq.1..or.xliq4.eq.1.) then
 ! gas + aerosol + cloud
-!                  print *,k," tot ",tkpp,dt_ch
-!                 call tot_drive (tkpp,dt_ch,k,cvv1,cvv2,cvv3,cvv4 &
-!                      ,xhal,xiod,xliq1,xliq2,xliq3,xliq4,air,co,h2o) ! jjb
-!                 call tot_drive (tkpp,dt_ch,k,cvv1,cvv2,cvv3,cvv4 &
-!          ,xhal,xiod,xliq1,xliq2,xliq3,xliq4,xhet1,xhet2,air,co,h2o) ! jjb working version
-!                  call tot_drive (tkpp,dt_ch,k,cvv1,cvv2,cvv3,cvv4 &
-!           ,xhal,xiod,xliq1,xliq2,xliq3,xliq4,xhet1,xhet2,air,co,h2o &
-!           ,ph_rat)                                                   ! jjb test version to handle ph_rat another way
-                  call tot_drive (tkpp,dt_ch,k,cvv1,cvv2,cvv3,cvv4 &
-           ,xhal,xiod,xliq1,xliq2,xliq3,xliq4,xhet1,xhet2,air,h2o &
-           ,ph_rat)                                                   ! jjb co removed
-!         print *,'layer nb',k,'aqueous chem? TOT mech'
-!         print *,'xliq1-4=',xliq1,xliq2,xliq3,xliq4
-!         print *,'xhet1-2=',xhet1,xhet2
-!         print *,'cloud(1-4,k)=',cloud(1,k),cloud(2,k),cloud(3,k) &
-!        ,cloud(4,k)
+           call tot_drive (tkpp,dt_ch,k,cvv1,cvv2,cvv3,cvv4,xhal,xiod, &
+                xliq1,xliq2,xliq3,xliq4,xhet1,xhet2,air,h2o,ph_rat)
 
-               else
+        else
 ! gas + aerosol
-!                  print *,k," aer ",tkpp,dt_ch
-!                 call aer_drive (tkpp,dt_ch,k,cvv1,cvv2,xhal, &
-!                      xiod,xliq1,xliq2,xhet1,xhet2,air,co,h2o) ! jjb working version
-!                  call aer_drive (tkpp,dt_ch,k,cvv1,cvv2,xhal, &
-!                       xiod,xliq1,xliq2,xhet1,xhet2,air,co,h2o &
-!           ,ph_rat)                                             ! jjb test version to handle ph_rat another way
-                  call aer_drive (tkpp,dt_ch,k,cvv1,cvv2,xhal, &
-                       xiod,xliq1,xliq2,xhet1,xhet2,air,h2o &
-           ,ph_rat)                                             ! jjb co removed
-!         print *,'layer nb',k,'aqueous chem? AER mech'
-!         print *,'xliq1-4=',xliq1,xliq2,xliq3,xliq4
-!         print *,'xhet1-2=',xhet1,xhet2
-!         print *,'cloud(1-4,k)=',cloud(1,k),cloud(2,k),cloud(3,k) &
-!        ,cloud(4,k)
-               endif
-            else
+           call aer_drive (tkpp,dt_ch,k,cvv1,cvv2,xhal,xiod, &
+                xliq1,xliq2,xhet1,xhet2,air,h2o,ph_rat)
+        endif
+     else
 ! gas only
 ! het reactions on dry aerosol always on!
-               xhet1 = 1.
-               xhet2 = 1.
-!               print *,k," gas ",tkpp,dt_ch
-!              call gas_drive (tkpp,dt_ch,k,xhal,xiod,xhet1,xhet2,conv1, & ! jjb working version
-!                   air,co,h2o)
-!               call gas_drive (tkpp,dt_ch,k,xhal,xiod,xhet1,xhet2,conv1, & ! jjb test version to handle ph_rat another way
-!                    air,co,h2o,ph_rat)
-!              call gas_drive (tkpp,dt_ch,k,xhal,xiod,xhet1,xhet2,conv1, & ! jjb co removed
-!                   air,h2o,ph_rat)
-!               write(1717,*)'Gas layer',time,k
-               call gas_drive (tkpp,dt_ch,k,xhal,xiod,xhet1,xhet2, &      ! jjb conv1 removed
-                    air,h2o,ph_rat)
-!         print *,'layer nb',k,'aqueous chem? GAS mech'
-!         print *,'xliq1-4=',xliq1,xliq2,xliq3,xliq4
-!         print *,'xhet1-2=',xhet1,xhet2
-!         print *,'cloud(1-4,k)=',cloud(1,k),cloud(2,k),cloud(3,k) &
-!       ,cloud(4,k)
-            endif
+        xhet1 = 1.
+        xhet2 = 1.
+        call gas_drive (tkpp,dt_ch,k,xhal,xiod,xhet1,xhet2,air,h2o,ph_rat)
+     endif
 
-      enddo ! k
+  enddo ! k
 
 ! eliminate negative values
-      where (s1 < 0.d0) s1=0.d0 ! jjb new using where construct for array s1
-      where (s3 < 0.d0) s3=0.d0 ! jjb new using where construct for array s3
+  where (s1 < 0.d0) s1=0._dp
+  where (s3 < 0.d0) s3=0._dp
 
-      sl1(:,:,:) = max(0.d0,sl1(:,:,:))
-      sion1(:,:,:) = max(0.d0,sion1(:,:,:))
+  sl1(:,:,:) = max(0._dp,sl1(:,:,:))
+  sion1(:,:,:) = max(0._dp,sion1(:,:,:))
 
-      if (lmin.eq.10) call ionbalance (box,n_bl)
+  if (lmin.eq.10) call ionbalance (box,n_bl)
 
-      end subroutine kpp_driver
+end subroutine kpp_driver
 
 !
 !-----------------------------------------------------
@@ -5984,6 +5980,7 @@ end subroutine plo_ppH
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
+      real (kind=dp) :: am3, cm3
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
       real(kind=dp) :: cw, cm
@@ -6324,10 +6321,12 @@ end subroutine plo_ppH
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
+      real (kind=dp) :: am3, cm3
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
       real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
+      real (kind=dp) :: conv2
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -6402,10 +6401,12 @@ end subroutine plo_ppH
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
+      real (kind=dp) :: am3, cm3
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
       real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
+      real (kind=dp) :: conv2
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
@@ -6484,10 +6485,12 @@ end subroutine plo_ppH
       common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
       real(kind=dp) :: theta, thetl, t, talt, p, rho
       common /blck01/ am3(n),cm3(n)
+      real (kind=dp) :: am3, cm3
       common /blck11/ rc(nkc,n)
       common /blck12/ cw(nkc,n),cm(nkc,n)
       real(kind=dp) :: cw, cm
       common /blck13/ conv2(nkc,n)
+      real (kind=dp) :: conv2
 !     common /kpp_1/ am3(n,2), cm3(n,2),cw(nf,nkc),conv2(nf,nkc),xconv1 ! jjb old CB, updated
       common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
            xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)

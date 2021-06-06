@@ -10,13 +10,11 @@
 !     (for homogeneity, please always use the 73-rd position)
 
 ! photolysis common block
-! jjb original version
-!     double precision ph_rat
-!     dimension ph_rat(47) ! jjb
-!     common /ph_r/ ph_rat
-! jjb test version handling ph_rat another way
-      integer nphrxn
-      parameter (nphrxn=47)
+      !  (if updated here, other *.def files for KPP and global param must be updated as well)
+      integer, parameter :: nphrxn = 47
+      common /ph_r_t/ ph_rat(nphrxn)
+      double precision ph_rat
+
 ! conversion factors
       double precision conv1,cvv1,cvv2,cvv3,cvv4,xhal,xiod,              &
      &       xliq1,xliq2,xliq3,xliq4,                                    &
@@ -33,9 +31,6 @@
      &   ykef(4,NSPEC),ykeb(4,NSPEC),xhet1,xhet2,yxkmtd(2,NSPEC),        &
      &   yxeq(NSPEC),ycwd(2)
       common /k_surf_t/ ykmt_OHClm(4)
-      double precision ph_rat
-      common /ph_r_t/ ph_rat(nphrxn) ! jjb
-
 #ENDINLINE
 
 #INLINE F77_RCONST
