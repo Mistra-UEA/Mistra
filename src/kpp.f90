@@ -2986,7 +2986,7 @@ subroutine equil_co_t (tt,nmaxf)
   common /kpp_ltot/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
 
 ! == End of declarations =======================================================
@@ -3005,86 +3005,86 @@ subroutine equil_co_t (tt,nmaxf)
 ! of equilibrium reactions
 
         xkef(k,kc,ind_H2O) = xsw * funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
-        xkeb(k,kc,ind_H2O) = 1.0D9 * cv2 * xgamma(k,1,kc) * xgamma(k,3,kc)
+        xkeb(k,kc,ind_H2O) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
 
 !        xkef(k,kc,ind_HO2) = xsw * 2.d5  !Chameides '84
         xkef(k,kc,ind_HO2) = xsw * 1.6d5  !Weinstein-loyd and Schwartz, '91
-        xkeb(k,kc,ind_HO2) = 1.d10 * cv2 * xgamma(k,1,kc) * xgamma(k,11,kc)
+        xkeb(k,kc,ind_HO2) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
 
         xkef(k,kc,ind_ACO2) = xsw * 1.8D0
-        xkeb(k,kc,ind_ACO2) = 1.0D4 * cv2 * xgamma(k,1,kc) * xgamma(k,16,kc)
+        xkeb(k,kc,ind_ACO2) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
 
 !        xkef(k,kc,ind_CO2) = xsw * funa(4.3d3,-913.d0,k)
 !        xkeb(k,kc,ind_CO2) = 1.0D10 * cv2
         xkef(k,kc,ind_CO2) = xsw * funa(4.3d-2,-913.d0,k)
-        xkeb(k,kc,ind_CO2) = 1.0D5 * cv2 * xgamma(k,1,kc) * xgamma(k,9,kc)
+        xkeb(k,kc,ind_CO2) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
 
         xkef(k,kc,ind_HONO) = xsw * funa(5.1d+3,-1260.d0,k)
-        xkeb(k,kc,ind_HONO) = 1.0D7 * cv2 * xgamma(k,1,kc) * xgamma(k,12,kc)
+        xkeb(k,kc,ind_HONO) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
 
         xkef(k,kc,ind_HNO3) = xsw * funa(1.54d+10,8700.d0,k)
-        xkeb(k,kc,ind_HNO3) = 1.0D9 * cv2 * xgamma(k,1,kc) * xgamma(k,13,kc)
+        xkeb(k,kc,ind_HNO3) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
 
         xkef(k,kc,ind_HNO4) = xsw * 2.0D3
         xkeb(k,kc,ind_HNO4) = 2.0D8 * cv2
 
         xkef(k,kc,ind_NH3) = xsw * funa(1.7d5,-4325.d0,k)
-        xkeb(k,kc,ind_NH3) = 1.0D10 *  cv2 * xgamma(k,3,kc) * xgamma(k,2,kc)
+        xkeb(k,kc,ind_NH3) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
 
-        xkef(k,kc,ind_HSO3ml1) = xsw * funa(6.0d2,1120.d0,k) * xgamma(k,5,kc)
-        xkeb(k,kc,ind_HSO3ml1) = 1.0D10 *  cv2 * xgamma(k,1,kc) * xgamma(k,6,kc)
+        xkef(k,kc,ind_HSO3ml1) = xsw * funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
+        xkeb(k,kc,ind_HSO3ml1) = 1.0D10 *  cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
 
         xkef(k,kc,ind_H2SO4) = xsw * 1.0d12 !Seinfeld, Pandis (1998), p.391
-        xkeb(k,kc,ind_H2SO4) = 1.0d9 * cv2 * xgamma(k,1,kc) * xgamma(k,19,kc)
+        xkeb(k,kc,ind_H2SO4) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
 
-        xkef(k,kc,ind_HSO4ml1) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(k,19,kc)
-        xkeb(k,kc,ind_HSO4ml1) = 1.0D8 * cv2 * xgamma(k,1,kc) * xgamma(k,8,kc)
+        xkef(k,kc,ind_HSO4ml1) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
+        xkeb(k,kc,ind_HSO4ml1) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
 
         xkef(k,kc,ind_SO2) = xsw * funa(1.7d8,2090.d0,k)
-        xkeb(k,kc,ind_SO2) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,5,kc)
+        xkeb(k,kc,ind_SO2) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
 
         xkef(k,kc,ind_HCHO) = 1.d10 * cv2  !Chameides '84   !mechanism changed
         xkeb(k,kc,ind_HCHO) = xsw * 1.d5                    !mechanism changed
 
         xkef(k,kc,ind_HCl) = xsw * funa(1.7d10,6896.d0,k)
-        xkeb(k,kc,ind_HCl) = 1.0D4 * cv2 * xgamma(k,1,kc) * xgamma(k,14,kc)
+        xkeb(k,kc,ind_HCl) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
 
-        xkef(k,kc,ind_Cl2ml1) = xsw * 5.2d4 * xgamma(k,15,kc)    !Chameides '84
-        xkeb(k,kc,ind_Cl2ml1) = 1.d10 * cv2 * xgamma(k,14,kc)
+        xkef(k,kc,ind_Cl2ml1) = xsw * 5.2d4 * xgamma(15,kc,k)    !Chameides '84
+        xkeb(k,kc,ind_Cl2ml1) = 1.d10 * cv2 * xgamma(14,kc,k)
 
 !        xkef(k,kc,ind_Cl2) = 1.1D-3
 !        xkeb(k,kc,ind_Cl2) = 2.1D2 * cv2
 
         xkef(k,kc,ind_HOCl) = xsw * 3.2D2
-        xkeb(k,kc,ind_HOCl) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,22,kc)
+        xkeb(k,kc,ind_HOCl) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
 
         xkef(k,kc,ind_HBr) = xsw * 1.0D13
-        xkeb(k,kc,ind_HBr) = 1.0D4 *  cv2 * xgamma(k,1,kc) * xgamma(k,24,kc)
+        xkeb(k,kc,ind_HBr) = 1.0D4 *  cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
 
-        xkef(k,kc,ind_Br2) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(k,25,kc)  !Liu et al, 2002, #2109
-        xkeb(k,kc,ind_Br2) = funa(1.17d10,-1812.d0,k) *  cv2 * xgamma(k,24,kc)
+        xkef(k,kc,ind_Br2) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
+        xkeb(k,kc,ind_Br2) = funa(1.17d10,-1812.d0,k) *  cv2 * xgamma(24,kc,k)
 
         xkef(k,kc,ind_HOBr) = xsw * funa(2.3d1,-3091.d0,k)
-        xkeb(k,kc,ind_HOBr) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,26,kc)
+        xkeb(k,kc,ind_HOBr) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
 
-        xkef(k,kc,ind_BrCl2ml1) = funa(5.d9,1143.d0,k) * cv2 * xgamma(k,14,kc) !#894
-        xkeb(k,kc,ind_BrCl2ml1) = xsw * 1.3D9 * xgamma(k,28,kc)
+        xkef(k,kc,ind_BrCl2ml1) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
+        xkeb(k,kc,ind_BrCl2ml1) = xsw * 1.3D9 * xgamma(28,kc,k)
 ! no activities used, they "cancel out"
-        xkef(k,kc,ind_Br2Clml1) = 5.d9 * cv2 !*xgamma(k,24,kc) !if original equilibrium
-        xkeb(k,kc,ind_Br2Clml1) = xsw * 2.8D5!*xgamma(k,29,kc) !       -"-
-        xkef(k,kc,ind_Br2l1) = 5.d9 * cv2  !*xgamma(k,14,kc)    !if original equilibrium
-        xkeb(k,kc,ind_Br2l1) = xsw * 3.85D9!*xgamma(k,29,kc)    !       -"-
-        xkef(k,kc,ind_ICl) = 1.0D11  * cv2 * xgamma(k,14,kc)
-        xkeb(k,kc,ind_ICl) = xsw * 1.3D9 * xgamma(k,37,kc)
-        xkef(k,kc,ind_IBr) = 1.0D11 * cv2 * xgamma(k,24,kc)
-        xkeb(k,kc,ind_IBr) = xsw * 3.5D8 * xgamma(k,38,kc)
+        xkef(k,kc,ind_Br2Clml1) = 5.d9 * cv2 !*xgamma(24,kc,k) !if original equilibrium
+        xkeb(k,kc,ind_Br2Clml1) = xsw * 2.8D5!*xgamma(29,kc,k) !       -"-
+        xkef(k,kc,ind_Br2l1) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
+        xkeb(k,kc,ind_Br2l1) = xsw * 3.85D9!*xgamma(29,kc,k)    !       -"-
+        xkef(k,kc,ind_ICl) = 1.0D11  * cv2 * xgamma(14,kc,k)
+        xkeb(k,kc,ind_ICl) = xsw * 1.3D9 * xgamma(37,kc,k)
+        xkef(k,kc,ind_IBr) = 1.0D11 * cv2 * xgamma(24,kc,k)
+        xkeb(k,kc,ind_IBr) = xsw * 3.5D8 * xgamma(38,kc,k)
 ! new (speculative) ICl <--> IBr equilibria, assumed to yield the same
 ! ICl/IBr ratio as in the BrCl <--> Br2 eqilibria (BrCl/Br2)
 ! no activities used, they are not known!! 11.04.01
-        xkef(k,kc,ind_IClBrml1) = 5.d9 * cv2 !*xgamma(k,24,kc)
-        xkeb(k,kc,ind_IClBrml1) = xsw * 2.8D5!*xgamma(k,29,kc)
-        xkef(k,kc,ind_I2) = 5.d9 * cv2  !*xgamma(k,14,kc)
-        xkeb(k,kc,ind_I2) = xsw * 3.85D9!*xgamma(k,29,kc)
+        xkef(k,kc,ind_IClBrml1) = 5.d9 * cv2 !*xgamma(24,kc,k)
+        xkeb(k,kc,ind_IClBrml1) = xsw * 2.8D5!*xgamma(29,kc,k)
+        xkef(k,kc,ind_I2) = 5.d9 * cv2  !*xgamma(14,kc,k)
+        xkeb(k,kc,ind_I2) = xsw * 3.85D9!*xgamma(29,kc,k)
 !        xkef(k,kc,ind_HIO2) = xsw * 2.0D3
 !        xkeb(k,kc,ind_HIO2) = 2.0D9 * cv2
         xkef(k,kc,ind_HIO3) = xsw * 1.57D4
@@ -3196,7 +3196,7 @@ subroutine equil_co_a (tt,nmaxf)
   common /kpp_laer/ henry(NSPEC,nf),xkmt(nf,nkc,NSPEC), &
        xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
   real(kind=dp) :: henry, xkmt, xkef, xkeb
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
 
 ! == End of declarations =======================================================
@@ -3215,86 +3215,86 @@ subroutine equil_co_a (tt,nmaxf)
 ! of equilibrium reactions
 
         xkef(k,kc,ind_H2O) = xsw * funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
-        xkeb(k,kc,ind_H2O) = 1.0D9 * cv2 * xgamma(k,1,kc) * xgamma(k,3,kc)
+        xkeb(k,kc,ind_H2O) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
 
 !        xkef(k,kc,ind_HO2) = xsw * 2.d5  !Chameides '84
         xkef(k,kc,ind_HO2) = xsw * 1.6d5  !Weinstein-loyd and Schwartz, '91
-        xkeb(k,kc,ind_HO2) = 1.d10 * cv2 * xgamma(k,1,kc) * xgamma(k,11,kc)
+        xkeb(k,kc,ind_HO2) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
 
         xkef(k,kc,ind_ACO2) = xsw * 1.8D0
-        xkeb(k,kc,ind_ACO2) = 1.0D4 * cv2 * xgamma(k,1,kc) * xgamma(k,16,kc)
+        xkeb(k,kc,ind_ACO2) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
 
 !        xkef(k,kc,ind_CO2) = xsw * funa(4.3d3,-913.d0,k)
 !        xkeb(k,kc,ind_CO2) = 1.0D10 * cv2
         xkef(k,kc,ind_CO2) = xsw * funa(4.3d-2,-913.d0,k)
-        xkeb(k,kc,ind_CO2) = 1.0D5 * cv2 * xgamma(k,1,kc) * xgamma(k,9,kc)
+        xkeb(k,kc,ind_CO2) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
 
         xkef(k,kc,ind_HONO) = xsw * funa(5.1d+3,-1260.d0,k)
-        xkeb(k,kc,ind_HONO) = 1.0D7 * cv2 * xgamma(k,1,kc) * xgamma(k,12,kc)
+        xkeb(k,kc,ind_HONO) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
 
         xkef(k,kc,ind_HNO3) = xsw * funa(1.54d+10,8700.d0,k)
-        xkeb(k,kc,ind_HNO3) = 1.0D9 * cv2 * xgamma(k,1,kc) * xgamma(k,13,kc)
+        xkeb(k,kc,ind_HNO3) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
 
         xkef(k,kc,ind_HNO4) = xsw * 2.0D3
         xkeb(k,kc,ind_HNO4) = 2.0D8 * cv2
 
         xkef(k,kc,ind_NH3) = xsw * funa(1.7d5,-4325.d0,k)
-        xkeb(k,kc,ind_NH3) = 1.0D10 *  cv2 * xgamma(k,3,kc) * xgamma(k,2,kc)
+        xkeb(k,kc,ind_NH3) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
 
-        xkef(k,kc,ind_HSO3ml1) = xsw * funa(6.0d2,1120.d0,k) * xgamma(k,5,kc)
-        xkeb(k,kc,ind_HSO3ml1) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,6,kc)
+        xkef(k,kc,ind_HSO3ml1) = xsw * funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
+        xkeb(k,kc,ind_HSO3ml1) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
 
         xkef(k,kc,ind_H2SO4) = xsw * 1.0d12 !Seinfeld, Pandis (1998), p.391
-        xkeb(k,kc,ind_H2SO4) = 1.0d9 * cv2 * xgamma(k,1,kc) * xgamma(k,19,kc)
+        xkeb(k,kc,ind_H2SO4) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
 
-        xkef(k,kc,ind_HSO4ml1) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(k,19,kc)
-        xkeb(k,kc,ind_HSO4ml1) = 1.0D8 * cv2 * xgamma(k,1,kc) * xgamma(k,8,kc)
+        xkef(k,kc,ind_HSO4ml1) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
+        xkeb(k,kc,ind_HSO4ml1) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
 
         xkef(k,kc,ind_SO2) = xsw * funa(1.7d8,2090.d0,k)
-        xkeb(k,kc,ind_SO2) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,5,kc)
+        xkeb(k,kc,ind_SO2) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
 
         xkef(k,kc,ind_HCHO) = 1.d10 * cv2  !Chameides '84   !mechanism changed
         xkeb(k,kc,ind_HCHO) = xsw * 1.d5                    !mechanism changed
 
         xkef(k,kc,ind_HCl) = xsw * funa(1.7d10,6896.d0,k)
-        xkeb(k,kc,ind_HCl) = 1.0D4 * cv2 * xgamma(k,1,kc) * xgamma(k,14,kc)
+        xkeb(k,kc,ind_HCl) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
 
-        xkef(k,kc,ind_Cl2ml1) = xsw * 5.2d4 * xgamma(k,15,kc)    !Chameides '84
-        xkeb(k,kc,ind_Cl2ml1) = 1.d10 * cv2 * xgamma(k,14,kc)
+        xkef(k,kc,ind_Cl2ml1) = xsw * 5.2d4 * xgamma(15,kc,k)    !Chameides '84
+        xkeb(k,kc,ind_Cl2ml1) = 1.d10 * cv2 * xgamma(14,kc,k)
 
 !        xkef(k,kc,ind_Cl2) = 1.1D-3
 !        xkeb(k,kc,ind_Cl2) = 2.1D2 * cv2
 
         xkef(k,kc,ind_HOCl) = xsw * 3.2D2
-        xkeb(k,kc,ind_HOCl) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,22,kc)
+        xkeb(k,kc,ind_HOCl) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
 
         xkef(k,kc,ind_HBr) = xsw * 1.0D13
-        xkeb(k,kc,ind_HBr) = 1.0D4 * cv2 * xgamma(k,1,kc) * xgamma(k,24,kc)
+        xkeb(k,kc,ind_HBr) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
 
-        xkef(k,kc,ind_Br2) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(k,25,kc)  !Liu et al, 2002, #2109
-        xkeb(k,kc,ind_Br2) = funa(1.17d10,-1812.d0,k) * cv2 * xgamma(k,24,kc)
+        xkef(k,kc,ind_Br2) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
+        xkeb(k,kc,ind_Br2) = funa(1.17d10,-1812.d0,k) * cv2 * xgamma(24,kc,k)
 
         xkef(k,kc,ind_HOBr) = xsw * funa(2.3d1,-3091.d0,k)
-        xkeb(k,kc,ind_HOBr) = 1.0D10 * cv2 * xgamma(k,1,kc) * xgamma(k,26,kc)
+        xkeb(k,kc,ind_HOBr) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
 
-        xkef(k,kc,ind_BrCl2ml1) = funa(5.d9,1143.d0,k) * cv2 * xgamma(k,14,kc) !#894
-        xkeb(k,kc,ind_BrCl2ml1) = xsw * 1.3D9 * xgamma(k,28,kc)
+        xkef(k,kc,ind_BrCl2ml1) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
+        xkeb(k,kc,ind_BrCl2ml1) = xsw * 1.3D9 * xgamma(28,kc,k)
 ! no activities used, they "cancel out"
-        xkef(k,kc,ind_Br2Clml1) = 5.d9 * cv2 !*xgamma(k,24,kc)  !if original equilibrium
-        xkeb(k,kc,ind_Br2Clml1) = xsw * 2.8D5!*xgamma(k,29,kc)  !       -"-
-        xkef(k,kc,ind_Br2l1) = 5.d9 * cv2  !*xgamma(k,14,kc)    !if original equilibrium
-        xkeb(k,kc,ind_Br2l1) = xsw * 3.85D9!*xgamma(k,29,kc)    !       -"-
-        xkef(k,kc,ind_ICl) = 1.0D11 * cv2 * xgamma(k,14,kc)
-        xkeb(k,kc,ind_ICl) = xsw * 1.3D9 * xgamma(k,37,kc)
-        xkef(k,kc,ind_IBr) = 1.0D11 * cv2 *xgamma(k,24,kc)
-        xkeb(k,kc,ind_IBr) = xsw * 3.5D8 * xgamma(k,38,kc)
+        xkef(k,kc,ind_Br2Clml1) = 5.d9 * cv2 !*xgamma(24,kc,k)  !if original equilibrium
+        xkeb(k,kc,ind_Br2Clml1) = xsw * 2.8D5!*xgamma(29,kc,k)  !       -"-
+        xkef(k,kc,ind_Br2l1) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
+        xkeb(k,kc,ind_Br2l1) = xsw * 3.85D9!*xgamma(29,kc,k)    !       -"-
+        xkef(k,kc,ind_ICl) = 1.0D11 * cv2 * xgamma(14,kc,k)
+        xkeb(k,kc,ind_ICl) = xsw * 1.3D9 * xgamma(37,kc,k)
+        xkef(k,kc,ind_IBr) = 1.0D11 * cv2 *xgamma(24,kc,k)
+        xkeb(k,kc,ind_IBr) = xsw * 3.5D8 * xgamma(38,kc,k)
 ! new (speculative) ICl <--> IBr equilibria, assumed to yield the same
 ! ICl/IBr ratio as in the BrCl <--> Br2 eqilibria (BrCl/Br2)
 ! no activities used, they are not known!! 11.04.01
-        xkef(k,kc,ind_IClBrml1) = 5.d9 * cv2 !*xgamma(k,24,kc)
-        xkeb(k,kc,ind_IClBrml1) = xsw * 2.8D5!*xgamma(k,29,kc)
-        xkef(k,kc,ind_I2) = 5.d9 * cv2  !*xgamma(k,14,kc)
-        xkeb(k,kc,ind_I2) = xsw * 3.85D9!*xgamma(k,29,kc)
+        xkef(k,kc,ind_IClBrml1) = 5.d9 * cv2 !*xgamma(24,kc,k)
+        xkeb(k,kc,ind_IClBrml1) = xsw * 2.8D5!*xgamma(29,kc,k)
+        xkef(k,kc,ind_I2) = 5.d9 * cv2  !*xgamma(14,kc,k)
+        xkeb(k,kc,ind_I2) = xsw * 3.85D9!*xgamma(29,kc,k)
 !        xkef(k,kc,ind_HIO2) = xsw * 2.0D3
 !        xkeb(k,kc,ind_HIO2) = 2.0D9 * cv2
         xkef(k,kc,ind_HIO3) = xsw * 1.57D4
@@ -4658,7 +4658,7 @@ subroutine dry_rates_g (tt,freep,nmax)
   real (kind=dp) :: x1, FCT
 ! Local arrays:
   integer :: idr(ndr)
-  real (kind=dp) :: xgamma(NSPEC,2),zvmean(NSPEC,n)
+  real (kind=dp) :: zgamma(NSPEC,2),zvmean(NSPEC,n)
 
 ! Statement function
   real (kind=dp) :: func, funa, func3 ! local function
@@ -4684,26 +4684,26 @@ subroutine dry_rates_g (tt,freep,nmax)
   data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4/
 
 ! define gamma's for all species ----
-  xgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
-  xgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
-!  xgamma(ind_HCl,1)   =
-!  xgamma(ind_HCl,2)   =
-!  xgamma(ind_BrNO3,1) = 0.3_dp
-!  xgamma(ind_BrNO3,2) = 0.3_dp
-!  xgamma(ind_ClNO3,1) = 0.3_dp
-!  xgamma(ind_ClNO3,2) = 0.3_dp
-!  xgamma(ind_HOBr,1)  = 0.2_dp
-!  xgamma(ind_HOBr,2)  = 0.2_dp
-!  xgamma(ind_HOCl,1)  = 0._dp
-!  xgamma(ind_HOCl,2)  = 0._dp
-!  xgamma(ind_HOI,1)   = 0._dp
-!  xgamma(ind_HOI,2)   = 0._dp
+  zgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_HCl,1)   =
+!  zgamma(ind_BrNO3,1) = 0.3_dp
+!  zgamma(ind_ClNO3,1) = 0.3_dp
+!  zgamma(ind_HOBr,1)  = 0.2_dp
+!  zgamma(ind_HOCl,1)  = 0._dp
+!  zgamma(ind_HOI,1)   = 0._dp
+  zgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_HCl,2)   =
+!  zgamma(ind_BrNO3,2) = 0.3_dp
+!  zgamma(ind_ClNO3,2) = 0.3_dp
+!  zgamma(ind_HOBr,2)  = 0.2_dp
+!  zgamma(ind_HOCl,2)  = 0._dp
+!  zgamma(ind_HOI,2)   = 0._dp
 
 ! the following are needed to calculate dry rates w/ assumption of Henry's
 ! law equilibrium
@@ -4749,8 +4749,8 @@ subroutine dry_rates_g (tt,freep,nmax)
   do k=2,nmax
      do kc=1,2
         do l=1,ndr
-           if (xgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
-              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*xgamma(idr(l),kc))))
+           if (zgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
+              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*zgamma(idr(l),kc))))
            else
               x1=0._dp
            endif
@@ -4826,7 +4826,7 @@ subroutine dry_rates_a (freep,nmaxf)
 ! Local arrays:
   integer :: idr(ndr)
   !real (kind=dp) :: rqm(nkt,nka)
-  real (kind=dp) :: xgamma(NSPEC,2)
+  real (kind=dp) :: zgamma(NSPEC,2)
 
 ! Common blocks:
   common /blck11/ rcd(nkc,n)
@@ -4860,24 +4860,24 @@ subroutine dry_rates_a (freep,nmaxf)
 !     enddo
 
 ! define gamma's for all species ----
-  xgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
-  xgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
-!  xgamma(ind_BrNO3,1)=0.3_dp
-!  xgamma(ind_BrNO3,2)=0.3_dp
-!  xgamma(ind_ClNO3,1)=0.3_dp
-!  xgamma(ind_ClNO3,2)=0.3_dp
-!  xgamma(ind_HOBr,1)=0.2_dp
-!  xgamma(ind_HOBr,2)=0.2_dp
-!  xgamma(ind_HOCl,1)=0._dp
-!  xgamma(ind_HOCl,2)=0._dp
-!  xgamma(ind_HOI,1)=0._dp
-!  xgamma(ind_HOI,2)=0._dp
+  zgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_BrNO3,1)= 0.3_dp
+!  zgamma(ind_ClNO3,1)= 0.3_dp
+!  zgamma(ind_HOBr,1) = 0.2_dp
+!  zgamma(ind_HOCl,1) = 0._dp
+!  zgamma(ind_HOI,1)  = 0._dp
+  zgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_BrNO3,2)= 0.3_dp
+!  zgamma(ind_ClNO3,2)= 0.3_dp
+!  zgamma(ind_HOBr,2) = 0.2_dp
+!  zgamma(ind_HOCl,2) = 0._dp
+!  zgamma(ind_HOI,2)  = 0._dp
 
 
 ! the following are needed to calculate dry rates w/ assumption of Henry's
@@ -4899,8 +4899,8 @@ subroutine dry_rates_a (freep,nmaxf)
   do k=2,nmaxf
      do kc=1,2
         do l=1,ndr
-           if (xgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
-              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*xgamma(idr(l),kc))))
+           if (zgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
+              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*zgamma(idr(l),kc))))
            else
               x1=0._dp
            endif
@@ -5042,7 +5042,7 @@ subroutine dry_rates_t (freep,nmaxf)
   real (kind=dp) :: x1
 ! Local arrays:
   integer :: idr(ndr)
-  real (kind=dp) :: xgamma(NSPEC,2)
+  real (kind=dp) :: zgamma(NSPEC,2)
 
 ! Common blocks:
   common /blck11/ rcd(nkc,n)
@@ -5065,24 +5065,24 @@ subroutine dry_rates_t (freep,nmaxf)
   data idr/ind_HNO3,ind_N2O5,ind_NH3,ind_H2SO4/
 
 ! define gamma's for all species ----
-  xgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
-  xgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
-  xgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
-  xgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
-  xgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
-!  xgamma(ind_BrNO3,1)=0.3_dp
-!  xgamma(ind_BrNO3,2)=0.3_dp
-!  xgamma(ind_ClNO3,1)=0.3_dp
-!  xgamma(ind_ClNO3,2)=0.3_dp
-!  xgamma(ind_HOBr,1)=0.2_dp
-!  xgamma(ind_HOBr,2)=0.2_dp
-!  xgamma(ind_HOCl,1)=0._dp
-!  xgamma(ind_HOCl,2)=0._dp
-!  xgamma(ind_HOI,1)=0._dp
-!  xgamma(ind_HOI,2)=0._dp
+  zgamma(ind_HNO3,1)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,1)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,1)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,1) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_BrNO3,1)= 0.3_dp
+!  zgamma(ind_ClNO3,1)= 0.3_dp
+!  zgamma(ind_HOBr,1) = 0.2_dp
+!  zgamma(ind_HOCl,1) = 0._dp
+!  zgamma(ind_HOI,1)  = 0._dp
+  zgamma(ind_HNO3,2)  = 0.02_dp    !JPL 2003: uptake on halide salts
+  zgamma(ind_N2O5,2)  = 0.02_dp    !estimated from JPL 2003
+  zgamma(ind_NH3,2)   = 0.05_dp    !Dentener and Crutzen, 1994, #744
+  zgamma(ind_H2SO4,2) = 0.1_dp     !estimated from alpha=0.65
+!  zgamma(ind_BrNO3,2)= 0.3_dp
+!  zgamma(ind_ClNO3,2)= 0.3_dp
+!  zgamma(ind_HOBr,2) = 0.2_dp
+!  zgamma(ind_HOCl,2) = 0._dp
+!  zgamma(ind_HOI,2)  = 0._dp
 
 
 ! the following are needed to calculate dry rates w/ assumption of Henry's
@@ -5104,8 +5104,8 @@ subroutine dry_rates_t (freep,nmaxf)
   do k=2,nmaxf
      do kc=1,2
         do l=1,ndr
-           if (xgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
-              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*xgamma(idr(l),kc))))
+           if (zgamma(idr(l),kc).gt.0..and.rcd(kc,k).gt.0.) then
+              x1=1./(rcd(kc,k)*(rcd(kc,k)/freep(k)+4./(3.*zgamma(idr(l),kc))))
            else
               x1=0._dp
            endif
@@ -5189,7 +5189,7 @@ subroutine activ (box,n_bl)
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
 
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
 
 
@@ -5258,8 +5258,8 @@ subroutine activ (box,n_bl)
 ! don't apply to all xgamma's only to those that are <> 1:
             !if (cw(kc,k).gt.0.d0) then ! jjb: test not needed, already excluded by cm>0 above
            do jg=1,j6
-              if (xgamma(k,jg,kc).ne.1._dp) then
-                 xgamma(k,jg,kc) = xgamma(k,jg,kc) * cm(kc,k)/cw(kc,k)
+              if (xgamma(jg,kc,k).ne.1._dp) then
+                 xgamma(jg,kc,k) = xgamma(jg,kc,k) * cm(kc,k)/cw(kc,k)
               end if
            enddo
            !end if
@@ -5267,24 +5267,24 @@ subroutine activ (box,n_bl)
 ! define gamma's for species that are not included in pitzer module
 ! L+J: Liang and Jacobson, 1999, JGR, 104, 13749, #554
 ! C+S: Chameides and Stelson, 1992, JGR, 97,20565,#470
-           xgamma(k,3,kc)=xgamma(k,13,kc) !OH-   = NO3- (assumed, Luo, pers comm 2000)
-           xgamma(k,5,kc)=xgamma(k,19,kc) !HSO3- = HSO4- (L+J)
-           xgamma(k,6,kc)=xgamma(k,8,kc)  !SO3=  = SO4=  (L+J)
-           xgamma(k,7,kc)=xgamma(k,19,kc) !SO4-  = HSO4- (L+J)
-           xgamma(k,9,kc)=xgamma(k,5,kc)  !HCO3- = HSO3- (C+S)
-           xgamma(k,11,kc)=xgamma(k,5,kc) !O2-   = Cl2- = HSO3- (C+S)
-           xgamma(k,12,kc)=xgamma(k,13,kc)!NO2-  = NO3-  (L+J)
-           xgamma(k,15,kc)=xgamma(k,5,kc) !Cl2-  = HSO3- (C+S)
-           xgamma(k,16,kc)=xgamma(k,5,kc)  !HCOO- = HSO3- (assumed)????
-!           xgamma(k,21,kc)=xgamma(k,,kc) !NO4-  = ??   (assumed)
-           xgamma(k,22,kc)=xgamma(k,14,kc)!ClO-  = Cl-   (assumed)
-           xgamma(k,24,kc)=xgamma(k,14,kc)!Br-   = Cl-   (assumed)
-           xgamma(k,25,kc)=xgamma(k,5,kc) !Br2-  = HSO3- (C+S)
-           xgamma(k,26,kc)=xgamma(k,24,kc)!BrO-  = Br-   (assumed)
-!           xgamma(k,28,kc)=xgamma(k,,kc)  !BrCl2-= ? not used in SR equil_co*
-!           xgamma(k,29,kc)=xgamma(k,,kc)  !Br2Cl-= ?       -"-
-           xgamma(k,37,kc)=xgamma(k,5,kc) !ICl2- = HSO3- (assumed)
-           xgamma(k,38,kc)=xgamma(k,5,kc) !IBr2- = HSO3- (assumed)
+           xgamma(3,kc,k)=xgamma(13,kc,k) !OH-   = NO3- (assumed, Luo, pers comm 2000)
+           xgamma(5,kc,k)=xgamma(19,kc,k) !HSO3- = HSO4- (L+J)
+           xgamma(6,kc,k)=xgamma(8,kc,k)  !SO3=  = SO4=  (L+J)
+           xgamma(7,kc,k)=xgamma(19,kc,k) !SO4-  = HSO4- (L+J)
+           xgamma(9,kc,k)=xgamma(5,kc,k)  !HCO3- = HSO3- (C+S)
+           xgamma(11,kc,k)=xgamma(5,kc,k) !O2-   = Cl2- = HSO3- (C+S)
+           xgamma(12,kc,k)=xgamma(13,kc,k)!NO2-  = NO3-  (L+J)
+           xgamma(15,kc,k)=xgamma(5,kc,k) !Cl2-  = HSO3- (C+S)
+           xgamma(16,kc,k)=xgamma(5,kc,k)  !HCOO- = HSO3- (assumed)????
+!           xgamma(21,kc,k)=xgamma(,kc,k) !NO4-  = ??   (assumed)
+           xgamma(22,kc,k)=xgamma(14,kc,k)!ClO-  = Cl-   (assumed)
+           xgamma(24,kc,k)=xgamma(14,kc,k)!Br-   = Cl-   (assumed)
+           xgamma(25,kc,k)=xgamma(5,kc,k) !Br2-  = HSO3- (C+S)
+           xgamma(26,kc,k)=xgamma(24,kc,k)!BrO-  = Br-   (assumed)
+!           xgamma(28,kc,k)=xgamma(,kc,k)  !BrCl2-= ? not used in SR equil_co*
+!           xgamma(29,kc,k)=xgamma(,kc,k)  !Br2Cl-= ?       -"-
+           xgamma(37,kc,k)=xgamma(5,kc,k) !ICl2- = HSO3- (assumed)
+           xgamma(38,kc,k)=xgamma(5,kc,k) !IBr2- = HSO3- (assumed)
 
         end if ! cm > 0
      enddo     ! kc
@@ -5306,7 +5306,7 @@ subroutine activ (box,n_bl)
            end if
 
            write (jpfungam,13) xip(kc,kk(k)),xit(kc,kk(k)),wa(kc,kk(k))
-           write (jpfungam,10) (xgamma(kk(k),jg,kc),jg=1,j6)
+           write (jpfungam,10) (xgamma(jg,kc,kk(k)),jg=1,j6)
            write (jpfungam,10) (sion1(jg,kc,kk(k))*1.d-3/cm(kc,kk(k)),jg=1,j6)
         enddo
      enddo
@@ -5342,7 +5342,7 @@ subroutine activ_init
 
   implicit none
 
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) xgamma
 
   xgamma(:,:,:) = 1._dp

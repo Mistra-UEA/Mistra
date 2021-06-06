@@ -1736,7 +1736,7 @@ subroutine startc (fogtype)
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
   common /kpp_l1/ cloudt(nkc,n)
   logical :: cloudt
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
   real (kind=dp) :: vt, vd, vdm

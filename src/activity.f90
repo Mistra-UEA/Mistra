@@ -136,7 +136,7 @@ subroutine pitzer (k,kc,wact)
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)  ! get temp from MISTRA
   real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-  common /kpp_mol/ xgamma(nf,j6,nkc)                        ! gamma output
+  common /kpp_mol/ xgamma(j6,nkc,nf)                        ! gamma output
   real(kind=dp) :: xgamma
 
 ! External functions:
@@ -335,7 +335,7 @@ subroutine pitzer (k,kc,wact)
         g=g*exp(r2mix1)
      endif
 
-     xgamma(k,ionind(NI),kc)=g
+     xgamma(ionind(NI),kc,k)=g
 
   end do
 
