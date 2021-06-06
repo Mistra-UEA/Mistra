@@ -74,7 +74,7 @@
       double precision bg ! reaction rates (bg(1,:,:): instantaneous, bg(2,:,:): cumulative)
       integer il          ! indexes of the selected levels for reaction rates output
 
-      common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+      common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
       double precision xkmtd, henry, xeq
 !     common /kpp_dryp/ rcd(n,2),cwd(n,2)
 
@@ -89,7 +89,7 @@
 
 c the following data is needed only for heterogeneous reactions on dry aerosol
       ycwd(:)=cwd(:2,k)
-      yxkmtd(:,:)=xkmtd(k,:,:)
+      yxkmtd(:,:)=xkmtd(:,:,k)
       yhenry(:)  =henry(k,:)
       yxeq(:)    =xeq(k,:)
 

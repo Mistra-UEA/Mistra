@@ -18,7 +18,7 @@
 ! conversion factors
       double precision yxkmtd,yhenry,yxeq,ycwd,conv1,xhal,xiod,xhet1,    &
      &       xhet2
-      common /kpp_rate_g/ yxkmtd(2,NSPEC),yhenry(NSPEC),yxeq(NSPEC),     &
+      common /kpp_rate_g/ yxkmtd(NSPEC,2),yhenry(NSPEC),yxeq(NSPEC),     &
      &       ycwd(2),conv1,xhal,xiod,xhet1,xhet2
 #ENDINLINE
 

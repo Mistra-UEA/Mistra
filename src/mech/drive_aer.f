@@ -81,7 +81,7 @@
      &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
       double precision henry, xkmt,xkef,xkeb
 
-      common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+      common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
       double precision xkmtd,xeq
 
 !      common /k_surf/ xkmt_OHClm(nf,nkc) ! jjb gamma_surf now commented, but keep this!
@@ -100,7 +100,7 @@ c parameters for /kpp_rate_a/
 
 c the following data is needed only for heterogeneous reactions on dry aerosol
       ycwd(:)=cw(:2,k)
-      yxkmtd(:,:)=xkmtd(k,:,:)
+      yxkmtd(:,:)=xkmtd(:,:,k)
       yxeq(:)    =xeq(k,:)
 
 c liquid phase rates

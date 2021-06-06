@@ -160,7 +160,7 @@ subroutine initc (box,n_bl)
   logical :: cloudt
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
-  common /kpp_dryg/ xkmtd(n,2,NSPEC_g),henry(n,NSPEC_g),xeq(n,NSPEC_g)
+  common /kpp_dryg/ xkmtd(NSPEC_g,2,n),henry(n,NSPEC_g),xeq(n,NSPEC_g)
   real (kind=dp) :: xkmtd, henry, xeq
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(NSPEC_a,nkc,nf), &
        xkef_la(nf,nkc,NSPEC_a),xkeb_la(nf,nkc,NSPEC_a)
@@ -4673,7 +4673,7 @@ subroutine dry_rates_g (tt,freep,nmax)
   real (kind=dp) :: rcd      !  note that in the context of this subroutine, this
                              !  radius is considered as a "dry" radius, thus labeled rcd
 
-  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -4754,17 +4754,17 @@ subroutine dry_rates_g (tt,freep,nmax)
            else
               x1=0._dp
            endif
-           xkmtd(k,kc,idr(l))=zvmean(idr(l),k)*x1
+           xkmtd(idr(l),kc,k)=zvmean(idr(l),k)*x1
 !           print *,k,idr(l),kc
-!           print *,xkmtd(k,kc,idr(l)),x1,zvmean(idr(l),k)
+!           print *,xkmtd(idr(l),kc,k),x1,zvmean(idr(l),k)
         enddo
      enddo
   enddo
 
 !  do k=2,n
-!        write (432, 1001) k,xkmtd(k,1,ind_HNO3),1./xkmtd(k,1,ind_HNO3), &
-!          xkmtd(k,2,ind_HNO3),1./xkmtd(k,2,ind_HNO3), &
-!          xkmtd(k,1,ind_HNO3)*cwd(k,1),xkmtd(k,2,ind_HNO3)*cwd(k,2)
+!        write (432, 1001) k,xkmtd(ind_HNO3,1,k),1./xkmtd(ind_HNO3,1,k), &
+!          xkmtd(ind_HNO3,2,k),1./xkmtd(ind_HNO3,2,k), &
+!          xkmtd(ind_HNO3,1,k)*cwd(k,1),xkmtd(ind_HNO3,2,k)*cwd(k,2)
 !  enddo
 ! 1001 format(i4, 6d16.8)
 
@@ -4838,7 +4838,7 @@ subroutine dry_rates_a (freep,nmaxf)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
   real(kind=dp) :: xkmtd, xeq
 
 ! Statement function
@@ -4904,18 +4904,18 @@ subroutine dry_rates_a (freep,nmaxf)
            else
               x1=0._dp
            endif
-           xkmtd(k,kc,idr(l))=vmean(idr(l),k)*x1
+           xkmtd(idr(l),kc,k)=vmean(idr(l),k)*x1
 !           print *,k,idr(l),kc
-!           print *,xkmtd(k,kc,idr(l)),x1,vmean(idr(l),k)
+!           print *,xkmtd(idr(l),kc,k),x1,vmean(idr(l),k)
         enddo
      enddo
   enddo
 
 !  write (434,1100)
 !  do k=2,n
-!        write (434, 1101) k,xkmtd(k,1,ind_HNO3),1./xkmtd(k,1,ind_HNO3), &
-!          xkmtd(k,2,ind_HNO3),1./xkmtd(k,2,ind_HNO3), &
-!          xkmtd(k,1,ind_HNO3)*cwd(k,1),xkmtd(k,2,ind_HNO3)*cwd(k,2)
+!        write (434, 1101) k,xkmtd(ind_HNO3,1,k),1./xkmtd(ind_HNO3,1,k), &
+!          xkmtd(ind_HNO3,2,k),1./xkmtd(ind_HNO3,2,k), &
+!          xkmtd(ind_HNO3,1,k)*cwd(k,1),xkmtd(ind_HNO3,2,k)*cwd(k,2)
 !  enddo
 ! 1100 format ('bulk values')
 ! 1101 format(i4, 6d16.8)
@@ -4935,7 +4935,7 @@ subroutine dry_rates_a (freep,nmaxf)
 !         do kc=1,2!nkc
 !! loop over the species to be exchanged between gas and aqueous phase---
 !            do l=1,ndr
-!               xkmtd(k,kc,idr(l))=0.
+!               xkmtd(idr(l),kc,k)=0.
 !! define summation limits (1) ---
 !               if (kc.eq.1) then
 !                  iia_0=1
@@ -4975,17 +4975,17 @@ subroutine dry_rates_a (freep,nmaxf)
 !                  enddo !jt
 !               enddo !ia
 !! k_mt=4*pi/(3*LWC)*sum
-!!               xkmtd(k,kc,idr(l))=4.*3.1415927/(3.*cwd(k,kc))*xk1 ![1/s]
-!               xkmtd(k,kc,idr(l))=4.*pi/(3.*cwd(k,kc))*xk1 ![1/s]
+!!               xkmtd(idr(l),kc,k)=4.*3.1415927/(3.*cwd(k,kc))*xk1 ![1/s]
+!               xkmtd(idr(l),kc,k)=4.*pi/(3.*cwd(k,kc))*xk1 ![1/s]
 !            enddo !l
 !         enddo                  ! kc
 !      enddo                     !k
 
 !      write (434,1102)
 !      do k=2,n
-!            write (434, 1101) k,xkmtd(k,1,ind_HNO3),1./xkmtd(k,1,ind_HNO3), &
-!              xkmtd(k,2,ind_HNO3),1./xkmtd(k,2,ind_HNO3), &
-!              xkmtd(k,1,ind_HNO3)*cwd(k,1),xkmtd(k,2,ind_HNO3)*cwd(k,2)
+!            write (434, 1101) k,xkmtd(ind_HNO3,1,k),1./xkmtd(ind_HNO3,1,k), &
+!              xkmtd(ind_HNO3,2,k),1./xkmtd(ind_HNO3,2,k), &
+!              xkmtd(ind_HNO3,1,k)*cwd(k,1),xkmtd(ind_HNO3,2,k)*cwd(k,2)
 !      enddo
 
 end subroutine dry_rates_a
@@ -5050,7 +5050,7 @@ subroutine dry_rates_t (freep,nmaxf)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_dryt/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+  common /kpp_dryt/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
   real(kind=dp) :: xkmtd, xeq
 
 ! Statement function
@@ -5108,7 +5108,7 @@ subroutine dry_rates_t (freep,nmaxf)
            else
               x1=0._dp
            endif
-           xkmtd(k,kc,idr(l))=vmean(idr(l),k)*x1
+           xkmtd(idr(l),kc,k)=vmean(idr(l),k)*x1
         enddo
      enddo
   enddo
@@ -6116,7 +6116,7 @@ subroutine ave_parms (n_bl,nz_box)
   real(kind=dp) :: cw, cm
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -6166,9 +6166,9 @@ subroutine ave_parms (n_bl,nz_box)
      do j=1,NSPEC
         xkmtds = 0._dp
         do k=nstart,nz_box
-           xkmtds = xkmtds + xkmtd(k,kc,j)
+           xkmtds = xkmtds + xkmtd(j,kc,k)
         enddo
-        xkmtd(n_bl,kc,j) = xkmtds / (nz_box-nstart+1)
+        xkmtd(j,kc,n_bl) = xkmtds / (nz_box-nstart+1)
      enddo
   enddo
 
@@ -6494,14 +6494,14 @@ subroutine set_box_gas (nlevbox,n_bl)
   integer :: j, kc
 
 ! Common blocks:
-  common /kpp_dryg/ xkmtd(n,2,NSPEC),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
 
   do kc=1,2!nkc
      do j=1,NSPEC
-        xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
+        xkmtd(j,kc,n_bl) = xkmtd(j,kc,nlevbox)
      enddo
   enddo
 
@@ -6573,7 +6573,7 @@ subroutine set_box_lev_a (nlevbox,n_bl)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real (kind=dp) :: alpha, vmean
-  common /kpp_drya/ xkmtd(nf,2,NSPEC),xeq(nf,NSPEC)
+  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
   real (kind=dp) :: xkmtd, xeq
 
 ! == End of declarations =======================================================
@@ -6586,7 +6586,7 @@ subroutine set_box_lev_a (nlevbox,n_bl)
         xkmt(j,kc,n_bl)  = xkmt(j,kc,nlevbox)
         xkef(n_bl,kc,j)  = xkef(nlevbox,kc,j)
         xkeb(n_bl,kc,j)  = xkeb(nlevbox,kc,j)
-        xkmtd(n_bl,kc,j) = xkmtd(nlevbox,kc,j)
+        xkmtd(j,kc,n_bl) = xkmtd(j,kc,nlevbox)
      enddo
   enddo
 
@@ -7897,7 +7897,7 @@ function fdhet_a (a0,b0,c0)
      if (c0.eq.3) xbr=1._dp
   endif
 ! mass transfer coefficient
-  if (b0.eq.1) xkt=yxkmtd(a0,ind_HNO3)
+  if (b0.eq.1) xkt=yxkmtd(ind_HNO3,a0)
 
 ! kmt in (m^3_air/(m^3_aq*s)) therefore multiplication with LWC (m^3_aq/m^3_air)
 ! to get k in 1/s
@@ -7960,9 +7960,9 @@ function fhet_da (xliq,xhet,a0,b0,c0)
         if (a0.eq.2) hetT=FIX(indf_H2Ol2)
      endif
   else ! xhet.eq.1, thus xliq.eq.0
-     if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)
-     if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3)
-     if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3)
+     if (c0.eq.1) xtr=yxkmtd(ind_N2O5,a0)
+     if (c0.eq.2) xtr=yxkmtd(ind_BrNO3,a0)
+     if (c0.eq.3) xtr=yxkmtd(ind_ClNO3,a0)
 !     print*,xliq,a0,c0,xtr
      if (a0.eq.1) then
         h2oa=55.55*ycwd(1)*1.d+3
@@ -8049,9 +8049,9 @@ function fhet_dt (xliq,xhet,a0,b0,c0)
         if (a0.eq.2) hetT=FIX(indf_H2Ol2)
      endif
   else
-     if (c0.eq.1) xtr=yxkmtd(a0,ind_N2O5)
-     if (c0.eq.2) xtr=yxkmtd(a0,ind_BrNO3)
-     if (c0.eq.3) xtr=yxkmtd(a0,ind_ClNO3)
+     if (c0.eq.1) xtr=yxkmtd(ind_N2O5,a0)
+     if (c0.eq.2) xtr=yxkmtd(ind_BrNO3,a0)
+     if (c0.eq.3) xtr=yxkmtd(ind_ClNO3,a0)
      if (a0.eq.1) then
         h2oa=55.55*ycwd(1)*1.d+3
         hetT=h2oa + 5.0D2*C(ind_Clml1) + 3.0D5*C(ind_Brml1)
@@ -8113,7 +8113,7 @@ function fdhetg (na,nb)
 
   if (nb.eq.1) then
 ! not limited by Henry's law:
-!         xkt=yxkmtd(na,ind_HNO3) * ycwd(na)
+!         xkt=yxkmtd(ind_HNO3,na) * ycwd(na)
 
 ! limited by Henry's law:
 ! see Diss RvG (3.10): dcg/dt = ... + kmt(LWC*Cg - Ca/H), this term is implemented here
@@ -8122,7 +8122,7 @@ function fdhetg (na,nb)
 !     in x2 the "aqueous" concentration of HNO3 on the dry aerosol is calculated via
 !     Henry's law and a HARDCODED particle pH = 2
 
-     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     x1 = yxkmtd(ind_HNO3,na) * ycwd(na)
 ! index out of bounds in C(ind_NO3mlz) as this is not known in gas_Parameters.h
 !         if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
 !              (yxeq(ind_HNO3) + 1.d-2)
@@ -8135,21 +8135,21 @@ function fdhetg (na,nb)
      if (na.eq.2) caq=((C(ind_HNO3l2)*1.5d3)*1.d-2)/(yxeq(ind_HNO3) + 1.d-2)
      x2 = 0.d0
      if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+          x2=-yxkmtd(ind_HNO3,na)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
      xkt = max(0.d0,(x1 + x2))
   endif
 ! kmt in (m^3_air/(m^3_aq*s)) therefore multiplication with LWC (m^3_aq/m^3_air)
 ! to get k in 1/s:
-  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.2) xkt=yxkmtd(ind_N2O5,na) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(ind_NH3,na) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(ind_H2SO4,na) * ycwd(na)
 
 
   fdhetg=xkt
 
 !      print *,k,na,nb
 !      print *,fdhetg,xkt,ycwd(na)
-!      if (nb.eq.1) write (440, 1001) k,na,nb,fdhetg,yxkmtd(na,ind_HNO3) &
+!      if (nb.eq.1) write (440, 1001) k,na,nb,fdhetg,yxkmtd(ind_HNO3,na) &
 !           * ycwd(na)
 ! 1001 format(3i4, 6d16.8)
 
@@ -8175,7 +8175,7 @@ function fdheta (na,nb)
 ! see explanation in FCN fdhetg
 
   if (nb.eq.1) then
-     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     x1 = yxkmtd(ind_HNO3,na) * ycwd(na)
      caq = 0.d0
      if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
         if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
@@ -8185,12 +8185,12 @@ function fdheta (na,nb)
      endif
      x2 = 0.d0
      if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+          x2=-yxkmtd(ind_HNO3,na)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
      xkt = max(0.d0,(x1 + x2))
   endif
-  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.2) xkt=yxkmtd(ind_N2O5,na) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(ind_NH3,na) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(ind_H2SO4,na) * ycwd(na)
 
   fdheta=xkt
 
@@ -8217,7 +8217,7 @@ function fdhett (na,nb)
 ! see explanation in FCN fdhetg
 
   if (nb.eq.1) then
-     x1 = yxkmtd(na,ind_HNO3) * ycwd(na)
+     x1 = yxkmtd(ind_HNO3,na) * ycwd(na)
      caq = 0.d0
      if ((yxeq(ind_HNO3)+1.d-2).ne.0.d0) then
         if (na.eq.1) caq=((C(ind_HNO3l1)+C(ind_NO3ml1))*1.d-2)/ &
@@ -8227,12 +8227,12 @@ function fdhett (na,nb)
      endif
      x2 = 0.d0
      if (C(ind_HNO3).ne.0.d0.and.yhenry(ind_HNO3).ne.0.d0) &
-          x2=-yxkmtd(na,ind_HNO3)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
+          x2=-yxkmtd(ind_HNO3,na)/(C(ind_HNO3)*yhenry(ind_HNO3))*caq
      xkt = max(0.d0,(x1 + x2))
   endif
-  if (nb.eq.2) xkt=yxkmtd(na,ind_N2O5) * ycwd(na)
-  if (nb.eq.3) xkt=yxkmtd(na,ind_NH3) * ycwd(na)
-  if (nb.eq.4) xkt=yxkmtd(na,ind_H2SO4) * ycwd(na)
+  if (nb.eq.2) xkt=yxkmtd(ind_N2O5,na) * ycwd(na)
+  if (nb.eq.3) xkt=yxkmtd(ind_NH3,na) * ycwd(na)
+  if (nb.eq.4) xkt=yxkmtd(ind_H2SO4,na) * ycwd(na)
 
   fdhett=xkt
 
