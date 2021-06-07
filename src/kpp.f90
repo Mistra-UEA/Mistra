@@ -160,7 +160,7 @@ subroutine initc (box,n_bl)
   logical :: cloudt
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
-  common /kpp_dryg/ xkmtd(NSPEC_g,2,n),henry(n,NSPEC_g),xeq(NSPEC_g,n)
+  common /kpp_dryg/ xkmtd(NSPEC_g,2,n),henry(NSPEC_g,n),xeq(NSPEC_g,n)
   real (kind=dp) :: xkmtd, henry, xeq
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(NSPEC_a,nkc,nf), &
        xkef_la(NSPEC_a,nkc,nf),xkeb_la(NSPEC_a,nkc,nf)
@@ -4669,7 +4669,7 @@ subroutine dry_rates_g (tt,freep,nmax)
   real (kind=dp) :: rcd      !  note that in the context of this subroutine, this
                              !  radius is considered as a "dry" radius, thus labeled rcd
 
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(NSPEC,n),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -4712,10 +4712,10 @@ subroutine dry_rates_g (tt,freep,nmax)
 
 ! define inverse Henry's constant
   do k=2,nmax
-     henry(k,ind_HNO3)=func3(2.5d6/xeq(ind_HNO3,k),8694.d0,k) ! jjb note this is different in SR equil_co_*
+     henry(ind_HNO3,k)=func3(2.5d6/xeq(ind_HNO3,k),8694.d0,k) ! jjb note this is different in SR equil_co_*
      FCT=0.0820577*tt(k)
      do l=1,ndr
-        if (henry(k,idr(l)).gt.0._dp) henry(k,idr(l))=1./(henry(k,idr(l))*FCT)
+        if (henry(idr(l),k).gt.0._dp) henry(idr(l),k)=1./(henry(idr(l),k)*FCT)
 ! "else": henry=0 <=> k_H^cc=infinity
      enddo
   enddo
@@ -6112,7 +6112,7 @@ subroutine ave_parms (n_bl,nz_box)
   real(kind=dp) :: cw, cm
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(NSPEC,n),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -6490,7 +6490,7 @@ subroutine set_box_gas (nlevbox,n_bl)
   integer :: j, kc
 
 ! Common blocks:
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(NSPEC,n),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
