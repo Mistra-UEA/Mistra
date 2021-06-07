@@ -78,7 +78,7 @@
       integer il          ! indexes of the selected levels for reaction rates output
 
       common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf),
-     &     xkef(nf,nkc,NSPEC),xkeb(nf,nkc,NSPEC)
+     &     xkef(NSPEC,nkc,nf),xkeb(nf,nkc,NSPEC)
       double precision henry, xkmt,xkef,xkeb
 
       common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
@@ -112,26 +112,26 @@ c liquid phase rates
       if (xliq1.eq.1.) then
          ycw(1)=cw(1,k)
          yxkmt(:,1)=xkmt(:,1,k)
-         ykef(1,:)=xkef(k,1,:)
+         ykef(:,1)=xkef(:,1,k)
          ykeb(1,:)=xkeb(k,1,:)
 !         ykmt_OHClm(1) = xkmt_OHClm(k,1) ! jjb gamma_surf now commented, but keep this!
       else
          ycw(1)=0.
          yxkmt(:,1)=0.
-         ykef(1,:)=0.
+         ykef(:,1)=0.
          ykeb(1,:)=0.
 !         ykmt_OHClm(1) = 0. ! jjb gamma_surf now commented, but keep this!
       endif
       if (xliq2.eq.1.) then
          ycw(2)=cw(2,k)
          yxkmt(:,2)=xkmt(:,2,k)
-         ykef(2,:)=xkef(k,2,:)
+         ykef(:,2)=xkef(:,2,k)
          ykeb(2,:)=xkeb(k,2,:)
 !         ykmt_OHClm(2) = xkmt_OHClm(k,2) ! jjb gamma_surf now commented, but keep this!
       else
          ycw(2)=0.
             yxkmt(:,2)=0.
-            ykef(2,:)=0.
+            ykef(:,2)=0.
             ykeb(2,:)=0.
 !            ykmt_OHClm(2) = 0. ! jjb gamma_surf now commented, but keep this!
       endif
