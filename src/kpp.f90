@@ -2974,7 +2974,7 @@ subroutine equil_co_t (tt,nmaxf)
 
 ! Local scalars:
   integer :: k, kc
-  real (kind=dp) :: cv2, xsw
+  real (kind=dp) :: cv2
 
 ! Statement function
   real (kind=dp) :: a0, b0, funa
@@ -2995,136 +2995,134 @@ subroutine equil_co_t (tt,nmaxf)
   do k=2,nmaxf
      do kc=1,nkc
         cv2 = conv2(kc,k)
-        xsw = 1._dp
-        if (cv2.eq.0.) xsw = 0._dp ! jjb no need to compute all the xkef & xkeb which will be 0. !
-!        if (cv2.gt.0.) then       ! but still better than initialising all NSPEC list !
+        if (cv2.gt.0._dp) then
 
 ! absolute values of back- and forward reactions are choosen arbitrarily to
 ! ensure a quick (but numerically stable) equilibrium
 ! if illogical error messages arise, try fiddling with the absolute values
 ! of equilibrium reactions
 
-        xkef(ind_H2O,kc,k) = xsw * funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
-        xkeb(ind_H2O,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
+           xkef(ind_H2O,kc,k) = funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
+           xkeb(ind_H2O,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
 
-!        xkef(ind_HO2,kc,k) = xsw * 2.d5  !Chameides '84
-        xkef(ind_HO2,kc,k) = xsw * 1.6d5  !Weinstein-loyd and Schwartz, '91
-        xkeb(ind_HO2,kc,k) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
+!           xkef(ind_HO2,kc,k) = 2.d5  !Chameides '84
+           xkef(ind_HO2,kc,k) = 1.6d5  !Weinstein-loyd and Schwartz, '91
+           xkeb(ind_HO2,kc,k) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
 
-        xkef(ind_ACO2,kc,k) = xsw * 1.8D0
-        xkeb(ind_ACO2,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
+           xkef(ind_ACO2,kc,k) = 1.8D0
+           xkeb(ind_ACO2,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
 
-!        xkef(ind_CO2,kc,k) = xsw * funa(4.3d3,-913.d0,k)
-!        xkeb(ind_CO2,kc,k) = 1.0D10 * cv2
-        xkef(ind_CO2,kc,k) = xsw * funa(4.3d-2,-913.d0,k)
-        xkeb(ind_CO2,kc,k) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
+!           xkef(ind_CO2,kc,k) = funa(4.3d3,-913.d0,k)
+!           xkeb(ind_CO2,kc,k) = 1.0D10 * cv2
+           xkef(ind_CO2,kc,k) = funa(4.3d-2,-913.d0,k)
+           xkeb(ind_CO2,kc,k) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
 
-        xkef(ind_HONO,kc,k) = xsw * funa(5.1d+3,-1260.d0,k)
-        xkeb(ind_HONO,kc,k) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
+           xkef(ind_HONO,kc,k) = funa(5.1d+3,-1260.d0,k)
+           xkeb(ind_HONO,kc,k) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
 
-        xkef(ind_HNO3,kc,k) = xsw * funa(1.54d+10,8700.d0,k)
-        xkeb(ind_HNO3,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
+           xkef(ind_HNO3,kc,k) = funa(1.54d+10,8700.d0,k)
+           xkeb(ind_HNO3,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
 
-        xkef(ind_HNO4,kc,k) = xsw * 2.0D3
-        xkeb(ind_HNO4,kc,k) = 2.0D8 * cv2
+           xkef(ind_HNO4,kc,k) = 2.0D3
+           xkeb(ind_HNO4,kc,k) = 2.0D8 * cv2
 
-        xkef(ind_NH3,kc,k) = xsw * funa(1.7d5,-4325.d0,k)
-        xkeb(ind_NH3,kc,k) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
+           xkef(ind_NH3,kc,k) = funa(1.7d5,-4325.d0,k)
+           xkeb(ind_NH3,kc,k) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
 
-        xkef(ind_HSO3ml1,kc,k) = xsw * funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
-        xkeb(ind_HSO3ml1,kc,k) = 1.0D10 *  cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
+           xkef(ind_HSO3ml1,kc,k) = funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
+           xkeb(ind_HSO3ml1,kc,k) = 1.0D10 *  cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
 
-        xkef(ind_H2SO4,kc,k) = xsw * 1.0d12 !Seinfeld, Pandis (1998), p.391
-        xkeb(ind_H2SO4,kc,k) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
+           xkef(ind_H2SO4,kc,k) = 1.0d12 !Seinfeld, Pandis (1998), p.391
+           xkeb(ind_H2SO4,kc,k) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
 
-        xkef(ind_HSO4ml1,kc,k) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
-        xkeb(ind_HSO4ml1,kc,k) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
+           xkef(ind_HSO4ml1,kc,k) = funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
+           xkeb(ind_HSO4ml1,kc,k) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
 
-        xkef(ind_SO2,kc,k) = xsw * funa(1.7d8,2090.d0,k)
-        xkeb(ind_SO2,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
+           xkef(ind_SO2,kc,k) = funa(1.7d8,2090.d0,k)
+           xkeb(ind_SO2,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
 
-        xkef(ind_HCHO,kc,k) = 1.d10 * cv2  !Chameides '84   !mechanism changed
-        xkeb(ind_HCHO,kc,k) = xsw * 1.d5                    !mechanism changed
+           xkef(ind_HCHO,kc,k) = 1.d10 * cv2  !Chameides '84   !mechanism changed
+           xkeb(ind_HCHO,kc,k) = 1.d5                    !mechanism changed
 
-        xkef(ind_HCl,kc,k) = xsw * funa(1.7d10,6896.d0,k)
-        xkeb(ind_HCl,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
+           xkef(ind_HCl,kc,k) = funa(1.7d10,6896.d0,k)
+           xkeb(ind_HCl,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
 
-        xkef(ind_Cl2ml1,kc,k) = xsw * 5.2d4 * xgamma(15,kc,k)    !Chameides '84
-        xkeb(ind_Cl2ml1,kc,k) = 1.d10 * cv2 * xgamma(14,kc,k)
+           xkef(ind_Cl2ml1,kc,k) = 5.2d4 * xgamma(15,kc,k)    !Chameides '84
+           xkeb(ind_Cl2ml1,kc,k) = 1.d10 * cv2 * xgamma(14,kc,k)
 
-!        xkef(ind_Cl2,kc,k) = 1.1D-3
-!        xkeb(ind_Cl2,kc,k) = 2.1D2 * cv2
+!           xkef(ind_Cl2,kc,k) = 1.1D-3
+!           xkeb(ind_Cl2,kc,k) = 2.1D2 * cv2
 
-        xkef(ind_HOCl,kc,k) = xsw * 3.2D2
-        xkeb(ind_HOCl,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
+           xkef(ind_HOCl,kc,k) = 3.2D2
+           xkeb(ind_HOCl,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
 
-        xkef(ind_HBr,kc,k) = xsw * 1.0D13
-        xkeb(ind_HBr,kc,k) = 1.0D4 *  cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
+           xkef(ind_HBr,kc,k) = 1.0D13
+           xkeb(ind_HBr,kc,k) = 1.0D4 *  cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
 
-        xkef(ind_Br2,kc,k) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
-        xkeb(ind_Br2,kc,k) = funa(1.17d10,-1812.d0,k) *  cv2 * xgamma(24,kc,k)
+           xkef(ind_Br2,kc,k) = funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
+           xkeb(ind_Br2,kc,k) = funa(1.17d10,-1812.d0,k) *  cv2 * xgamma(24,kc,k)
 
-        xkef(ind_HOBr,kc,k) = xsw * funa(2.3d1,-3091.d0,k)
-        xkeb(ind_HOBr,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
+           xkef(ind_HOBr,kc,k) = funa(2.3d1,-3091.d0,k)
+           xkeb(ind_HOBr,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
 
-        xkef(ind_BrCl2ml1,kc,k) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
-        xkeb(ind_BrCl2ml1,kc,k) = xsw * 1.3D9 * xgamma(28,kc,k)
+           xkef(ind_BrCl2ml1,kc,k) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
+           xkeb(ind_BrCl2ml1,kc,k) = 1.3D9 * xgamma(28,kc,k)
 ! no activities used, they "cancel out"
-        xkef(ind_Br2Clml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k) !if original equilibrium
-        xkeb(ind_Br2Clml1,kc,k) = xsw * 2.8D5!*xgamma(29,kc,k) !       -"-
-        xkef(ind_Br2l1,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
-        xkeb(ind_Br2l1,kc,k) = xsw * 3.85D9!*xgamma(29,kc,k)    !       -"-
-        xkef(ind_ICl,kc,k) = 1.0D11  * cv2 * xgamma(14,kc,k)
-        xkeb(ind_ICl,kc,k) = xsw * 1.3D9 * xgamma(37,kc,k)
-        xkef(ind_IBr,kc,k) = 1.0D11 * cv2 * xgamma(24,kc,k)
-        xkeb(ind_IBr,kc,k) = xsw * 3.5D8 * xgamma(38,kc,k)
+           xkef(ind_Br2Clml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k) !if original equilibrium
+           xkeb(ind_Br2Clml1,kc,k) = 2.8D5!*xgamma(29,kc,k) !       -"-
+           xkef(ind_Br2l1,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
+           xkeb(ind_Br2l1,kc,k) = 3.85D9!*xgamma(29,kc,k)    !       -"-
+           xkef(ind_ICl,kc,k) = 1.0D11  * cv2 * xgamma(14,kc,k)
+           xkeb(ind_ICl,kc,k) = 1.3D9 * xgamma(37,kc,k)
+           xkef(ind_IBr,kc,k) = 1.0D11 * cv2 * xgamma(24,kc,k)
+           xkeb(ind_IBr,kc,k) = 3.5D8 * xgamma(38,kc,k)
 ! new (speculative) ICl <--> IBr equilibria, assumed to yield the same
 ! ICl/IBr ratio as in the BrCl <--> Br2 eqilibria (BrCl/Br2)
 ! no activities used, they are not known!! 11.04.01
-        xkef(ind_IClBrml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)
-        xkeb(ind_IClBrml1,kc,k) = xsw * 2.8D5!*xgamma(29,kc,k)
-        xkef(ind_I2,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)
-        xkeb(ind_I2,kc,k) = xsw * 3.85D9!*xgamma(29,kc,k)
-!        xkef(ind_HIO2,kc,k) = xsw * 2.0D3
-!        xkeb(ind_HIO2,kc,k) = 2.0D9 * cv2
-        xkef(ind_HIO3,kc,k) = xsw * 1.57D4
-        xkeb(ind_HIO3,kc,k) = 1.0D5 * cv2
+           xkef(ind_IClBrml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)
+           xkeb(ind_IClBrml1,kc,k) = 2.8D5!*xgamma(29,kc,k)
+           xkef(ind_I2,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)
+           xkeb(ind_I2,kc,k) = 3.85D9!*xgamma(29,kc,k)
+!           xkef(ind_HIO2,kc,k) = 2.0D3
+!           xkeb(ind_HIO2,kc,k) = 2.0D9 * cv2
+           xkef(ind_HIO3,kc,k) = 1.57D4
+           xkeb(ind_HIO3,kc,k) = 1.0D5 * cv2
 
 ! mercury; no activity coefficients; forward not faster than 1.d14
 !
-!        xkef(ind_HgOHpl1,kc,k)    = 4.27d14 * cv2           ! #493,  K_eq = 4.27d10
-!        xkeb(ind_HgOHpl1,kc,k)    = xsw * 1.d4
-!        xkef(ind_HgOH2l1,kc,k)    = 2.6d14 * cv2            ! #4174, K_eq = 2.6d11
-!        xkeb(ind_HgOH2l1,kc,k)    = xsw * 1.d3
-!        xkef(ind_HgSO3l1,kc,k)    = 5.01d14 * cv2           ! #493,  K_eq = 5.01d12
-!        xkeb(ind_HgSO3l1,kc,k)    = xsw * 1.d2
-!        xkef(ind_HgSO322ml1,kc,k) = 2.5d14 * cv2            ! #4158, K_eq = 2.5d11
-!        xkeb(ind_HgSO322ml1,kc,k) = xsw * 1.d3
-!        xkef(ind_HgOHCll1,kc,k)   = 2.69d14 * cv2            ! #4158, K_eq = 2.69d7
-!        xkeb(ind_HgOHCll1,kc,k)   = xsw * 1.d7
-!        xkef(ind_HgClpl1,kc,k)    = 2.0d14 * cv2             ! #4174, K_eq = 2.0d7
-!        xkeb(ind_HgClpl1,kc,k)    = xsw * 1.d7
-!        xkef(ind_HgCl2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d6
-!        xkeb(ind_HgCl2l1,kc,k)    = xsw * 1.d8
-!        xkef(ind_HgCl3ml1,kc,k)   = 6.7d8 * cv2             ! #4174, K_eq = 6.7d0
-!        xkeb(ind_HgCl3ml1,kc,k)   = xsw * 1.d8
-!        xkef(ind_HgCl42ml1,kc,k)  = 1.3d9 * cv2             ! #4174, K_eq = 1.3d1
-!        xkeb(ind_HgCl42ml1,kc,k)  = xsw * 1.d8
-!        xkef(ind_HgOHBrl1,kc,k)   = 2.69d14 * cv2            ! #4158, assumed
-!        xkeb(ind_HgOHBrl1,kc,k)   = xsw * 1.d7
-!        xkef(ind_HgBrpl1,kc,k)    = 1.1d14 * cv2             ! #4174, K_eq = 1.1d9
-!        xkeb(ind_HgBrpl1,kc,k)    = xsw * 1.d5
-!        xkef(ind_HgBr2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d8
-!        xkeb(ind_HgBr2l1,kc,k)    = xsw * 1.d6
-!        xkef(ind_HgBr3ml1,kc,k)   = 1.5d10 * cv2             ! #4174, K_eq = 1.5d2
-!        xkeb(ind_HgBr3ml1,kc,k)   = xsw * 1.d8
-!        xkef(ind_HgBr42ml1,kc,k)  = 2.3d10 * cv2             ! #4174, K_eq = 2.3d1
-!        xkeb(ind_HgBr42ml1,kc,k)  = xsw * 1.d9
+!           xkef(ind_HgOHpl1,kc,k)    = 4.27d14 * cv2           ! #493,  K_eq = 4.27d10
+!           xkeb(ind_HgOHpl1,kc,k)    = 1.d4
+!           xkef(ind_HgOH2l1,kc,k)    = 2.6d14 * cv2            ! #4174, K_eq = 2.6d11
+!           xkeb(ind_HgOH2l1,kc,k)    = 1.d3
+!           xkef(ind_HgSO3l1,kc,k)    = 5.01d14 * cv2           ! #493,  K_eq = 5.01d12
+!           xkeb(ind_HgSO3l1,kc,k)    = 1.d2
+!           xkef(ind_HgSO322ml1,kc,k) = 2.5d14 * cv2            ! #4158, K_eq = 2.5d11
+!           xkeb(ind_HgSO322ml1,kc,k) = 1.d3
+!           xkef(ind_HgOHCll1,kc,k)   = 2.69d14 * cv2            ! #4158, K_eq = 2.69d7
+!           xkeb(ind_HgOHCll1,kc,k)   = 1.d7
+!           xkef(ind_HgClpl1,kc,k)    = 2.0d14 * cv2             ! #4174, K_eq = 2.0d7
+!           xkeb(ind_HgClpl1,kc,k)    = 1.d7
+!           xkef(ind_HgCl2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d6
+!           xkeb(ind_HgCl2l1,kc,k)    = 1.d8
+!           xkef(ind_HgCl3ml1,kc,k)   = 6.7d8 * cv2             ! #4174, K_eq = 6.7d0
+!           xkeb(ind_HgCl3ml1,kc,k)   = 1.d8
+!           xkef(ind_HgCl42ml1,kc,k)  = 1.3d9 * cv2             ! #4174, K_eq = 1.3d1
+!           xkeb(ind_HgCl42ml1,kc,k)  = 1.d8
+!           xkef(ind_HgOHBrl1,kc,k)   = 2.69d14 * cv2            ! #4158, assumed
+!           xkeb(ind_HgOHBrl1,kc,k)   = 1.d7
+!           xkef(ind_HgBrpl1,kc,k)    = 1.1d14 * cv2             ! #4174, K_eq = 1.1d9
+!           xkeb(ind_HgBrpl1,kc,k)    = 1.d5
+!           xkef(ind_HgBr2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d8
+!           xkeb(ind_HgBr2l1,kc,k)    = 1.d6
+!           xkef(ind_HgBr3ml1,kc,k)   = 1.5d10 * cv2             ! #4174, K_eq = 1.5d2
+!           xkeb(ind_HgBr3ml1,kc,k)   = 1.d8
+!           xkef(ind_HgBr42ml1,kc,k)  = 2.3d10 * cv2             ! #4174, K_eq = 2.3d1
+!           xkeb(ind_HgBr42ml1,kc,k)  = 1.d9
 
-!     else ! conv2(kc,k) = 0
-!        xkef(:,kc,k) = 0. ! jjb xsw was set to 0. in this case, leading to xkef = 0.
-!        xkeb(:,kc,k) = 0. ! jjb cv2 was tested equal to 0 in this case, leading to xkeb = 0.
-!     end if
+        else ! conv2(kc,k) = 0
+           xkef(:,kc,k) = 0._dp
+           xkeb(:,kc,k) = 0._dp
+        end if
 
      enddo
   enddo
@@ -3184,7 +3182,7 @@ subroutine equil_co_a (tt,nmaxf)
 
 ! Local scalars:
   integer :: k, kc
-  real (kind=dp) :: cv2, xsw
+  real (kind=dp) :: cv2
 
 ! Statement function
   real (kind=dp) :: a0, b0, funa
@@ -3205,136 +3203,134 @@ subroutine equil_co_a (tt,nmaxf)
   do k=2,nmaxf
      do kc=1,2 !nkc
         cv2 = conv2(kc,k)
-        xsw = 1._dp
-        if (cv2.eq.0.) xsw = 0._dp ! jjb no need to compute all the xkef & xkeb which will be 0. !
-!        if (cv2.gt.0.) then     ! but still better than initialising all NSPEC list !
+        if (cv2.gt.0._dp) then
 
 ! absolute values of back- and forward reactions are choosen arbitrarily to
 ! ensure a quick (but numerically stable) equilibrium
 ! if illogical error messages arise, try fiddling with the absolute values
 ! of equilibrium reactions
 
-        xkef(ind_H2O,kc,k) = xsw * funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
-        xkeb(ind_H2O,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
+           xkef(ind_H2O,kc,k) = funa(1.0d-5,-6716.d0,k) !schneller wird schlechter!
+           xkeb(ind_H2O,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(3,kc,k)
 
-!        xkef(ind_HO2,kc,k) = xsw * 2.d5  !Chameides '84
-        xkef(ind_HO2,kc,k) = xsw * 1.6d5  !Weinstein-loyd and Schwartz, '91
-        xkeb(ind_HO2,kc,k) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
+!           xkef(ind_HO2,kc,k) = 2.d5  !Chameides '84
+           xkef(ind_HO2,kc,k) = 1.6d5  !Weinstein-loyd and Schwartz, '91
+           xkeb(ind_HO2,kc,k) = 1.d10 * cv2 * xgamma(1,kc,k) * xgamma(11,kc,k)
 
-        xkef(ind_ACO2,kc,k) = xsw * 1.8D0
-        xkeb(ind_ACO2,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
+           xkef(ind_ACO2,kc,k) = 1.8D0
+           xkeb(ind_ACO2,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(16,kc,k)
 
-!        xkef(ind_CO2,kc,k) = xsw * funa(4.3d3,-913.d0,k)
-!        xkeb(ind_CO2,kc,k) = 1.0D10 * cv2
-        xkef(ind_CO2,kc,k) = xsw * funa(4.3d-2,-913.d0,k)
-        xkeb(ind_CO2,kc,k) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
+!           xkef(ind_CO2,kc,k) = funa(4.3d3,-913.d0,k)
+!           xkeb(ind_CO2,kc,k) = 1.0D10 * cv2
+           xkef(ind_CO2,kc,k) = funa(4.3d-2,-913.d0,k)
+           xkeb(ind_CO2,kc,k) = 1.0D5 * cv2 * xgamma(1,kc,k) * xgamma(9,kc,k)
 
-        xkef(ind_HONO,kc,k) = xsw * funa(5.1d+3,-1260.d0,k)
-        xkeb(ind_HONO,kc,k) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
+           xkef(ind_HONO,kc,k) = funa(5.1d+3,-1260.d0,k)
+           xkeb(ind_HONO,kc,k) = 1.0D7 * cv2 * xgamma(1,kc,k) * xgamma(12,kc,k)
 
-        xkef(ind_HNO3,kc,k) = xsw * funa(1.54d+10,8700.d0,k)
-        xkeb(ind_HNO3,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
+           xkef(ind_HNO3,kc,k) = funa(1.54d+10,8700.d0,k)
+           xkeb(ind_HNO3,kc,k) = 1.0D9 * cv2 * xgamma(1,kc,k) * xgamma(13,kc,k)
 
-        xkef(ind_HNO4,kc,k) = xsw * 2.0D3
-        xkeb(ind_HNO4,kc,k) = 2.0D8 * cv2
+           xkef(ind_HNO4,kc,k) = 2.0D3
+           xkeb(ind_HNO4,kc,k) = 2.0D8 * cv2
 
-        xkef(ind_NH3,kc,k) = xsw * funa(1.7d5,-4325.d0,k)
-        xkeb(ind_NH3,kc,k) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
+           xkef(ind_NH3,kc,k) = funa(1.7d5,-4325.d0,k)
+           xkeb(ind_NH3,kc,k) = 1.0D10 *  cv2 * xgamma(3,kc,k) * xgamma(2,kc,k)
 
-        xkef(ind_HSO3ml1,kc,k) = xsw * funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
-        xkeb(ind_HSO3ml1,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
+           xkef(ind_HSO3ml1,kc,k) = funa(6.0d2,1120.d0,k) * xgamma(5,kc,k)
+           xkeb(ind_HSO3ml1,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(6,kc,k)
 
-        xkef(ind_H2SO4,kc,k) = xsw * 1.0d12 !Seinfeld, Pandis (1998), p.391
-        xkeb(ind_H2SO4,kc,k) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
+           xkef(ind_H2SO4,kc,k) = 1.0d12 !Seinfeld, Pandis (1998), p.391
+           xkeb(ind_H2SO4,kc,k) = 1.0d9 * cv2 * xgamma(1,kc,k) * xgamma(19,kc,k)
 
-        xkef(ind_HSO4ml1,kc,k) = xsw * funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
-        xkeb(ind_HSO4ml1,kc,k) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
+           xkef(ind_HSO4ml1,kc,k) = funa(1.02d+6,2720.d0,k) * xgamma(19,kc,k)
+           xkeb(ind_HSO4ml1,kc,k) = 1.0D8 * cv2 * xgamma(1,kc,k) * xgamma(8,kc,k)
 
-        xkef(ind_SO2,kc,k) = xsw * funa(1.7d8,2090.d0,k)
-        xkeb(ind_SO2,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
+           xkef(ind_SO2,kc,k) = funa(1.7d8,2090.d0,k)
+           xkeb(ind_SO2,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(5,kc,k)
 
-        xkef(ind_HCHO,kc,k) = 1.d10 * cv2  !Chameides '84   !mechanism changed
-        xkeb(ind_HCHO,kc,k) = xsw * 1.d5                    !mechanism changed
+           xkef(ind_HCHO,kc,k) = 1.d10 * cv2  !Chameides '84   !mechanism changed
+           xkeb(ind_HCHO,kc,k) = 1.d5                    !mechanism changed
 
-        xkef(ind_HCl,kc,k) = xsw * funa(1.7d10,6896.d0,k)
-        xkeb(ind_HCl,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
+           xkef(ind_HCl,kc,k) = funa(1.7d10,6896.d0,k)
+           xkeb(ind_HCl,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(14,kc,k)
 
-        xkef(ind_Cl2ml1,kc,k) = xsw * 5.2d4 * xgamma(15,kc,k)    !Chameides '84
-        xkeb(ind_Cl2ml1,kc,k) = 1.d10 * cv2 * xgamma(14,kc,k)
+           xkef(ind_Cl2ml1,kc,k) = 5.2d4 * xgamma(15,kc,k)    !Chameides '84
+           xkeb(ind_Cl2ml1,kc,k) = 1.d10 * cv2 * xgamma(14,kc,k)
 
-!        xkef(ind_Cl2,kc,k) = 1.1D-3
-!        xkeb(ind_Cl2,kc,k) = 2.1D2 * cv2
+!           xkef(ind_Cl2,kc,k) = 1.1D-3
+!           xkeb(ind_Cl2,kc,k) = 2.1D2 * cv2
 
-        xkef(ind_HOCl,kc,k) = xsw * 3.2D2
-        xkeb(ind_HOCl,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
+           xkef(ind_HOCl,kc,k) = 3.2D2
+           xkeb(ind_HOCl,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(22,kc,k)
 
-        xkef(ind_HBr,kc,k) = xsw * 1.0D13
-        xkeb(ind_HBr,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
+           xkef(ind_HBr,kc,k) = 1.0D13
+           xkeb(ind_HBr,kc,k) = 1.0D4 * cv2 * xgamma(1,kc,k) * xgamma(24,kc,k)
 
-        xkef(ind_Br2,kc,k) = xsw * funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
-        xkeb(ind_Br2,kc,k) = funa(1.17d10,-1812.d0,k) * cv2 * xgamma(24,kc,k)
+           xkef(ind_Br2,kc,k) = funa(2.95d4,-4068.d0,k) * xgamma(25,kc,k)  !Liu et al, 2002, #2109
+           xkeb(ind_Br2,kc,k) = funa(1.17d10,-1812.d0,k) * cv2 * xgamma(24,kc,k)
 
-        xkef(ind_HOBr,kc,k) = xsw * funa(2.3d1,-3091.d0,k)
-        xkeb(ind_HOBr,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
+           xkef(ind_HOBr,kc,k) = funa(2.3d1,-3091.d0,k)
+           xkeb(ind_HOBr,kc,k) = 1.0D10 * cv2 * xgamma(1,kc,k) * xgamma(26,kc,k)
 
-        xkef(ind_BrCl2ml1,kc,k) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
-        xkeb(ind_BrCl2ml1,kc,k) = xsw * 1.3D9 * xgamma(28,kc,k)
+           xkef(ind_BrCl2ml1,kc,k) = funa(5.d9,1143.d0,k) * cv2 * xgamma(14,kc,k) !#894
+           xkeb(ind_BrCl2ml1,kc,k) = 1.3D9 * xgamma(28,kc,k)
 ! no activities used, they "cancel out"
-        xkef(ind_Br2Clml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)  !if original equilibrium
-        xkeb(ind_Br2Clml1,kc,k) = xsw * 2.8D5!*xgamma(29,kc,k)  !       -"-
-        xkef(ind_Br2l1,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
-        xkeb(ind_Br2l1,kc,k) = xsw * 3.85D9!*xgamma(29,kc,k)    !       -"-
-        xkef(ind_ICl,kc,k) = 1.0D11 * cv2 * xgamma(14,kc,k)
-        xkeb(ind_ICl,kc,k) = xsw * 1.3D9 * xgamma(37,kc,k)
-        xkef(ind_IBr,kc,k) = 1.0D11 * cv2 *xgamma(24,kc,k)
-        xkeb(ind_IBr,kc,k) = xsw * 3.5D8 * xgamma(38,kc,k)
+           xkef(ind_Br2Clml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)  !if original equilibrium
+           xkeb(ind_Br2Clml1,kc,k) = 2.8D5!*xgamma(29,kc,k)  !       -"-
+           xkef(ind_Br2l1,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)    !if original equilibrium
+           xkeb(ind_Br2l1,kc,k) = 3.85D9!*xgamma(29,kc,k)    !       -"-
+           xkef(ind_ICl,kc,k) = 1.0D11 * cv2 * xgamma(14,kc,k)
+           xkeb(ind_ICl,kc,k) = 1.3D9 * xgamma(37,kc,k)
+           xkef(ind_IBr,kc,k) = 1.0D11 * cv2 *xgamma(24,kc,k)
+           xkeb(ind_IBr,kc,k) = 3.5D8 * xgamma(38,kc,k)
 ! new (speculative) ICl <--> IBr equilibria, assumed to yield the same
 ! ICl/IBr ratio as in the BrCl <--> Br2 eqilibria (BrCl/Br2)
 ! no activities used, they are not known!! 11.04.01
-        xkef(ind_IClBrml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)
-        xkeb(ind_IClBrml1,kc,k) = xsw * 2.8D5!*xgamma(29,kc,k)
-        xkef(ind_I2,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)
-        xkeb(ind_I2,kc,k) = xsw * 3.85D9!*xgamma(29,kc,k)
-!        xkef(ind_HIO2,kc,k) = xsw * 2.0D3
-!        xkeb(ind_HIO2,kc,k) = 2.0D9 * cv2
-        xkef(ind_HIO3,kc,k) = xsw * 1.57D4
-        xkeb(ind_HIO3,kc,k) = 1.0D5 * cv2
+           xkef(ind_IClBrml1,kc,k) = 5.d9 * cv2 !*xgamma(24,kc,k)
+           xkeb(ind_IClBrml1,kc,k) = 2.8D5!*xgamma(29,kc,k)
+           xkef(ind_I2,kc,k) = 5.d9 * cv2  !*xgamma(14,kc,k)
+           xkeb(ind_I2,kc,k) = 3.85D9!*xgamma(29,kc,k)
+!           xkef(ind_HIO2,kc,k) = 2.0D3
+!           xkeb(ind_HIO2,kc,k) = 2.0D9 * cv2
+           xkef(ind_HIO3,kc,k) = 1.57D4
+           xkeb(ind_HIO3,kc,k) = 1.0D5 * cv2
 
 ! mercury; no activity coefficients; forward not faster than 1.d14
-!
-!        xkef(ind_HgOHpl1,kc,k)    = 4.27d14 * cv2           ! #493,  K_eq = 4.27d10
-!        xkeb(ind_HgOHpl1,kc,k)    = xsw * 1.d4
-!        xkef(ind_HgOH2l1,kc,k)    = 2.6d14 * cv2            ! #4174, K_eq = 2.6d11
-!        xkeb(ind_HgOH2l1,kc,k)    = xsw * 1.d3
-!        xkef(ind_HgSO3l1,kc,k)    = 5.01d14 * cv2           ! #493,  K_eq = 5.01d12
-!        xkeb(ind_HgSO3l1,kc,k)    = xsw * 1.d2
-!        xkef(ind_HgSO322ml1,kc,k) = 2.5d14 * cv2            ! #4158, K_eq = 2.5d11
-!        xkeb(ind_HgSO322ml1,kc,k) = xsw * 1.d3
-!        xkef(ind_HgOHCll1,kc,k)   = 2.69d14 * cv2            ! #4158, K_eq = 2.69d7
-!        xkeb(ind_HgOHCll1,kc,k)   = xsw * 1.d7
-!        xkef(ind_HgClpl1,kc,k)    = 2.0d14 * cv2             ! #4174, K_eq = 2.0d7
-!        xkeb(ind_HgClpl1,kc,k)    = xsw * 1.d7
-!        xkef(ind_HgCl2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d6
-!        xkeb(ind_HgCl2l1,kc,k)    = xsw * 1.d8
-!        xkef(ind_HgCl3ml1,kc,k)   = 6.7d8 * cv2             ! #4174, K_eq = 6.7d0
-!        xkeb(ind_HgCl3ml1,kc,k)   = xsw * 1.d8
-!        xkef(ind_HgCl42ml1,kc,k)  = 1.3d9 * cv2             ! #4174, K_eq = 1.3d1
-!        xkeb(ind_HgCl42ml1,kc,k)  = xsw * 1.d8
-!        xkef(ind_HgOHBrl1,kc,k)   = 2.69d14 * cv2            ! #4158, assumed
-!        xkeb(ind_HgOHBrl1,kc,k)   = xsw * 1.d7
-!        xkef(ind_HgBrpl1,kc,k)    = 1.1d14 * cv2             ! #4174, K_eq = 1.1d9
-!        xkeb(ind_HgBrpl1,kc,k)    = xsw * 1.d5
-!        xkef(ind_HgBr2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d8
-!        xkeb(ind_HgBr2l1,kc,k)    = xsw * 1.d6
-!        xkef(ind_HgBr3ml1,kc,k)   = 1.5d10 * cv2             ! #4174, K_eq = 1.5d2
-!        xkeb(ind_HgBr3ml1,kc,k)   = xsw * 1.d8
-!        xkef(ind_HgBr42ml1,kc,k)  = 2.3d10 * cv2             ! #4174, K_eq = 2.3d1
-!        xkeb(ind_HgBr42ml1,kc,k)  = xsw * 1.d9
+!   
+!           xkef(ind_HgOHpl1,kc,k)    = 4.27d14 * cv2           ! #493,  K_eq = 4.27d10
+!           xkeb(ind_HgOHpl1,kc,k)    = 1.d4
+!           xkef(ind_HgOH2l1,kc,k)    = 2.6d14 * cv2            ! #4174, K_eq = 2.6d11
+!           xkeb(ind_HgOH2l1,kc,k)    = 1.d3
+!           xkef(ind_HgSO3l1,kc,k)    = 5.01d14 * cv2           ! #493,  K_eq = 5.01d12
+!           xkeb(ind_HgSO3l1,kc,k)    = 1.d2
+!           xkef(ind_HgSO322ml1,kc,k) = 2.5d14 * cv2            ! #4158, K_eq = 2.5d11
+!           xkeb(ind_HgSO322ml1,kc,k) = 1.d3
+!           xkef(ind_HgOHCll1,kc,k)   = 2.69d14 * cv2            ! #4158, K_eq = 2.69d7
+!           xkeb(ind_HgOHCll1,kc,k)   = 1.d7
+!           xkef(ind_HgClpl1,kc,k)    = 2.0d14 * cv2             ! #4174, K_eq = 2.0d7
+!           xkeb(ind_HgClpl1,kc,k)    = 1.d7
+!           xkef(ind_HgCl2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d6
+!           xkeb(ind_HgCl2l1,kc,k)    = 1.d8
+!           xkef(ind_HgCl3ml1,kc,k)   = 6.7d8 * cv2             ! #4174, K_eq = 6.7d0
+!           xkeb(ind_HgCl3ml1,kc,k)   = 1.d8
+!           xkef(ind_HgCl42ml1,kc,k)  = 1.3d9 * cv2             ! #4174, K_eq = 1.3d1
+!           xkeb(ind_HgCl42ml1,kc,k)  = 1.d8
+!           xkef(ind_HgOHBrl1,kc,k)   = 2.69d14 * cv2            ! #4158, assumed
+!           xkeb(ind_HgOHBrl1,kc,k)   = 1.d7
+!           xkef(ind_HgBrpl1,kc,k)    = 1.1d14 * cv2             ! #4174, K_eq = 1.1d9
+!           xkeb(ind_HgBrpl1,kc,k)    = 1.d5
+!           xkef(ind_HgBr2l1,kc,k)    = 2.5d14 * cv2             ! #4174, K_eq = 2.5d8
+!           xkeb(ind_HgBr2l1,kc,k)    = 1.d6
+!           xkef(ind_HgBr3ml1,kc,k)   = 1.5d10 * cv2             ! #4174, K_eq = 1.5d2
+!           xkeb(ind_HgBr3ml1,kc,k)   = 1.d8
+!           xkef(ind_HgBr42ml1,kc,k)  = 2.3d10 * cv2             ! #4174, K_eq = 2.3d1
+!           xkeb(ind_HgBr42ml1,kc,k)  = 1.d9
 
-!     else ! conv2(kc,k) = 0
-!        xkef(:,kc,k) = 0. ! jjb xsw was set to 0. in this case, leading to xkef = 0.
-!        xkeb(:,kc,k) = 0. ! jjb cv2 was tested equal to 0 in this case, leading to xkeb = 0.
-!     end if
+        else ! conv2(kc,k) = 0
+           xkef(:,kc,k) = 0._dp
+           xkeb(:,kc,k) = 0._dp
+        end if
 
      enddo
   enddo
