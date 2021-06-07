@@ -2199,8 +2199,7 @@ subroutine profr
        mbs
 
   USE precision, ONLY : &
-       dp                   ! kind double precision real
-
+       dp
 
   implicit none
 
