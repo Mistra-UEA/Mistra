@@ -160,7 +160,7 @@ subroutine initc (box,n_bl)
   logical :: cloudt
   common /kpp_crys/ xcryssulf,xcrysss,xdelisulf,xdeliss
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
-  common /kpp_dryg/ xkmtd(NSPEC_g,2,n),henry(n,NSPEC_g),xeq(n,NSPEC_g)
+  common /kpp_dryg/ xkmtd(NSPEC_g,2,n),henry(n,NSPEC_g),xeq(NSPEC_g,n)
   real (kind=dp) :: xkmtd, henry, xeq
   common /kpp_laer/ henry_la(NSPEC_a,nf),xkmt_la(NSPEC_a,nkc,nf), &
        xkef_la(NSPEC_a,nkc,nf),xkeb_la(NSPEC_a,nkc,nf)
@@ -4669,7 +4669,7 @@ subroutine dry_rates_g (tt,freep,nmax)
   real (kind=dp) :: rcd      !  note that in the context of this subroutine, this
                              !  radius is considered as a "dry" radius, thus labeled rcd
 
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -4707,12 +4707,12 @@ subroutine dry_rates_g (tt,freep,nmax)
 ! define equilibrium constant
 ! obviously without Pitzer coefficients
   do k=2,nmax
-     xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
+     xeq(ind_HNO3,k) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
   enddo
 
 ! define inverse Henry's constant
   do k=2,nmax
-     henry(k,ind_HNO3)=func3(2.5d6/xeq(k,ind_HNO3),8694.d0,k) ! jjb note this is different in SR equil_co_*
+     henry(k,ind_HNO3)=func3(2.5d6/xeq(ind_HNO3,k),8694.d0,k) ! jjb note this is different in SR equil_co_*
      FCT=0.0820577*tt(k)
      do l=1,ndr
         if (henry(k,idr(l)).gt.0._dp) henry(k,idr(l))=1./(henry(k,idr(l))*FCT)
@@ -4834,7 +4834,7 @@ subroutine dry_rates_a (freep,nmaxf)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
+  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(NSPEC,nf)
   real(kind=dp) :: xkmtd, xeq
 
 ! Statement function
@@ -4882,7 +4882,7 @@ subroutine dry_rates_a (freep,nmaxf)
 ! define equilibrium constant
 ! obviously without Pitzer coefficients
   do k=2,nmaxf
-     xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
+     xeq(ind_HNO3,k) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
   enddo
 
 ! calculate kmt ----
@@ -5046,7 +5046,7 @@ subroutine dry_rates_t (freep,nmaxf)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
   common /kpp_2tot/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real(kind=dp) :: alpha, vmean
-  common /kpp_dryt/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
+  common /kpp_dryt/ xkmtd(NSPEC,2,nf),xeq(NSPEC,nf)
   real(kind=dp) :: xkmtd, xeq
 
 ! Statement function
@@ -5086,7 +5086,7 @@ subroutine dry_rates_t (freep,nmaxf)
 ! define equilibrium constant
 ! obviously without Pitzer coefficients
   do k=2,nmaxf
-     xeq(k,ind_HNO3) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
+     xeq(ind_HNO3,k) = funa(1.54d+1,8700.d0,k) ! jjb note this is different in SR equil_co_*
   enddo
 
 ! calculate kmt ----
@@ -6112,7 +6112,7 @@ subroutine ave_parms (n_bl,nz_box)
   real(kind=dp) :: cw, cm
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
   real(kind=dp) :: theta, thetl, t, talt, p, rho
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -6490,7 +6490,7 @@ subroutine set_box_gas (nlevbox,n_bl)
   integer :: j, kc
 
 ! Common blocks:
-  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(n,NSPEC)
+  common /kpp_dryg/ xkmtd(NSPEC,2,n),henry(n,NSPEC),xeq(NSPEC,n)
   real (kind=dp) :: xkmtd, henry, xeq
 
 ! == End of declarations =======================================================
@@ -6569,7 +6569,7 @@ subroutine set_box_lev_a (nlevbox,n_bl)
   real (kind=dp) :: henry, xkmt, xkef, xkeb
   common /kpp_2aer/ alpha(NSPEC,nf),vmean(NSPEC,nf)
   real (kind=dp) :: alpha, vmean
-  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(nf,NSPEC)
+  common /kpp_drya/ xkmtd(NSPEC,2,nf),xeq(NSPEC,nf)
   real (kind=dp) :: xkmtd, xeq
 
 ! == End of declarations =======================================================
