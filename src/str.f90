@@ -7130,9 +7130,9 @@ subroutine oneD_dist_new
   implicit none
 
   integer :: ia, ij, jt, k
-  real (kind=dp) :: xnsum
+  real (kind=dp) :: rmin, rmax, rfact, xnsum
   real (kind=dp) :: Np(nkt)  !particle number [part cm-3]
-  real (kind=dp) :: rp(nkt)  !particle radius [um]
+  real (kind=dp) :: rp(0:nkt)  !particle radius [um]
   real (kind=dp) :: xlogdrp(nkt) ! jjb removed from /oneDs/
 
 ! Common blocks:
@@ -7159,17 +7159,21 @@ subroutine oneD_dist_new
 ! are no "empty" bins as when using the old radius 2D --> 1D mapping nka+nkt
 
 ! define 1D grid
+  rmin = rw(1,1) 
+  rmax = rw(nkt,nka)
+  rfact = 10**(log10(rmax/rmin)/(nkt-1))
+  rp(0) = rmin/rfact
   do jt=1,nkt
-     rp(jt)=rq(jt,1)
+     rp(jt)=rp(jt-1)*rfact
   enddo
-  rp(nkt) = rq(nkt,nka) ! jjb correction to be tested
+
 ! calculate width of each bin in 1D grid
 !      drp(1)=rp(1)
 !      xlogdrp(1)=log10(rp(1))
-  do ij=1,nkt-1
-     drp(ij)=rp(ij+1)-rp(ij)
+  do ij=1,nkt
+     drp(ij)=rp(ij)-rp(ij-1)
 ! unit: "implicit" division of rp by 1um to get a unit-less property to be able to use log
-     xlogdrp(ij)=log10(rp(ij+1))-log10(rp(ij))
+     xlogdrp(ij)=log10(rp(ij))-log10(rp(ij-1))
 !         print *,ij,rp(ij),drp(ij)
 !         print *,drp(ij),xlogdrp(ij),log10(drp(ij))
   enddo
@@ -7225,8 +7229,9 @@ end subroutine oneD_dist_new
 
 
 !
-!--------------------------------------------------------------------------
+!----------------------------------------------------------------
 !
+
 
 ! Compute the latent heat of vaporisation as a function of temperature
 function xl21(temperature)
