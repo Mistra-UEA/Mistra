@@ -7,18 +7,18 @@
 
 ! Special configuration
  lpJoyce14bc = T !<-- Joyce, von Glasow, Simpson, ACP 2014 (base case)
- cgaslistfile = gas_species_Joyce14bc.csv
+ cgaslistfile = "gas_species_Joyce14bc.csv"
 
  ! Restart mode and duration
  rst=F           !<-- rst: restart (true) or new initialization (false) of model run
  lstmax=50       !<-- lstmax: integration time [hours] 60
- 
+
  ! Output choice
  netcdf=T        !<-- netCDF: netCDF output
  binout=F        !<-- binout: binary output
 
  ! timing and geography
- nday = 9       !<-- starting time: day
+ nday = 9        !<-- starting time: day
  nmonth = 11     !<-- starting time: month
  nyear = 2009    !<-- starting time: year
  nhour = 0       !<-- starting time: hour (local time with alon=0., or UTC time with actual alon value)
@@ -77,4 +77,4 @@
  ! Miscelaneous
  scaleo3_m=401.  !<-- scaleo3_m: O3 [Dobson units] (only for scaling in photolysis calculations)
  /
- 
+

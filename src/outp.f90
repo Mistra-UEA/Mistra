@@ -1714,14 +1714,9 @@ subroutine constc
        j5, &
        nadvmax, nindadv, xadv ! for Eulerian advection
 
-
   USE global_params, ONLY : &
 ! Imported Parameters:
        j2
-
-  USE precision, ONLY : &
-! Imported Parameters:
-       dp
 
   implicit none
 
@@ -1752,6 +1747,9 @@ subroutine profm (dt)
 
 ! Declarations:
 ! Modules used:
+
+  USE config, ONLY : &
+       isurf
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
@@ -1868,15 +1866,19 @@ subroutine profm (dt)
 6080 format (1x,'surface heat fluxes'/, &
           10x,'ground heat: ',e11.4,3x,'latent heat: ',e11.4,3x, &
           'sensible heat: ',e11.4,3x,'net radiation: ',e11.4)
-  write (jpfunprofm,6090)
+
+  if (isurf == 1) then
+     write (jpfunprofm,6090)
 6090 format (/,1x,'temperature and volumetric moisture content in', &
           ' ground:')
-  write (jpfunprofm,6100) (zb(k),k=1,nb)
-  write (jpfunprofm,6110) (tb(k)-273.15_dp,k=1,nb)
-  write (jpfunprofm,6120) (eb(k),k=1,nb)
+     write (jpfunprofm,6100) (zb(k),k=1,nb)
+     write (jpfunprofm,6110) (tb(k)-273.15_dp,k=1,nb)
+     write (jpfunprofm,6120) (eb(k),k=1,nb)
 6100 format (4x,'zb:',/,10f10.3,/,10f10.3)
 6110 format (4x,'tb:',/,10f10.3,/,10f10.3)
 6120 format (4x,'eb:',/,10f10.3,/,10f10.3)
+  end if
+
   xxsum=0._dp
   do k=2,nf
      xsum(k)=0._dp
@@ -1895,18 +1897,18 @@ subroutine profm (dt)
   write (jpfunprofm,6260) xxsum
 6260 format(6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
 
+  call ion_mass (srname)
+
 ! 141  format (2i3,9d12.4)
 ! 142  format (6x,9d12.4)
 
-  call ion_mass (srname)
-
-!      do k=2,nf
-!         do kc=1,nkc_l
-!            write (*,141) (k,kc,(dss(k,l,kc),l=1,lsp))
-!            write (*,142) (svc(k,kc,kkc),kkc=1,nkc_l)
-!c        write (*,142) (fss(k,kc,1),fss(k,kc,2),svc(k,kc,1),svc(k,kc,2))
-!         enddo
-!      enddo
+!  do k=2,nf
+!     do kc=1,nkc_l
+!        write (*,141) (k,kc,(dss(k,l,kc),l=1,lsp))
+!        write (*,142) (svc(k,kc,kkc),kkc=1,nkc_l)
+!!        write (*,142) (fss(k,kc,1),fss(k,kc,2),svc(k,kc,1),svc(k,kc,2))
+!     enddo
+!  enddo
 
 end subroutine profm
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

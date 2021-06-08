@@ -141,7 +141,7 @@
 
 {--- S reactions}
 
-{S1} SO2 + O3P {+M} = SO3 :                       farr(4.0d-32,-1000)*FIX(indf_N2)/0.79d0*6.022d23*CONV1 ; {IUPAC 10/06}
+{S1} SO2 + O3P {+M} = SO3 :                       farr(4.0d-32,-1000)*FIX(indf_N2)/0.79d0*CONV1 ; {IUPAC 10/06}
 {S2} SO2 + OH {+M} = HOSO2 :                      atk_3(4.5d-31,-3.9d0,1.3d-12,-0.7d0,0.525d0)*CONV1 ; {IUPAC 10/06}
 {S3} SO2 + O3 = SO3 + O2 :                        farr(3.0d-12,-7000)*CONV1 ; {JPL 07/06}
 {S3} HOSO2 + O2 = HO2 + SO3:                      farr(1.3d-12,-330)*CONV1 ; {IUPAC 10/06}

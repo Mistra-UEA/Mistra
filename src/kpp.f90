@@ -46,6 +46,7 @@ subroutine initc (box,n_bl)
 ! ------------
 ! Modules used:
   USE config, ONLY : &
+       binout,       &
        cmechdir,     &
        iaertyp,      &
        iod,          &
@@ -449,18 +450,17 @@ subroutine initc (box,n_bl)
   il(15)=145
 
 ! initial output for plotting
-  do k=1,n
-     is4(k,1) = am3(k) ! stay consistent with plot routine array size!
-     is4(k,2) = 0._dp
-     is4(k,3) = 0._dp
-!     write (542,12) k,am3(k,1),am3(k,2)
-!     write (543,12) k,cm3(k,1),cm3(k,2)
-  enddo
-! 12   format (i3,2d16.8)
-  write (jpfunsg1) is4
-  close (jpfunsg1)
-  write (jpfunsr1) is4
-  close (jpfunsr1)
+  if (binout) then
+     do k=1,n
+        is4(k,1) = am3(k) ! stay consistent with plot routine array size!
+        is4(k,2) = 0._dp
+        is4(k,3) = 0._dp
+     enddo
+     write (jpfunsg1) is4
+     close (jpfunsg1)
+     write (jpfunsr1) is4
+     close (jpfunsr1)
+  end if
 
 ! vertical grid analysis: find the layers to compute u10
   call aer_source_init
@@ -3645,7 +3645,7 @@ subroutine init_konc
         do jt=1,nkt
            ap(ia) = ap(ia)+ff(jt,ia,k)
         enddo
-        if (ap(ia).eq.0._dp) write(jpfunout,6002) ia,k,'init(ap)=0'
+        if (ap(ia).eq.0._dp) write(jpfunout,*) ia,k,'init(ap)=0'
      enddo
 ! no3-, nh4+ and so4= due to nucleation scavenging and evaporation
      do ia=1,ka
@@ -3663,7 +3663,7 @@ subroutine init_konc
 ! NO3-, NH4-, SO4=, HSO4- : j6 used in sion1, sa1
 ! Br-, HCO3-, I-, IO3-, Cl-: j6 used in sion1, sa1
      enddo
-     if (sion1(8,1,k).eq.0.) write (jpfunout,6003) k,'init(so4=)=0'
+     if (sion1(8,1,k).eq.0.) write (jpfunout,*) k,'init(so4=)=0'
 
      do ia=ka+1,nka
         if (lpJoyce14bc) then
@@ -3684,11 +3684,8 @@ subroutine init_konc
         sion1(36,2,k)=sion1(36,2,k)+ap(ia)*sa1(36,ia)*1.d6 !IO3-
         sl1(j2-j3+4,2,k)=sl1(j2-j3+4,2,k)+ap(ia)*sa1(j2-j3+4,ia)*1.d6 !DOM
      enddo
-     if (sion1(14,2,k).eq.0.) write (jpfunout,6003) k,'init(cl-)=0'
+     if (sion1(14,2,k).eq.0.) write (jpfunout,*) k,'init(cl-)=0'
   enddo
-
-6002 format (2i3,a)
-6003 format (i3,a)
 
 end subroutine init_konc
 
@@ -3894,7 +3891,7 @@ subroutine aer_source (box,dd,z_mbl,n_bl)
      d_z  = z_mbl
   else
      k_in = 2
-     d_z  = deta(2)
+     d_z  = detw(2)
   endif
 ! this is also defined for box:
   u10 = w10m*sqrt(u(k10m)**2+v(k10m)**2) + w10p*sqrt(u(k10p)**2+v(k10p)**2)
@@ -3985,9 +3982,10 @@ subroutine aer_source (box,dd,z_mbl,n_bl)
            else if (lpJoyce14bc) then
               ! "aeroPJ"  SR aer_source, 2 hour source, 2 hr delay
               if(lday.eq.0.AND.lst.ge.2.AND.lst.le.3)then
-                 df=ff_0(ia)/86400. ! magnitude: replenished in one day
-                 df=df*15.03        ! modifer to match DEC_FBX constraint (twk3)
-!                 df=df*35.26        ! modifer to match STD_URB constraint
+                 df=ff_0(ia) * 10./d_z / 86400. ! magnitude: replenished in one day.
+                                                ! jjb: added 10/d_z to allow grid adjustment (initially scaled for detamin=10m)
+                 df=df*15.03                    ! modifer to match DEC_FBX constraint (twk3)
+!                 df=df*35.26                   ! modifer to match STD_URB constraint
               else
                  df=0._dp
               endif
@@ -4291,8 +4289,8 @@ subroutine kpp_driver (box,dd_ch,n_bl)
      pk=p(k)
      dt_ch=dd_ch
      !tkpp=time
-     tkpp=1.d0
-     !tkpp=0.d0 ! jjb change here. kpp has not to know the real time, and having large TIN would reduce minimum timestep allowed in KPP
+     !tkpp=1.d0
+     tkpp=0.d0 ! jjb change here. kpp has not to know the real time, and having large TIN would reduce minimum timestep allowed in KPP
 !     if (k.lt.nf) then ! conv2 is dimension n now, and initialised to 0
         cvv1=conv2(1,k)
         cvv2=conv2(2,k)
@@ -6268,7 +6266,7 @@ subroutine ave_aer (n_bl,nz_box)
   integer :: j, k, kc, nstart
   real (kind=dp) :: xalsum, xhensum, xkbsum, xkfsum, xkmsum, xvmsum
 ! Local arrays:
-!  real (kind=dp) :: fs(n,nka),ffsum(nka)
+!  real (kind=dp) :: fs(nka,n),ffsum(nka)
 
 ! Common blocks:
   common /kpp_laer/ henry(NSPEC,nf),xkmt(NSPEC,nkc,nf), &
@@ -7261,7 +7259,7 @@ function fbck (a1,a2,b1,b2,fc,ak,bk)
   x2=fc
 
   x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
-  fbck=x1/(ak*dexp(bk/te))
+  fbck=x1/(ak*exp(bk/te))
 
 end function fbck
 
@@ -7289,7 +7287,7 @@ function fbckJ (a1,a2,b1,b2,ak,bk)
   x2= 0.6d0
 
   x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
-  fbckJ=x1/(ak*dexp(bk/te))
+  fbckJ=x1/(ak*exp(bk/te))
 
 end function fbckJ
 
@@ -7321,7 +7319,7 @@ function fbck2 (a1,a2,b1,b2,fc,ck)
 
   x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
   fbck2 = 0.d0
-  if (ck.ne.0.d0) fbck2=x1/(ak*dexp(bk/te)*8.314/101325.*te/ck)
+  if (ck.ne.0.d0) fbck2=x1/(ak*exp(bk/te)*8.314/101325.*te/ck)
 
 end function fbck2
 
@@ -7988,7 +7986,7 @@ function fhet_da (xliq,xhet,a0,b0,c0)
   endif
 
   if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) fhet_da = 0._dp
-!  if (xliq.eq.0.) fhet_da = 0._dp ! jjb plugged again
+  if (xliq.eq.0.) fhet_da = 0._dp
 
 !  print*,xliq,a0,c0,fhet_da
 end function fhet_da
@@ -8076,7 +8074,7 @@ function fhet_dt (xliq,xhet,a0,b0,c0)
      fhet_dt = 0._dp
   endif
   if ((c0.eq.2.or.c0.eq.3.or.b0.eq.2.or.b0.eq.3).and.xhal.eq.0.) fhet_dt = 0._dp
-!  if (xliq.eq.0.) fhet_dt = 0._dp ! jjb plugged again
+  if (xliq.eq.0.) fhet_dt = 0._dp
 
 end function fhet_dt
 

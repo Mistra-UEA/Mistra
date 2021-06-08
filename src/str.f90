@@ -773,6 +773,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
        ug, vg, wmin, wmax, nwProfOpt, &
+       isurf, binout, &
        lpJoyce14bc
 
 
@@ -1269,14 +1270,21 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       trdep = 0._dp
       tau   = 0._dp
       reif  = 0._dp
+
 ! temperature and volumetric moisture within soil
-      x0=0.5*ebs
-!      if (iaertyp.eq.1) x0=x0*.9
-      do k=1,nb
-         tb(k)=285.0
-         eb(k)=x0
-         if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
-      enddo
+      if(isurf == 1) then
+         x0=0.5*ebs
+!         if (iaertyp.eq.1) x0=x0*.9
+         do k=1,nb
+            tb(k)=285.0
+            eb(k)=x0
+            if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
+         enddo
+         if (binout) then
+            write (jpfunpb) zb
+            close (jpfunpb)
+         end if
+      end if
   end if ! no restart only
 
 ! initial output for plotting: both restart and no-restart cases
@@ -1286,8 +1294,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
  6001 format (5e16.8)
       close (97)
-      write (jpfunpb) zb
-      close (jpfunpb)
+
       do jt=1,nkt
 !         jtp=min0(jt+1,nkt) ! jjb variable unreferenced
 !         de0=dew(jt)  ! jjb variable unreferenced
@@ -1784,15 +1791,15 @@ subroutine startc (fogtype)
      fname(4:4)=fogtype
      clpath=trim(coutdir)//trim(fname)
      open (jpfunsg1, file=trim(clpath), status='old',form='unformatted')
-     write (61) is4
-     close (61)
+     write (jpfunsg1) is4
+     close (jpfunsg1)
 
      fname='sr1 .out'
      fname(4:4)=fogtype
      clpath=trim(coutdir)//trim(fname)
      open (jpfunsr1, file=trim(clpath), status='old',form='unformatted')
-     write (64) is4
-     close (64)
+     write (jpfunsr1) is4
+     close (jpfunsr1)
   end if
 
   write(jpfunout,*)"restart file for chemistry read, filename: ",fname
@@ -1992,7 +1999,7 @@ subroutine sedp (dt)
         dt0  = dt
         xsum = 0._dp
         do k=2,nf
-           psi(k) = ff(jt,ia,k)
+           psi(k) = ff(jt,ia,k) * detw(k)
            xsum   = xsum + psi(k)
         enddo
         
@@ -2032,7 +2039,7 @@ subroutine sedp (dt)
 
 ! new values of ff
            do k=2,nf-1
-              ff(jt,ia,k) = psi(k)
+              ff(jt,ia,k) = psi(k) / detw(k)
            enddo
            ff(jt,ia,nf) = ff(jt,ia,nf-1)
         endif
@@ -2161,7 +2168,7 @@ subroutine sedc (dt)
   ! special case for Joyce et al 2014 study
   if (lpJoyce14bc) then
      if(ind_gas_rev(34) /= 0) &
-          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff, 2010)  PJ
+          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff et al, 2011)  PJ
   ! general case
   else
      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -2356,11 +2363,11 @@ subroutine sedl (dt)
      cc(2)=min(cc(2),-1._dp/deta(2)*vdm(kc))
      do l=1,j2
         do k=2,nf
-           psi(k)=sl1(l,kc,k)
+           psi(k)=sl1(l,kc,k) * detw(k)
         enddo
         dt0  = dt
         x0   = 0._dp
-        xxxt =-.999_dp / cc(2)
+        xxxt =-.999_dp / cc(2) ! jjb difference with sedp: cc(2) is used instead of ww (computed with t(nf) and p(nf) ) and here -.999 instead of -deta(2)
 
 ! time step control
 ! multiple calls of advection scheme for large courant numbers
@@ -2370,6 +2377,7 @@ subroutine sedl (dt)
            do k=2,nf
               c(k)=cc(k)*dtmax
            enddo
+           ! jjb maybe missing here: c(2) = min(c(2),dtmax/deta(2)*vdm(kc)*(-1.))
            c(1)   = c(2)
            x1     = psi(2)
            psi(1) = x1
@@ -2379,7 +2387,7 @@ subroutine sedl (dt)
 
 ! new values of sl1
         do k=2,nf-1
-           sl1(l,kc,k) = psi(k)
+           sl1(l,kc,k) = psi(k) / detw(k)
         enddo
 ! wet deposition to the ground in mole/m**2
         sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
@@ -2399,10 +2407,10 @@ subroutine sedl (dt)
         cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
      enddo
 ! particle dry deposition velocity in lowest model layer:
-     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     cc(2)=min(cc(2),-1._dp/deta(2)*vdm(kc))
      do l=1,j6
         do k=2,nf
-           psi(k)=sion1(l,kc,k)
+           psi(k)=sion1(l,kc,k) * detw(k)
         enddo
         dt0  = dt
         x0   = 0._dp
@@ -2425,7 +2433,7 @@ subroutine sedl (dt)
 
 ! new values of sion1
         do k=2,nf-1
-           sion1(l,kc,k) = psi(k)
+           sion1(l,kc,k) = psi(k) / detw(k)
         enddo
 ! wet deposition to the ground in mole/m**2
         sion1(l,kc,1) = sion1(l,kc,1) + x0 * deta(2)
@@ -2994,7 +3002,7 @@ subroutine difc (dt)
   xe(1)=0._dp
   do k=2,nm
      xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
      xb(k)=1._dp+xa(k)+xc(k)
      xd(k)=xb(k)-xc(k)*xe(k-1)
      xe(k)=xa(k)/xd(k)
@@ -6011,7 +6019,6 @@ subroutine partdep (ra)
 
   do kc=1,nkc
      if (cw(kc,k).gt.0.d0) &
-!     &              vdm(kc)=4.*3.1415927/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
      &              vdm(kc)=4.*pi/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
   end do
 
@@ -7144,7 +7151,8 @@ subroutine oneD_dist_new
   real (kind=dp) :: ff, fsum
   integer :: nar
 
-!     common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt),xlogdrp(nkt) ! jjb last variable shouldn't be in this CB
+  !     common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt),xlogdrp(nkt) ! jjb last variable shouldn't be in this CB
+  ! jjb : reindexing would be good, and decrease n to nf of increase the loop below (and in out_netcdf)
   common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)              ! jjb removed and declared below
   real (kind=dp) :: partN, partr, drp
 
@@ -7177,8 +7185,7 @@ subroutine oneD_dist_new
 !         print *,ij,rp(ij),drp(ij)
 !         print *,drp(ij),xlogdrp(ij),log10(drp(ij))
   enddo
-  drp(nkt)=rq(nkt,nka)-rp(nkt)
-  xlogdrp(nkt)=log10(rq(nkt,nka))-log10(rp(nkt))
+
 ! map 2D spectrum on 1D spectrum
   do k=2,nf
      Np(:)=0.

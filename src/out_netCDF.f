@@ -3612,6 +3612,9 @@ c time variables
       k=nf_sync(idmicfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
+      ! initialise to avoid being trapped in debuging option checking uninitialised arrays
+      field2(:,:,1) = 0._dp
+      field3(:,:,1) = 0._dp
       do k=2,nf
          do jt=1,nkt
             field2(1,jt,k)=partN(k,jt,1)
