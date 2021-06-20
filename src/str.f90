@@ -776,7 +776,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
-       ug, vg, wmin, wmax, nwProfOpt, &
+       ug, vg, nuvProfOpt, wmin, wmax, nwProfOpt, &
        isurf, binout, &
        lpJoyce14bc
 
@@ -1059,8 +1059,25 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          thetl(k) = theta(k)*(1._dp + 0.61_dp * xm1(k))
          dfddt(k) = 0._dp
          buoy(k) = -1e-4_dp
-         u(k) = ug
-         v(k) = vg
+
+! profile of geostrophic wind
+         select case (nuvProfOpt)
+         case (0)
+            u(k) = ug
+            v(k) = vg
+         case (3) ! Bott 2020 (p.160): decreasing linearly to zero at the surface
+            if (k <= kinv) then
+               u(k) = ug/zinv * eta(k)
+               v(k) = vg/zinv * eta(k)
+            else
+               u(k) = ug
+               v(k) = vg
+            end if
+         case default
+            call abortM ('Wrong option for nuvProfOpt, default = 0, other possible option = 3')
+         end select
+
+! profile of large scale subsidence
          select case (nwProfOpt)
          case (1)
             w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
@@ -1073,7 +1090,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
                w(k) = wmax
             end if
          case default
-            call abortM ('Wrong option for nwProfOpt, choose 1 or 2')
+            call abortM ('Wrong option for nwProfOpt, choose 1, 2 or 3')
          end select
 
          if (k <= kinv) then
@@ -1082,12 +1099,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
             tke(k) = 1.e-5_dp
          end if
       enddo
-      u(1) = 0._dp
-      v(1) = 0._dp
-      u(2) = 0.25_dp * ug
-      v(2) = 0.25_dp * vg
-      u(3) = 0.75_dp * ug
-      v(3) = 0.75_dp * vg
+      if (nuvProfOpt == 0) then
+         u(1) = 0._dp
+         v(1) = 0._dp
+         u(2) = 0.25_dp * ug
+         v(2) = 0.25_dp * vg
+         u(3) = 0.75_dp * ug
+         v(3) = 0.75_dp * vg
+      end if
       do k=n,1,-1
          w(k) = w(k) - w(1)
       enddo

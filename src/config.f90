@@ -108,7 +108,8 @@ real (kind=dp) :: &
      alat           ! latitude (in degree)
 
 integer :: &
-     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=
+     nuvProfOpt,  & ! Option for the profile of geostrophic wind components, 0 = cst except layers 1-3, 3=linearly decreasing
+     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=default, 3=linearly decreasing (Bott2000)
 real (kind=dp) :: &
      rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
      rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
@@ -160,7 +161,7 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nuvProfOpt, nwProfOpt, &
 ! Surface setings
      isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
@@ -292,6 +293,7 @@ zinv = 700._dp
 dtinv = 6._dp
 ug = 6._dp
 vg = 6._dp
+nuvProfOpt = 0
 nwProfOpt = 2
 wmin = 0._dp
 wmax = -0.006_dp
