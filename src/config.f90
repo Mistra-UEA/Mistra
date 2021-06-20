@@ -171,11 +171,10 @@ namelist /mistra_cfg/ &
      cgaslistfile, cradlistfile,  &
      lpmona, lpsmith, &
      neula,           &
-     box,             &
-     bl_box,          &
-     nlevbox,         &
-     z_box,           &
-     nuc, ifeed,      &
+! Box settings
+     box, bl_box, nlevbox, z_box, &
+! Nucleation settings
+     nuc, ifeed, Napari, Lovejoy, &
      scaleo3_m,       &
 ! Special configuration
      lpJoyce14bc
@@ -308,21 +307,26 @@ jpAlbedoOpt = 0
 mic = .false.
 iaertyp = 3
 ! Chemistry setings
-chem = .false.
-halo = .false.
-iod = .false.
+chem = .true.
+halo = .true.
+iod = .true.
 nkc_l = 4
 cgaslistfile='gas_species.csv'
 cradlistfile='gas_radical_species.csv'
 lpmona = .true.
 lpsmith = .false.
 neula = 1
+! Box settings
 box = .false.
 bl_box = .false.
 nlevbox = 2
 z_box = 700._dp
+! Nucleation settings
 nuc = .false.
 ifeed = 0
+Napari = .true.
+Lovejoy = .true.
+! Ozone column (only for photolysis rates)
 scaleo3_m = 300._dp
 
 ! Special configuration
@@ -347,12 +351,17 @@ end if
 ! ======================================================
 if (nuc.and..not.chem) then
    nuc = .false.
-   write(jpfunout,'(a)') 'Warning: nuc has been set to false since chemistry is off'
+   write(jpfunout,*) 'Warning: nuc has been set to false since chemistry is off'
 end if
 if (.not.nuc) then
    ifeed = 0
    ! do not display warning message in this case
 end if
+if (nuc.and.(.not.Napari).and.(.not.Lovejoy)) then
+   write(jpfunerr,*) 'Error: Napari or Lovejoy must be true is nuc is used'
+   call abortM ('Stopped by SR read_config')
+end if
+
 if (lpmona .and. lpsmith) then
    write (jpfunerr,*) 'Error in namelist settings: choose either lpmona or lpsmith for aer emission scheme'
    call abortM ('Stopped by SR read_config')

@@ -87,7 +87,7 @@ program mistra
        isurf,        &
        mic,          &
        netCDF,       &
-       nuc,          &
+       nuc, Napari, Lovejoy, &
        rst,          &
        iaertyp,      &
        lstmax,       &
@@ -118,13 +118,15 @@ program mistra
      end subroutine equil
   end interface
 
-  character (len=1) :: fogtype
+  character (len=1), parameter :: fogtype = 'a'  ! kept for historical reasons, appendix to many file names
+  real (kind=dp), parameter :: dt = 60._dp       ! timestep for slowly varying processes
+  real (kind=dp), parameter :: dd = 10._dp       ! fractional timestep for faster processes
   character (len=10) :: fname
   integer :: ilmin, it0, itmax, i, ia, ij, jt, k
   integer :: n_bl, n_bln, n_bl8, nz_box
-  logical Napari, Lovejoy, both
+  logical :: both
   logical :: llinit, llcallphotol, llsetjrates0
-  real (kind=dp) :: atmax, dd, dt, tkemax, xm2max, xra
+  real (kind=dp) :: atmax, tkemax, xm2max, xra
   real (kind=dp) :: box_switch
   real (kind=dp) :: aer(n,nka)
 
@@ -164,13 +166,6 @@ program mistra
   ! Read namelist
   call read_config
 
-  fogtype='a'
-
-  if (chem) call mk_interface
-
-  Napari = .true. ; Lovejoy = .true.
-  if (chem .and. nuc) call nuc_init(Napari,Lovejoy,iod)
-
   if (box) print *,'box model run'
 ! it's important to keep this n_bl = 2 for box runs as loops are designed that way
 ! (especially output)
@@ -193,44 +188,53 @@ program mistra
 
   if (box) call get_n_box (z_box,nz_box)
   call write_grid ! writes information on grid that is not f(t)
-  dt = 60._dp
+
+  ! Initialise the Mistra-KPP interface to handle the species
+  if (chem) call mk_interface
+
+  ! Initialise the nucleation module: search for relevant species in user list
+  if (chem .and. nuc) then
+     call nuc_init(Napari,Lovejoy,iod)
+     both = Napari.and.Lovejoy
+  end if
+
 
   if (.not.rst) then
 
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
 ! initial meteorological and chemical input
-  call initm (iaertyp,fogtype,rst)
-  if (chem) call initc(box,n_bl)
+     call initm (iaertyp,fogtype,rst)
+     if (chem) call initc(box,n_bl)
 
 ! number of iterations
-  it0=0
-  itmax=60*lstmax
+     it0=0
+     itmax=60*lstmax
 ! initial exchange coefficients and turbulent kinetic energy
-  call atk0
+     call atk0
 
 ! initial position of humidified aerosols on Köhler curve
-  call equil(0)
+     call equil(0)
 
   else
 
 ! Continue the initialisation, restart case
 ! -----------------------------------------
 ! read meteorological and chemical input from output of previous run
-  call startm (fogtype)
+     call startm (fogtype)
 ! init some microphysical data that's not in SR startm
-  call initm (iaertyp,fogtype,rst)
+     call initm (iaertyp,fogtype,rst)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
-  it0=0
-  it=0
-  if (chem) call startc (fogtype)
+     it0=0
+     it=0
+     if (chem) call startc (fogtype)
 
 ! number of iterations
-  itmax=it0+60*lstmax
+     itmax=it0+60*lstmax
 
 ! allocate arrays and initialise vmean
-  if (chem) call v_mean_init
-  if (chem) call v_mean (t(:nmax_chem_aer))
+     if (chem) call v_mean_init
+     if (chem) call v_mean (t(:nmax_chem_aer))
 
   end if
 ! Continue the initialisation, both cases
@@ -271,12 +275,12 @@ program mistra
   if (chem) call out_mass
   if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
 
-  time=60.*real(it0,dp)
+  time = dt * real(it0,dp)
 ! local time: day (lday), hours (lst), minutes (lmin)
   fname='tim .out'
   fname(4:4)=fogtype
   open (99, file=fname,status='unknown',err=2005)
-  atmax=0.
+  atmax=0._dp
   write (99,6000) lday,lst,lmin,atmax
   close (99)
 2005 continue
@@ -308,8 +312,6 @@ program mistra
 ! dry dep velocities
      call partdep (xra)
 
-! dd: fractional timestep in sec
-     dd = 10._dp
 ! inner time loop: 10 sec
      do ij=1,6
         time=time+dd
@@ -367,17 +369,6 @@ program mistra
 ! chemical reactions
               call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
               if (nuc) then
-! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
-!                                      Lovejoy: homogeneous OIO nucleation
-!                                      for further explanation see nuc.f
-                 if ((Napari) .and. (Lovejoy)) then
-                    both = .true.
-                 else
-                    both = .false.
-                 endif
-                 if ((.not.Napari) .and. (.not.Lovejoy)) then
-                    STOP 'Napari or Lovejoy must be true'
-                 end if
                  if (both) then
                     call appnucl2 (dd,both)
                  else
