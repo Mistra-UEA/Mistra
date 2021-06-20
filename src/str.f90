@@ -183,13 +183,13 @@ program mistra
      n_bln = n
      n_bl8 = 15
   endif
+! numerical gridpoints
+  call grid
 ! open input/output files
   call openm (fogtype)
   if (chem) call openc (fogtype)
 ! netCDF output
   if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
-! numerical gridpoints
-  call grid
 
   if (box) call get_n_box (z_box,nz_box)
   call write_grid ! writes information on grid that is not f(t)
@@ -238,6 +238,9 @@ program mistra
 
 ! initialization of radiation code, and first calculation
   call radiation (llinit)
+
+! 1D distribution of particles at model start
+  call oneD_dist_jjb
 
 ! output of meteorological and chemical constants of current run
   call constm
@@ -449,7 +452,8 @@ program mistra
 !    ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-        call oneD_dist_new
+        !call oneD_dist_new
+        call oneD_dist_jjb
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
@@ -976,6 +980,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      write (jpfunout,6303) tkorr
      write (jpfunout,6304) istort,immort
      write (jpfunout,6305) declin
+     write (jpfunout,6000)
 
 6000 format ('---------------------------------------------------------------&
              &-----------------')
@@ -1376,15 +1381,20 @@ subroutine grid
   real (kind=dp), parameter :: etaw1_max = 2500._dp ! max authorised height for prognostic grid
   real (kind=dp), parameter :: dzbw0 = 0.001_dp, zbw1 = 1._dp ! minimum-maximum values of soil grid
 ! Local scalars:
-  integer :: ia, jt, j, k, nf1
+  integer :: ia, ij, iij, jt, j, k, nf1, ndistrp
   real (kind=dp) :: ax, dlgzbw
   real (kind=dp) :: enwmin, enwmax
   real (kind=dp) :: ewmin, ewmax
+  real (kind=dp) :: rqmin, rqmax, rfact
   real (kind=dp) :: x0, x1, x2, x3
   real (kind=dp) :: xfac
   real (kind=dp) :: zbw0, zbw
+! Local arrays:
+  real (kind=dp) :: rq1D(nkt*nka),rqcp(nkt,nka)
 
 ! Common blocks:
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
   common /cb08/ re1(nkt), re2(nkt), re3(nkt)
   real (kind=dp) :: re1, re2, re3
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -1398,8 +1408,8 @@ subroutine grid
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
   common /cb51/ dlgew,dlgenw,dlne
   real (kind=dp) :: dlgew, dlgenw, dlne
-  common /blck06/ kw(nka),ka
-  integer :: kw, ka
+  common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+  real (kind=dp) :: rpw, part1D
 
 ! == End of declarations =======================================================
 
@@ -1542,6 +1552,182 @@ subroutine grid
         rw(jt,ia) = (ew(jt) * 1.e-6_dp / x1 + (rn(ia)*1.e-6_dp)**3)**x0 * 1.e6_dp
      enddo
   enddo
+
+!
+! Set 1d radius for oneD_dist routine
+!
+
+! jjb explanations: setting 1-D radius bounds to project the 2D particle spectrum onto a 1D one for output
+!                   is not straightforward.
+!                   If the 1D bounds are too small, there will be bounds without particle
+!                   leading to ugly output
+!                   If 1D bounds are too large, the output will be poorly defined.
+!                   Also, by construction, the space between 2D bins is not equal depending on the position
+!                   on the 2D spectrum, with much smaller bins for small (a, r) and much coarser
+!                   for large (a,r).
+!                   Below are various tests
+
+  ndistrp = 7 ! <-- after several tests, satisfying results with this one
+  select case (ndistrp)
+
+  ! as many particle bins from rq(:,:) array in each rp(:) array (i.e. 1/70 th percentile spliting)
+  case (1)
+  ! local copy of rq that will be altered
+  rqcp(:,:) = rq(:,:)
+  rqmax = maxval(rqcp(:,:))
+  ! Sort rq values in increasing order into a 1D array containing all values
+  do ij=1,nka*nkt
+     rqmin = minval(rqcp(:,:))
+     rq1D(ij) = rqmin
+     ! remove the min value by setting twice the max
+     where(rqcp == rqmin) rqcp = 2._dp * rqmax
+  end do
+  ! Create rpw by picking one every nka value in rq1D array
+  do ij=1,nka+11
+     iij = ij + (ij - 1) * (nka-10)
+     !iij = ij + (ij - 1) * (nka+10)
+     iij = min(iij,nka*nkt)
+     rpw(ij) = rq1D(iij)
+  end do
+
+  ! linear increase of rp(:)
+  case (2)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     do ij=1,nka
+        rpw(ij) = rqmin + (ij-1) * (rqmax-rqmin)/(nka-1)
+     end do
+
+  ! exp increase of rp(:) (thus linear on a log scale)
+  case (3)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     rfact = 10**(log10(rqmax/rqmin)/(nka-1-10))
+     rpw(1) = rqmin
+     do ij=2,nka
+        rpw(ij)=rpw(ij-1)*rfact
+     enddo
+
+  ! same as 1 but with coarser steps for small rq: 1/140th percentile
+  case (4)
+     ! local copy of rq that will be altered
+     rqcp(:,:) = rq(:,:)
+     rqmax = maxval(rqcp(:,:))
+     ! Sort rq values in increasing order into a 1D array containing all values
+     do ij=1,nka*nkt
+        rqmin = minval(rqcp(:,:))
+        rq1D(ij) = rqmin
+        ! remove the min value by setting twice the max
+        where(rqcp == rqmin) rqcp = 2._dp * rqmax
+     end do
+     ! Create rpw by picking one every nka value in rq1D array
+     ij=1
+     iij=1
+     do while (rq1D(iij) <= rq(1,nka) * 4.)
+        rpw(ij) = rq1D(iij)
+        ij = ij+1
+        iij = iij+140
+     end do
+     print*,'end large steps',ij-1
+     iij = iij-70
+     do while (iij <= nka*nkt)
+        rpw(ij) = rq1D(iij)
+        ij = ij+1
+        iij = iij+70
+     end do
+     print*,'end small steps',ij-1
+     do while (ij < nka+1)
+        rpw(ij) = rpw(ij-1)*1.001
+        ij = ij+1
+     end do
+
+  ! exp increase of rp(:) (thus linear on a log scale) with 2 distinct slopes
+  case (5)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     rfact = 10**(log10(rqmax/rqmin)/(nka-1))
+     rpw(1) = rqmin
+     ij = 1
+     ! apply a constant increase factor rfact**1.5 for small radius
+     do while (rpw(ij)*rfact*rfact <= rq(1,nka) * 4.)
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*rfact**1.5
+     end do
+     ! apply a constant increase factor rfact for large radius
+     do while (rpw(ij)*rfact <= rq(nkt,nka))
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*rfact
+     enddo
+     ! fill the remaining indexes with slightly increasing radius, to avoid zeros
+     do while (ij<nka)
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*1.001
+     end do
+
+  ! another idea: use "diagonal" rw values
+  case (6)
+     do ia=1,nka
+        rpw(ia) = rw(ia,ia)
+     end do
+
+  ! another idea (modified): use "diagonal" rq values
+  case (62)
+     do ia=1,nka
+        rpw(ia) = rq(ia,ia)
+     end do
+
+  ! similar to 6 but coarser up to rw(1,nka) (1 over 2 bins)
+  case (7)
+     rpw(1) = rw(1,1)**2 / rw(3,3)
+     ij = 2
+     ! one every 2 indexes up to rw(1,nka)
+     iij = 2*(ij-1)-1
+     do while (rw(iij,iij) <= rw(1,nka))
+        rpw(ij) = rw(iij,iij)
+        ij = ij+1
+        iij = 2*(ij-1)-1
+     end do
+     iij = iij+1
+     ! one every index after
+     ia = 0
+     do while (iij+ia <= nka)
+        rpw(ij+ia) = rw(iij+ia, iij+ia)
+        ia = ia + 1
+     end do
+     ! fill the remaining indexes with slightly increasing values
+     do while (ij+ia <= nka)
+        rpw(ij+ia) = rpw(ij+ia-1)*1.001
+        ia = ia + 1
+     end do
+
+  ! same as 7 but even coarser: 1 over 3 bins up to rw(1,nka)
+  case (72)
+     rpw(1) = rw(1,1)**2 / rw(4,4)
+     ij = 2
+     ! one every 2 indexes up to rw(1,nka)
+     iij = 3*(ij-1)-2
+     do while (rw(iij,iij) <= rw(1,nka))
+        rpw(ij) = rw(iij,iij)
+        ij = ij+1
+        iij = 3*(ij-1)-2
+     end do
+     iij = iij+1
+     ! one every index after
+     ia = 0
+     do while (iij+ia <= nka)
+        rpw(ij+ia) = rw(iij+ia, iij+ia)
+        ia = ia + 1
+     end do
+     ! fill the remaining indexes with slightly increasing values
+     do while (ij+ia <= nka)
+        rpw(ij+ia) = rpw(ij+ia-1)*1.001
+        ia = ia + 1
+     end do
+
+
+  end select
+  ! Initialise part1D
+  part1D(:,:) = 0._dp
 
 ! aerosol + cloud chemistry: partition into small and large aerosol  : ka
 !                       and small and large water content (aer-drop) : kw(nka)
@@ -7239,6 +7425,73 @@ end subroutine oneD_dist_new
 !----------------------------------------------------------------
 !
 
+subroutine oneD_dist_jjb
+!  calculate 1D size distribution of 2D particles dist.
+
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nf, &
+       n, &
+       nka, &
+       nkt
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  integer :: ia, ij, jt, k
+  real (kind=dp) :: xnsum
+  real (kind=dp) :: ff1D(nka-1)
+
+! Common blocks:
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  double precision enw,ew,rn,rw,en,e,dew,rq
+
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
+  common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+  real (kind=dp) :: rpw, part1D
+
+! == End of declarations =======================================================
+
+
+! map 2D spectrum on 1D spectrum
+  do k=2,nf
+     ff1D(:) = 0._dp
+     do ia = 1, nka
+        ij=1 ! initialisation within ia loop is not a mistake:
+             !  for a given ia, rq is strictly increasing when jt increases
+             !  thus once the first ij has been updated for a given (ia,1), the next ij
+             !  will be at least equal to the previous ij
+        do jt = 1,nkt
+           do while (rq(jt,ia) > rpw(ij+1))
+              ij = ij+1
+           end do
+           ff1D(ij) = ff1D(ij) + ff(jt,ia,k)
+        enddo           !jt
+     enddo              !ia
+
+     part1D(:,k) = ff1D(:)
+
+! check if bins were "missed":
+     xnsum = sum(ff1D(:))
+     if (xnsum.lt..99*fsum(k)) print *,'N too small',k,fsum(k),xnsum
+     if (xnsum.gt.1.01*fsum(k)) print *,'N too big',k,fsum(k),xnsum
+
+  enddo                  ! k
+
+end subroutine oneD_dist_jjb
+
+
+!
+!--------------------------------------------------------------------------
+!
 
 ! Compute the latent heat of vaporisation as a function of temperature
 function xl21(temperature)

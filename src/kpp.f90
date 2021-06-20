@@ -283,8 +283,6 @@ subroutine initc (box,n_bl)
         s3(j,k) = 0._dp
      end do
   end do
-  xiod = 0._dp
-  if (iod) xiod = 1._dp
 
 ! Eulerian configuration: read input file
   if (neula.eq.0) then
@@ -338,6 +336,10 @@ subroutine initc (box,n_bl)
 ! watch out: sa1 is defined as sa1(j2,..) but addressed in j6 (=ion, sion1) terms
 !            except for DOM which is in sl1 (therefore it is in j2)!!
   sa1(:,:) = 0._dp
+
+  xiod = 0._dp
+  if (iod) xiod = 1._dp
+
   do ia=1,nka
      x0 = en(ia) * 1.e-3_dp * fcs(ia) / xmol3(ia)
 
