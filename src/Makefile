@@ -17,9 +17,19 @@
 
 # Intel Fotran Compiler
 FC=ifort
-#CFLAGS= -O2  -fpe0
+#CFLAGS= -O2 -fpe0
+CFLAGS= -O2 -fpe0 -traceback
+#CFLAGS= -O2 -fp-model source -traceback
 #CFLAGS= -O2 -r8 -fpe0
-CFLAGS= -O2 -r8 -fpe0 -traceback
+#CFLAGS= -O2 -r8 -fpe0 -traceback
+#CFLAGS= -O2 -r8 -fpe0 -traceback -noalign
+#CFLAGS= -O2 -r8 -fpe0 -traceback -fltconsistency
+#CFLAGS= -O0 -r8 -fpe0 -traceback -fltconsistency -check uninit -warn all -check all
+#CFLAGS= -O0 -r8 -init=snan,arrays -traceback
+#CFLAGS= -O2 -noalign -fp-model source -traceback # some (not all) GEOS-Chem options for standard runs
+#CFLAGS= -debug all -g -O0 -check bounds -check arg_temp_created -fpe0 -ftrapuv # GEOS-Chem debug options
+#CFLAGS= -O2 -r8 -fpe0 -traceback -fp-model source
+#CFLAGS= -O0 -r8 -fpe0 -traceback -warn all -check all
 #CFLAGS= -check all -traceback -warn all
 #CFLAGS= -O2 -r8 -fpe0 -fltconsistency
 # CFLAGS= -O2 #-check all -warn declarations -warn uncalled -warn unused#-g #-warn all
@@ -33,6 +43,7 @@ CFLAGS= -O2 -r8 -fpe0 -traceback
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -ffpe-trap=invalid,zero,overflow
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -fbounds-check -O0 -g
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -fbacktrace -O3
+#CFLAGS= -fbacktrace -fdump-fortran-optimized -fdump-fortran-original -fdump-parse-tree -ffpe-trap= -ffpe-summary= -g -Wsurprising -Walign-commons -Wall
 #  run flags
 #CFLAGS= -fdefault-real-8 -fdefault-double-8
 #CFLAGS= -fdefault-real-8 -fdefault-double-8 -O3
@@ -132,7 +143,7 @@ nrad.o: nrad.f90 config.mod constants.mod file_unit.mod global_params.mod precis
 outp.o: outp.f90 config.mod constants.mod file_unit.mod global_params.mod gas_common.mod precision.mod Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $<
 
-out_netCDF.o: out_netCDF.f config.mod file_unit.mod global_params.mod gas_common.mod cdf_var_gas.mod Makefile
+out_netCDF.o: out_netCDF.f cdf_var_gas.mod config.mod file_unit.mod global_params.mod gas_common.mod precision.mod Makefile
 	$(FC) $(CFLAGS) -o $(@F) -c $< -I/usr/include
 
 jrate.o: jrate.f config.mod global_params.mod Makefile

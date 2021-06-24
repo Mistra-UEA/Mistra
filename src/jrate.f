@@ -567,6 +567,10 @@ C----------------------------------------------------------------------
 !     commented out ITYPE output, this variable is not linked to actual mistra aerosol type in jrate
 
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     fun=>jpfunprofj   ! file unit number
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
@@ -586,8 +590,7 @@ C----------------------------------------------------------------------
 !      INTEGER
 !     $     ITYPE(MAXLAY)     !aerosol type
 
-      INTEGER K,FUN
-      PARAMETER ( FUN = 7 ) ! file unit number
+      INTEGER K
 
 
  11   FORMAT(5(1P,E9.2))
@@ -778,23 +781,38 @@ C     DIFFERENTIAL O2 AND O3 COLUMNS AND SLANT COLUMNS
 
       USE config, ONLY : cinpdir_phot ! input directory for photolysis data files
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunflx,
+     &     jpfunsig,
+     &     jpfuncheb
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY,MAXWAV
       PARAMETER(MAXLAY=nrlay, MAXWAV=176)
+
+      CHARACTER (LEN=14) :: CLFMT    ! format for read
+      CHARACTER (LEN=130) :: CLPATH  ! path to input files
+      INTEGER :: I, L                ! running indexes
+      REAL (KIND=DP) :: sk, WL, X
 
       COMMON/WL/WAVE(MAXWAV),  !wavelength in the middle of the interval [cm]
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
       COMMON/FL/FLUX(MAXWAV)   !extraterrestic flux per interval
 c                               [photons/(cm^2 s)]
-      DOUBLE PRECISION FLUX
+      REAL (KIND=DP) :: FLUX, WAVE, DWAVE
 
       COMMON/RAY_J/CS_RAY(MAXWAV)!Rayleigh scattering cross section [cm^2/part.]
-      DOUBLE PRECISION CS_RAY
+      REAL (KIND=DP) :: CS_RAY
 
       COMMON/CROSS_SEC/        !cross sections [cm^2/part.]
      $     CS_H2O(MAXWAV),    CS_HNO3(MAXWAV),    CS_HNO4(MAXWAV),
@@ -818,6 +836,28 @@ c                               [photons/(cm^2 s)]
      $     CS_HONO(MAXWAV),
      $     CS_NO2m(MAXWAV),   CS_dumm23(MAXWAV),
      $     CS_dumm24(MAXWAV),  CS_dumm25(MAXWAV),   CS_dumm26(MAXWAV)
+      REAL (KIND=DP) ::
+     $     CS_H2O,    CS_HNO3,    CS_HNO4,
+     $     CS_SO2,    CS_HCl,     CS_HOCl,
+     $     CS_BrNO3,  CS_CF3Cl,   CS_CCl3F,
+     $     CS_CCl4,   CS_CCl2O,   CS_F115,
+     $     CS_F114,   CS_F113,    CS_CF2O,
+     $     CS_CClFO,  CS_O2,      CS_CH3OH,
+     $     CS_H2O2,   CS_F22,     CS_F13B1,
+     $     CS_F12B1,  CS_CH3Br,   CS_CCl2F2,
+     $     CS_CH3OOH, CS_Cl2,     CS_CHBr3,
+     $     CS_Cl2O2,  CS_N2O5,    CS_O4,
+     $     CS_NO3n,   CS_O3H2O,   CS_HOI_Jen91,
+     $     CS_HOCH2OOH,CS_HOBr_JPL,CS_HOBr,
+     $     CS_BrCl,   CS_BrCl_noT,   CS_ClNO2,
+     $     CS_BrNO2,  CS_Br2,     CS_IO,
+     $     CS_INO3,   CS_CH3I,    CS_I2,
+     $     CS_ICl,    CS_IBr,     CS_C3H7I,
+     $     CS_CH2ClI, CS_CH2I2,   CS_INO2,
+     $     CS_BrO_noT, CS_OClO_noT, CS_Cl2_noT,
+     $     CS_HONO,
+     $     CS_NO2m,   CS_dumm23,
+     $     CS_dumm24,  CS_dumm25,   CS_dumm26
 
 c     cross sections CS_X at temperature T_X (X=specie)
       COMMON/CROSS_SEC_T/
@@ -829,12 +869,18 @@ c     cross sections CS_X at temperature T_X (X=specie)
      $     T_OCS(2),          T_ClONO2(3),        T_CH3CCl3(3),
      $     T_CO2(3),          T_HOI(3),           T_CH2O(2),
      $     T_CH3Cl(3)
+      REAL (KIND=DP) ::
+     $     CS_O3, CS_NO3, CS_NO2, CS_OCS, CS_ClONO2, CS_CH3CCl3, CS_CO2,
+     $     COEFF_HNO3, CS_HOI, CS_CH2O, CS_CH3Cl,
+     $     T_O3, T_NO3, T_NO2, T_OCS, T_ClONO2, T_CH3CCl3, T_CO2,
+     $     T_HOI, T_CH2O, T_CH3Cl
 
 C     coefficients for Koppers and Murtagh  parameterization of CS_O2 in
 C     Schuhmann-Runge band
 
       COMMON/CHEB_COEFF/CHEB_COEFF_A(20,13),
      $                  CHEB_COEFF_B(20,13)
+      REAL (KIND=DP) :: CHEB_COEFF_A, CHEB_COEFF_B
 
 
 
@@ -874,214 +920,218 @@ C---------------------------------------------------------------------
 
       DO  L=1,176
         WL=WAVE(L)*1.E4
-        X=0.389D0 *WL+0.09426D0 /WL-0.3228D0 
+        X=0.389D0 *WL+0.09426D0 /WL-0.3228D0
         CS_RAY(L)=4.02D-28/WL**(4.D0 +X)
       ENDDO
 
-      OPEN(UNIT=1, FILE=trim(cinpdir_phot)//'flux.dat',STATUS='OLD')
-      READ(1,10) FLUX
+      CLPATH = trim(cinpdir_phot)//'flux.dat'
+      OPEN(UNIT=jpfunflx, FILE=trim(CLPATH),STATUS='OLD')
+      READ(jpfunflx,10) FLUX
 
-      CLOSE(1)
+      CLOSE(jpfunflx)
 
  10   FORMAT(1P,7E10.2)
 
-      OPEN(UNIT=2, FILE=trim(cinpdir_phot)//'sig0900.dat', STATUS='OLD')
+      CLPATH = trim(cinpdir_phot)//'sig0900.dat'
+      OPEN(UNIT=jpfunsig, FILE=trim(CLPATH), STATUS='OLD')
 
-      READ(2,*)
-      READ(2,101)CS_H2O
-      READ(2,*)
-      READ(2,101)CS_HNO3
-      READ(2,*)
-      READ(2,101)CS_HNO4
-      READ(2,*)
-      READ(2,101)CS_SO2
-      READ(2,*)
-      READ(2,101)CS_HCl
-      READ(2,*)
-      READ(2,101)CS_HOCl
-      READ(2,*)
-      READ(2,101)CS_BrNO3
-      READ(2,*)
-      READ(2,101)CS_CF3Cl
-      READ(2,*)
-      READ(2,101)CS_CCl3F
-      READ(2,*)
-      READ(2,101)CS_CCl4
-      READ(2,*)
-      READ(2,101)CS_CCl2O
-      READ(2,*)
-      READ(2,101)CS_F115
-      READ(2,*)
-      READ(2,101)CS_F114
-      READ(2,*)
-      READ(2,101)CS_F113
-      READ(2,*)
-      READ(2,101)CS_CF2O
-      READ(2,*)
-      READ(2,101)CS_CClFO
-      READ(2,*)
-      READ(2,101)CS_O2
-      READ(2,*)
-      READ(2,101)CS_CH3OH
-      READ(2,*)
-      READ(2,101)CS_H2O2
-      READ(2,*)
-      READ(2,101)CS_F22
-      READ(2,*)
-      READ(2,101)CS_F13B1
-      READ(2,*)
-      READ(2,101)CS_F12B1
-      READ(2,*)
-      READ(2,101)CS_CH3Br
-      READ(2,*)
-      READ(2,101)CS_CCl2F2
-      READ(2,*)
-      READ(2,101)CS_CH3OOH
-      READ(2,*)
-      READ(2,101)CS_Cl2
-      READ(2,*)
-      READ(2,101)CS_CHBr3
-      READ(2,*)
-      READ(2,101)CS_Cl2O2
-      READ(2,*)
-      READ(2,101)CS_N2O5
-      READ(2,*)
-      READ(2,101)CS_O4
-      READ(2,*)
-      READ(2,101)CS_NO3n
-      READ(2,*)
-      READ(2,101)CS_O3H2O
-      READ(2,*)
-      READ(2,101)CS_HOI_Jen91
-      READ(2,*)
-      READ(2,101)CS_HOCH2OOH
-      READ(2,*)
-      READ(2,101)CS_HOBr_JPL
-      READ(2,*)
-      READ(2,101)CS_HOBr
-      READ(2,*)
-c      READ(2,101)CS_BrCl
-c      READ(2,*)
-      READ(2,101)CS_BrCl_noT
-      READ(2,*)
-      READ(2,101)CS_ClNO2
-      READ(2,*)
-      READ(2,101)CS_BrNO2
-      READ(2,*)
-      READ(2,101)CS_Br2
-      READ(2,*)
-      READ(2,101)CS_IO
-      READ(2,*)
-      READ(2,101)CS_INO3
-      READ(2,*)
-      READ(2,101)CS_CH3I
-      READ(2,*)
-      READ(2,101)CS_I2
-      READ(2,*)
-      READ(2,101)CS_ICl
-      READ(2,*)
-      READ(2,101)CS_IBr
-      READ(2,*)
-      READ(2,101)CS_C3H7I
-      READ(2,*)
-      READ(2,101)CS_CH2ClI
-      READ(2,*)
-      READ(2,101)CS_CH2I2
-      READ(2,*)
-      READ(2,101)CS_INO2
-      READ(2,*)
-      READ(2,101)CS_BrO_noT
-      READ(2,*)
-      READ(2,101)CS_OClO_noT
-      READ(2,*)
-      READ(2,101)CS_Cl2_noT
-      READ(2,*)
-      READ(2,101)CS_HONO
-      READ(2,*)
-      READ(2,101)CS_NO2m
-      READ(2,*)
-      READ(2,101)CS_dumm23
-      READ(2,*)
-      READ(2,101)CS_dumm24
-      READ(2,*)
-      READ(2,101)CS_dumm25
-      READ(2,*)
-      READ(2,101)CS_dumm26
-      READ(2,*)
-      READ(2,201)T_O3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_H2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HNO4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_SO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HCl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOCl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CF3Cl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl3F
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F115
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F114
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F113
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CF2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CClFO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3OH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_H2O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F22
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F13B1
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F12B1
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3Br
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl2F2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3OOH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CHBr3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_N2O5
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_NO3n
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O3H2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOI_Jen91
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOCH2OOH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOBr_JPL
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOBr
+      READ(jpfunsig,*)
+c      READ(jpfunsig,101)CS_BrCl
+c      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrCl_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_ClNO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrNO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Br2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_IO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_INO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3I
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_I2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_ICl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_IBr
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_C3H7I
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH2ClI
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH2I2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_INO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrO_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_OClO_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HONO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_NO2m
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm23
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm24
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm25
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm26
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_O3
       DO I=1,3
-         READ(2,101)(CS_O3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_O3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_NO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_NO3
       DO I=1,2
-         READ(2,101)(CS_NO3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_NO3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_NO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_NO2
       DO I=1,2
-         READ(2,101)(CS_NO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_NO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_OCS
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_OCS
       DO I=1,2
-         READ(2,101)(CS_OCS(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_OCS(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_ClONO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_ClONO2
       DO I=1,3
-         READ(2,101)(CS_ClONO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_ClONO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH3CCl3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH3CCl3
       DO I=1,3
-         READ(2,101)(CS_CH3CCl3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH3CCl3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CO2
       DO I =1,3
-         READ(2,101)(CS_CO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,101)COEFF_HNO3
-      READ(2,*)
-      READ(2,201)T_HOI
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)COEFF_HNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_HOI
       DO I =1,3
-         READ(2,101)(CS_HOI(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_HOI(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH2O
       DO I =1,2
-         READ(2,101)(CS_CH2O(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH2O(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH3Cl
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH3Cl
       DO I=1,3
-         READ(2,101)(CS_CH3Cl(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH3Cl(L,I),L=1,MAXWAV)
       ENDDO
 
  101  FORMAT(7E10.2)
  201  FORMAT(4F5.0)
 
-      CLOSE(2)
+      CLOSE(jpfunsig)
+
 
 C     CEBESHEV COEFFICIENT A AND B FOR KOPPER MURTG. PARAMETERIZATION
 
+      CLPATH = trim(cinpdir_phot)//'cheb_coeff.dat'
+      CLFMT = '(17(E23.6,1X))'
+      OPEN(jpfuncheb,file=trim(CLPATH),status='old')
 
-      OPEN(3,file=trim(cinpdir_phot)//'cheb_coeff.dat',status='old')
-
-      READ(3,*)
-      READ(3,*)
+      READ(jpfuncheb,*)
+      READ(jpfuncheb,*)
       DO I=1,20
-         READ(3,'(17(E23.6,1X))')sk,sk,(CHEB_COEFF_A(I,L),L=1,13),sk,sk ! sk = skip
+         READ(jpfuncheb,CLFMT)sk,sk,(CHEB_COEFF_A(I,L),L=1,13),sk,sk ! sk = skip
       ENDDO
 
-      READ(3,*)
-      READ(3,*)
+      READ(jpfuncheb,*)
+      READ(jpfuncheb,*)
       DO I=1,20
-         READ(3,'(17(E23.6,1X))')sk,sk,(CHEB_COEFF_B(I,L),L=1,13),sk,sk ! sk = skip
+         READ(jpfuncheb,CLFMT)sk,sk,(CHEB_COEFF_B(I,L),L=1,13),sk,sk ! sk = skip
       ENDDO
-      CLOSE(3)
+      CLOSE(jpfuncheb)
 
       END SUBROUTINE CROSS_INIT
 *****************************************************************
@@ -1765,7 +1815,7 @@ C****************************************************************
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
       INTEGER MAXLAY,NMOM,NW,SW13
       PARAMETER(MAXLAY=nrlay, NMOM =4,NW=7)
@@ -1790,7 +1840,6 @@ c     inputs
      $     FLX(NW),                   !extraterrestic flux
      $     U0                     !cosine of solar zenith angle
 
-
       DOUBLE PRECISION
      $     FACT(MAXLAY+1,NW)      !actinic flux
 
@@ -1808,6 +1857,9 @@ c     inputs
      $     FFD(MAXLAY+1),            !downward diffuse flux
      $     FFU(MAXLAY+1),            !upward diffuse flux
      $     UAV(MAXLAY+1)             !actinic flux
+
+      INTEGER I, K, L, NRFL, NP
+      DOUBLE PRECISION AS, FF0, PI, TAUSCAT, TAUTOT, UU0, XX
 
 C-------------------------------------------------------------------
       PI=2.D0*DASIN(1.0D0)
@@ -1908,6 +1960,7 @@ c     actinic flux
       ENDIF
  100  CONTINUE
 
+! jjb: it the following block is uncommented, make sure that the unit number is not already open
 c      OPEN(22,FILE='result/fact_four.dat',STATUS='UNKNOWN')
 
 c      DO J=1,MJ
@@ -1933,56 +1986,67 @@ c      CLOSE(22)
 !        - little cleaning
 
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunchk4
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY
       PARAMETER(MAXLAY=nrlay)
 
-      DOUBLE PRECISION
+      REAL (KIND=DP), INTENT(IN) ::
      $     TT(MAXLAY),
      $     WC(MAXLAY),
      $     WW1(MAXLAY),
      $     WW2(MAXLAY),
      $     WW3(MAXLAY),
      $     WW4(MAXLAY)
+      REAL (KIND=DP), INTENT(IN) :: U0, ALB, FLX
 
-      PI=2.*DASIN(1.0D0)
+      REAL (KIND=DP), PARAMETER :: PI = 2._dp * ASIN(1._dp)
+
+      INTEGER :: K
 
 C-----------------------------------------------------------
-      OPEN(8,FILE='check_four.out',STATUS='UNKNOWN')
+      OPEN(jpfunchk4,FILE='check_four.out',STATUS='UNKNOWN')
 
-      WRITE(8,*)'total extinction optical depth'
-            WRITE(8,'(1P,6E12.4)')(TT(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'total extinction optical depth'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(TT(K),K=1,MAXLAY)
 
-      WRITE(8,*)'single scattering albedo (not delta scaled)'
-            WRITE(8,'(1P,6E12.4)')(WC(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'single scattering albedo (not delta scaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WC(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=1 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW1(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=1 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW1(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=2 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW2(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=2 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW2(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=3 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW3(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=3 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW3(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=4 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW4(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=4 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW4(K),K=1,MAXLAY)
 
-      WRITE(8,*)'solar cosine'
-            WRITE(8,'(1P,6E12.4)') U0
+      WRITE(jpfunchk4,*)'solar cosine'
+      WRITE(jpfunchk4,'(1P,6E12.4)') U0
 
-      WRITE(8,*)'surface albedo'
-            WRITE(8,'(1P,6E12.4)') ALB
+      WRITE(jpfunchk4,*)'surface albedo'
+      WRITE(jpfunchk4,'(1P,6E12.4)') ALB
 
-      WRITE(8,*)'extraterrestrial flux'
-            WRITE(8,'(1P,6E12.4)') FLX*PI
+      WRITE(jpfunchk4,*)'extraterrestrial flux'
+      WRITE(jpfunchk4,'(1P,6E12.4)') FLX*PI
 
-      CLOSE(8)
+      CLOSE(jpfunchk4)
 
       END SUBROUTINE CHECK_FOUR
 *************************************************************
@@ -2860,6 +2924,9 @@ c input/output
 !        - little cleaning
 !        - implicit none
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunf4st
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -2890,7 +2957,7 @@ c input/output
 c-------------------------------------------------------------------
 
 
-      OPEN(9,FILE=FILEN//'.out',STATUS='UNKNOWN')
+      OPEN(jpfunf4st,FILE=FILEN//'.out',STATUS='UNKNOWN')
 
       DO L  = 1,NW
          DO K=0,MAXLAY
@@ -2900,13 +2967,13 @@ c-------------------------------------------------------------------
                TP(K)=FACT(K,L)/(DWAVE(NWS(L))*1.D7) !-> [photons/(cm^2 s nm)]
             ENDIF
          ENDDO
-         WRITE(9,'(1p,6E12.4)')TP
+         WRITE(jpfunf4st,'(1p,6E12.4)')TP
       ENDDO
-      WRITE(9,'(1p,6E12.4)')(FLX(L)/(DWAVE(NWS(L))*1.D7),L=1,NW)
+      WRITE(jpfunf4st,'(1p,6E12.4)')(FLX(L)/(DWAVE(NWS(L))*1.D7),L=1,NW)
 
-      CLOSE(9)
+      CLOSE(jpfunf4st)
 
-      END
+      END SUBROUTINE FLUX_OUT
 ********************************************************************
 
 
@@ -2926,13 +2993,10 @@ c-------------------------------------------------------------------
 !                 cleaning
 ! 05/11/2017 jjb: replaced directories by config
 
-      USE config, ONLY : cinpdir_phot ! input directory for photolysis data files
+      USE config, ONLY : cinpdir_phot     ! input directory for photolysis data files
+      USE file_unit, ONLY : nlt=>jpfunnlt ! unit to open and read lookup table ('lookt0900.dat')
 
       IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-
-! Local parameter:
-      integer nlt
-      parameter ( nlt = 4 ) ! unit to open and read lookup table ('lookt0900.dat')
 
 ! Local scalar:
       integer i, j, k

@@ -31,6 +31,11 @@ module file_unit
   integer, parameter :: jpfuncfgout = 2
 
   integer, parameter :: jpfuneul = 3
+  !integer, parameter :: jpfun??? = 4
+  integer, parameter :: jpfungas = 7
+  integer, parameter :: jpfunrad = 8
+  integer, parameter :: jpfunint = 9
+  !integer, parameter :: jpfun??? = 10
 
 ! prof* files
   integer, parameter :: jpfunprofm = 11
@@ -76,6 +81,15 @@ module file_unit
   integer, parameter :: jpfunpph = 40
   integer, parameter :: jpfungam = 41
   integer, parameter :: jpfunmass = 42
+
+! jrate I/O files
+  integer, parameter :: jpfunflx = 43
+  integer, parameter :: jpfunsig = 44
+  integer, parameter :: jpfuncheb = 45
+  integer, parameter :: jpfunnlt = 46
+  integer, parameter :: jpfunprofj = 47
+  integer, parameter :: jpfunchk4 = 48
+  integer, parameter :: jpfunf4st = 49
 
   integer, parameter :: jpfunclarke = 50
 

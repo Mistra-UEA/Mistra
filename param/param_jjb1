@@ -59,12 +59,14 @@ STDERR=${OUTDIR}/last_run.err
 if [ -e $MISTRAEXE ]
 then
     echo "Installation ended, the run will start"
+    echo $TITLE >> $STDOUT
+    echo "--------------------------------------------------------------------------------" >> $STDOUT
     env INPDIR=$INPDIR NAMELIST=$NAMELIST OUTDIR=$OUTDIR MECHDIR=$MECHDIR $MISTRAEXE >> $STDOUT 2>>$STDERR
 else
     echo "The executable does not exist, installation aborted" && exit 1
 fi
 
 # Move output files in OUTDIR
-mv fort.* *.out *.nc rst*.dat $OUTDIR
+mv fort.* *.out *.nc rst*.dat *.asc $OUTDIR
 
 echo " -- End of param script (end of the run) -- "

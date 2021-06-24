@@ -183,11 +183,6 @@ program mistra
 ! open input/output files
   call openm (fogtype)
   if (chem) call openc (fogtype)
-! netCDF output
-  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
-
-  if (box) call get_n_box (z_box,nz_box)
-  call write_grid ! writes information on grid that is not f(t)
 
   ! Initialise the Mistra-KPP interface to handle the species
   if (chem) call mk_interface
@@ -198,6 +193,11 @@ program mistra
      both = Napari.and.Lovejoy
   end if
 
+! netCDF output
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+
+  if (box) call get_n_box (z_box,nz_box)
+  call write_grid ! writes information on grid that is not f(t)
 
   if (.not.rst) then
 
@@ -286,7 +286,7 @@ program mistra
 2005 continue
 
   if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
-  if (box) box_switch=1.
+  if (box) box_switch=1._dp
 
   ! initialisation switch
   llinit = .false.
@@ -413,12 +413,12 @@ program mistra
               llsetjrates0 = .true.
            end if
         else
-           if (u0.gt.3.48e-2 .and. lmin/2*2.eq.lmin) then
+           if (u0.gt.3.48e-2_dp .and. lmin/2*2.eq.lmin) then
               llcallphotol = .true.
               llsetjrates0 = .false.
            else
               llcallphotol = .false.
-              if (u0.gt.3.48e-2) then ! in this case, keep using the previously calculated rates
+              if (u0.gt.3.48e-2_dp) then ! in this case, keep using the previously calculated rates
                  llsetjrates0 = .false.
               else
                  llsetjrates0 = .true.
@@ -813,13 +813,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
   integer, parameter :: jpdaypermonth(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
-  real (kind=dp), parameter :: gamma = 0.0098 ! = g / cp = dry adiabatic lapse rate (K/m)
+  real (kind=dp), parameter :: gamma = 0.0098_dp ! = g / cp = dry adiabatic lapse rate (K/m)
   real (kind=dp), parameter :: xmol2 = 18._dp
 
   character *10 fname
   integer :: jm ! running indexes
   integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
-  integer :: i, ia, j, jt, k, k0, ka
+  integer :: ia, jt, k, k0, ka
+  integer :: ndist
   real (kind=dp) :: cc, ctq, cu, dd, deltat
   real (kind=dp) :: poben, punten, rdec, rk, tkorr, x0, xm21s, xnue, zgamma
   real (kind=dp) :: vbt, zp, zpdl, zpdz0
@@ -879,37 +880,12 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Statement functions:
   real (kind=dp) :: dfdlogr, dfdlogr2, rr
 
-! constants for aerosol distributions after jaenicke (1988)
-! 3 modes j=1,2,3
-! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
-!      data ((wn(i,j),i=1,4),j=1,3)/1.6169d+05,1.1791d+04,80.76,79.788, &
-!     & 664.9,105.29,126.52,94.138,4.3091d+04,2.9846d+03,3.0827,0.0596/
-!      data ((wr(i,j),i=1,4),j=1,3)/6.51d-03,7.39d-03,3.9d-03,3.6d-03, &
-!     & 7.14d-03,.0269,.133,.127,.0248,.0419,.29,.259/
-!      data ((ws(i,j),i=1,4),j=1,3)/8.3299,9.8765,1.1583,1.2019, &
-!     & 1.1273,1.6116,11.338,7.8114,4.4026,7.0665,3.1885,2.7682/
-! constants for aerosol distributions after jaenicke (1988)
-! except constants for maritime aerosol distribution
-! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
-  data ((wn(i,j),i=1,4),j=1,3) &
-       /1.6169e+05_dp, 1.1791e+04_dp, 159.576_dp, 79.788_dp, &
-             664.9_dp,     105.29_dp, 427.438_dp, 94.138_dp, &
-        4.3091e+04_dp, 2.9846e+03_dp,   5.322_dp, 0.0596_dp/
-  data ((wr(i,j),i=1,4),j=1,3) &
-       /6.51e-03_dp, 7.39e-03_dp, 0.027_dp, 3.6e-03_dp, &
-        7.14e-03_dp,    .0269_dp,  .105_dp,    .127_dp, &
-           .0248_dp,    .0419_dp,   .12_dp,    .259_dp/
-  data ((ws(i,j),i=1,4),j=1,3) &
-       /8.3299_dp, 9.8765_dp,    8._dp, 1.2019_dp, &
-        1.1273_dp, 1.6116_dp, 39.86_dp, 7.8114_dp, &
-        4.4026_dp, 7.0665_dp, 2.469_dp, 2.7682_dp/
-
-!c aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
-      dfdlogr(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
-     &               wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)+ &
-     &               wn(ka,3)*exp(-ws(ka,3)*log10(rr/wr(ka,3))**2)
-      dfdlogr2(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
-     &                wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)
+! aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
+  dfdlogr(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
+                 wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)+ &
+                 wn(ka,3)*exp(-ws(ka,3)*log10(rr/wr(ka,3))**2)
+  dfdlogr2(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
+                  wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)
 ! after Jaenicke/Sander/Kim:
 !      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*exp(-log10(rr/8.8d-2) &
 !     & **2/(2*0.1106**2))+ &
@@ -918,6 +894,71 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! see below: call adjust_f
 
 ! == End of declarations =======================================================
+
+! constants for aerosol distributions
+! 3 modes j=1,2,3
+! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
+  ndist = 1
+  select case (ndist)
+  case (0)
+! Distribution after jaenicke (1988)
+     ! ((wn(i,j),i=1,4),j=1,3) &
+     wn = reshape( &
+          (/1.6169e+05_dp, 1.1791e+04_dp,  80.76_dp, 79.788_dp, &
+                 664.9_dp,     105.29_dp, 126.52_dp, 94.138_dp, &
+            4.3091e+04_dp, 2.9846e+03_dp, 3.0827_dp, 0.0596_dp/), &
+            shape=(/4,3/) )
+     ! ((wr(i,j),i=1,4),j=1,3) &
+     wr = reshape( &
+          (/6.51e-03_dp, 7.39e-03_dp, 3.9e-03_dp, 3.6e-03_dp, &
+            7.14e-03_dp,    .0269_dp,    .133_dp,    .127_dp, &
+               .0248_dp,    .0419_dp,     .29_dp,    .259_dp/), &
+            shape=(/4,3/) )
+     ! ((ws(i,j),i=1,4),j=1,3) &
+     ws = reshape( &
+          (/8.3299_dp, 9.8765_dp, 1.1583_dp, 1.2019_dp, &
+            1.1273_dp, 1.6116_dp, 11.338_dp, 7.8114_dp, &
+            4.4026_dp, 7.0665_dp, 3.1885_dp, 2.7682_dp/), &
+            shape=(/4,3/) )
+
+  case (1)
+! constants for aerosol distributions after jaenicke (1988)
+! except constants for maritime aerosol distribution
+! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
+     wn = reshape( &
+          (/1.6169e+05_dp, 1.1791e+04_dp, 159.576_dp, 79.788_dp, &
+                 664.9_dp,     105.29_dp, 427.438_dp, 94.138_dp, &
+            4.3091e+04_dp, 2.9846e+03_dp,   5.322_dp, 0.0596_dp/), &
+            shape=(/4,3/) )
+     wr = reshape( &
+          (/6.51e-03_dp, 7.39e-03_dp, 0.027_dp, 3.6e-03_dp, &
+            7.14e-03_dp,    .0269_dp,  .105_dp,    .127_dp, &
+               .0248_dp,    .0419_dp,   .12_dp,    .259_dp/), &
+            shape=(/4,3/) )
+     ws = reshape( &
+          (/8.3299_dp, 9.8765_dp,    8._dp, 1.2019_dp, &
+            1.1273_dp, 1.6116_dp, 39.86_dp, 7.8114_dp, &
+            4.4026_dp, 7.0665_dp, 2.469_dp, 2.7682_dp/), &
+            shape=(/4,3/) )
+
+  case (2)
+! maritime size distribution after hoppel et al. 1994, jgr. 14,443
+     wr(3,1) = 0.02_dp
+     wr(3,2) = 0.05_dp
+     wr(3,3) = 0.15_dp
+     wn(3,1) = 110._dp
+     wn(3,2) = 72._dp
+     wn(3,3) = 7._dp
+     ws(3,1) = 0.14_dp
+     ws(3,2) = 0.16_dp
+     ws(3,3) = 0.18_dp
+     x0 = sqrt(2.*pi)
+     do k=1,3
+        wn(3,k) = wn(3,k)/(x0*ws(3,k))
+        ws(3,k) = 1./(2.*ws(3,k)**2)
+     enddo
+
+  end select
 
 ! initialisation of solar time: nyear, nmonth, nday, nhour are read from namelist
 ! -----------------------------
@@ -1070,11 +1111,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! profile of large scale subsidence
          select case (nwProfOpt)
+         ! Hyperbolic form: Bott et al 1996
          case (1)
             w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
+
          case (2)
             w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
-         case (3) ! Bott 2020: wmax above kinv, decreasing linearly to zero (wmin) at the surface
+         ! Bott 2020: wmax above kinv, decreasing linearly to zero (wmin) at the surface
+         case (3)
             if (k <= kinv) then
                w(k) = (wmax-wmin)/zinv * eta(k) + wmin
             else
@@ -1111,22 +1155,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! no restart only for the following block
   if (.not.rst) then
 
-! maritime size distribution after hoppel et al. 1994, jgr. 14,443
-!      wr(3,1)=0.02
-!      wr(3,2)=0.05
-!      wr(3,3)=0.15
-!      wn(3,1)=110.
-!      wn(3,2)=72.
-!      wn(3,3)=7.
-!      ws(3,1)=0.14
-!      ws(3,2)=0.16
-!      ws(3,3)=0.18
-!      x0=sqrt(2.*pi)
-!      do k=1,3
-!         wn(3,k)=wn(3,k)/(x0*ws(3,k))
-!         ws(3,k)=1./(2.*ws(3,k)**2)
-!      enddo
-
      ff(:,:,:) = 0._dp
      fsum(:)   = 0._dp
      do k=1,n
@@ -1137,6 +1165,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
         if (.not.lpJoyce14bc) then
            x0 = 1._dp
            if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+           !if (iaertyp.lt.3.and.k.gt.kinv) x0 = 0.2_dp
         ! special case for Joyce et al 2014 study
         else if (lpJoyce14bc) then
            x0 = 1.e-4_dp
@@ -1187,83 +1216,88 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      a0m = 152200._dp / (r1*rhow)
   !else restart case: a0m is read in startm
   end if
-! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
-      k0=nar(2) !=iaertyp
-      do ia=1,nka
-      if (k0-2) 2000,2010,2020
+
 ! b0m=fcs*xnue*xmol2/xmol3: fcs(ia) fraction of soluble species
 ! xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
-! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
-! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
-2000  continue
+  k0=nar(2) !=iaertyp
+  do ia=1,nka
+! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
+     select case (k0)
 
 ! Aerosol type 1 = urban
+     case (1)
+! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
+! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
+
       ! general case
-      if (.not.lpJoyce14bc) then
-         if (rn(ia).le.1._dp) then
-            fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
-         else
-            fcs(ia) = 0.1_dp
-         end if
-         xnue = (3._dp + 2._dp * 2._dp) / 3._dp
-         xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+        if (.not.lpJoyce14bc) then
+           if (rn(ia).le.1._dp) then
+              fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
+           else
+              fcs(ia) = 0.1_dp
+           end if
+           xnue = (3._dp + 2._dp * 2._dp) / 3._dp
+           xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
 
       ! special case for Joyce et al 2014 study
       ! making urban aerosol H2SO4 with remaining mass DOM and gas uptake
-      else if (lpJoyce14bc) then
-         if (rn(ia).le.1._dp) then
-            fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
-         else
-            fcs(ia) = 0.1_dp
-         end if
+        else if (lpJoyce14bc) then
+           if (rn(ia).le.1._dp) then
+              fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+           else
+              fcs(ia) = 0.1_dp
+           end if
          ! "average" number of dissoc. ions, H+,SO4=,DOM, Cl- (4)
-         xnue = (3._dp ) / 4._dp
+           xnue = (3._dp ) / 4._dp
          ! "average" MW of ion = MW components/#
          ! sulfacid(98.08)+octene(122.21)+Cl- / 4 diss. com
-         xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
-      end if
+           xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
+        end if
 
-      go to 1030
+
+! Aerosol type 2 = rural
+     case (2)
 ! soluble part of rural aerosol: pure (NH4)2SO4
-2010  continue
-      if (rn(ia).le.1._dp) then
-         !fcs(ia) = 0.5_dp - rn(ia) * (0.5_dp - 0.1_dp)
-         fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
-      else
-         !fcs(ia) = 0.1_dp
-         fcs(ia) = 0.5_dp
-      end if
-      xnue = 3._dp
-      xmol3(ia) = 132._dp
-      go to 1030
+        if (rn(ia).le.1._dp) then
+           !fcs(ia) = 0.5_dp - rn(ia) * (0.5_dp - 0.1_dp)
+           fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+        else
+           !fcs(ia) = 0.1_dp
+           fcs(ia) = 0.5_dp
+        end if
+        xnue = 3._dp
+        xmol3(ia) = 132._dp
+
+! Aerosol type 3 = maritime
+     case (3)
 !c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
 ! soluble part of ocean aerosol: pure (NH4)2SO4;
- 2020 continue
-      fcs(ia)=1.
-!      xnue=3.
-!      xmol3(ia)=132.
+        fcs(ia) = 1._dp
+!        xnue      = 3._dp
+!        xmol3(ia) = 132._dp
 ! 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
-      xnue=0.32*3.+0.64*2+0.04*2
-      xmol3(ia)=0.32*132.+0.64*115+0.04*80
+        xnue      = 0.32_dp*3. + 0.64_dp*2. + 0.04_dp*2.
+        xmol3(ia) = 0.32_dp*132. + 0.64_dp*115. + 0.04_dp*80.
 ! large are NaCl
-      if (rn(ia).ge.0.5) then
-      xnue=2.     !no change in microphysics due to halogen chemistry
-      xmol3(ia)=58.4
-      end if
+        if (rn(ia).ge.0.5_dp) then
+           xnue      = 2._dp     !no change in microphysics due to halogen chemistry
+           xmol3(ia) = 58.4_dp
+        end if
 
-1030  continue
-      if (.not.rst) then
-      b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
-      !else restart case: b0m is read in startm
-      end if
-   end do
+     end select
+
+     if (.not.rst) then
+        b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
+        !else restart case: b0m is read in startm
+     end if
+  end do
 
   if (.not.rst) then
 
 ! in radiation code: background aerosol = rural aerosol
-      do k=2,n
-         if (nar(k).eq.4) nar(k)=2
-      enddo
+     do k=2,n
+        if (nar(k).eq.4) nar(k)=2
+     enddo
 
 
 !      call adjust_f !only if Kim aerosol is used!!
@@ -1291,7 +1325,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          x0=0.5*ebs
 !         if (iaertyp.eq.1) x0=x0*.9
          do k=1,nb
-            tb(k)=285.0
+            tb(k)=285.0_dp
             eb(k)=x0
             if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
          enddo
@@ -1303,32 +1337,31 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   end if ! no restart only
 
 ! initial output for plotting: both restart and no-restart cases
-      fname='pi .out'
-      fname(3:3)=fogtype
-      open (97, file=fname,status='unknown')
-      write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
+  fname='pi .out'
+  fname(3:3)=fogtype
+  open (97, file=fname,status='unknown')
+  write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
  6001 format (5e16.8)
-      close (97)
+  close (97)
 
-      do jt=1,nkt
+  do jt=1,nkt
 !         jtp=min0(jt+1,nkt) ! jjb variable unreferenced
 !         de0=dew(jt)  ! jjb variable unreferenced
 !         dep=dew(jtp) ! jjb variable unreferenced
 !         de0p=de0+dep ! jjb variable unreferenced
-         do ia=1,nka
-            rk=rw(jt,ia)
-            sr(ia,jt)=dmax1(.1d0,exp(a0m/(rk*t(2)) &
-     &                -b0m(ia)*en(ia)/ew(jt)))
-         enddo
-      enddo
-      fname='fi .out'
-      fname(3:3)=fogtype
-      open (44, file=fname,status='unknown')
-      write (44,6010) rn,en,rq,e,sr
-      close (44)
+     do ia=1,nka
+        rk=rw(jt,ia)
+        sr(ia,jt)=max(.1d0,exp(a0m/(rk*t(2)) - b0m(ia)*en(ia)/ew(jt)))
+     enddo
+  enddo
+  fname='fi .out'
+  fname(3:3)=fogtype
+  open (44, file=fname,status='unknown')
+  write (44,6010) rn,en,rq,e,sr
+  close (44)
  6010 format (5e16.8)
 
-      end subroutine initm
+end subroutine initm
 
 !
 !-------------------------------------------------------------

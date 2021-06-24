@@ -35,6 +35,7 @@
   # 29-May-2021  Josue Bock  After converting kpp.f into kpp.f90, need to make header files
   #                          (*_Global.h and *_Parameters.h) compliant with both f77 and f90, by
   #                          converting comment signs (c or C) into !. Apply sed substitution
+  # 24-Jun-2021  Josue Bock  Move this to mult_ch.sc
 
 # == End of modifications =====================================================================
 
@@ -91,16 +92,6 @@ end
 # =========================================
 echo "tuning KPP files for mechanism $prefix"
     ./mult_ch.sc $prefix $appendix
-
-# =====================================================================================================
-# change comment signs in _Global.h and _Parameters.h file to make them compliant with both F77 and F90
-# =====================================================================================================
-echo "turn f77-like comments into f90-like comments"
-# option -i for sed stands for "in-place editing": edit the input file directly
-# NB: the escape \! is necessary for csh script, in bash this would simply be !
-sed -i 's/^[cC]/\!/g' $1_Global.h
-sed -i 's/^[cC]/\!/g' $1_Parameters.h
-
 
 # =======================
 # make budget subroutines

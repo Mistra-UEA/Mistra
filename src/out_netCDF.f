@@ -409,7 +409,7 @@ c flux divergences
       k=nf_put_att_text(idfile,idvar(30),'long_name',15,
      &     'd(K_h dq/dz)/dz')
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idfile,idvar(30),'units',13,'kg kg-1 s-1')
+      k=nf_put_att_text(idfile,idvar(30),'units',11,'kg kg-1 s-1')
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       k=nf_def_var(idfile,'fd_theta',nf_float,4,jddim1,idvar(31))

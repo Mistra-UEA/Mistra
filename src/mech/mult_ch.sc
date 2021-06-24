@@ -35,6 +35,10 @@
   #
   # 14-May-2021  Josue Bock  add "exit from Rosenbrock" in the string list so that in case of error,
   #                          the user can know which mechanism was run
+  #
+  # 24-Jun-2021  Josue Bock  move the comment sign replacement (c, C => !) here instead of make_kpp.sc
+  #                          and remove sed -i option ("in-place editing", to edit the input file directly)
+  #                          since it was proven to be less portable (issues with MacOS)
 
 # == End of modifications =======================================================================
 
@@ -157,6 +161,13 @@ foreach i ($ch_VAR)
   sed 's/'"$i"'/&_'"$appendix"'/g' $fold > ! $fnew
   set fold=$fnew
 end
+
+# change comment signs in _Global.h to make them compliant with both F77 and F90
+# NB: the escape \! in sed is necessary for csh script, in bash this would simply be !
+set fold=$fnew
+@ inn=$inn + 1
+set fnew=tmp_h1_$inn
+sed 's/^[cC]/\!/g' $fold > ! $fnew
 \mv -f $fnew $file_h[1]
 
 # delete unnecessary variables in _Parameters.h
@@ -170,6 +181,13 @@ foreach i ($del_VAR2)
   sed '/C '"$i"' -/,/PARAMETER ( '"$i"' =/d' $fold > ! $fnew
   set fold=$fnew
 end
+
+# change comment signs in _Parameters.h to make them compliant with both F77 and F90
+# NB: the escape \! in sed is necessary for csh script, in bash this would simply be !
+set fold=$fnew
+@ inn=$inn + 1
+set fnew=tmp_h1_$inn
+sed 's/^[cC]/\!/g' $fold > ! $fnew
 \mv -f $fnew $file_h[2]
 
 
