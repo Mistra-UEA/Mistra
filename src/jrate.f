@@ -1246,13 +1246,18 @@ c     coefficients for optical depth of Schumann-Runge band above TOA
 !        - most CST_* deleted, as unused, except CST_O3 and CST_O2
 !        - removal of all relevant parts (common blocks, internal functions, calculations)
 !        - re-indexing of CST_O3 for CPU efficiency
+! 25/06/2021 jjb: all missing declarations and implicit none
 
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY,MAXWAV
       PARAMETER(MAXLAY=nrlay, MAXWAV=176)
@@ -1296,6 +1301,28 @@ c     cross section initzialization
      $     CS_HONO(MAXWAV),
      $     CS_NO2m(MAXWAV),   CS_dumm23(MAXWAV),
      $     CS_dumm24(MAXWAV),  CS_dumm25(MAXWAV),   CS_dumm26(MAXWAV)
+      REAL (KIND=DP) ::
+     $     CS_H2O,    CS_HNO3,    CS_HNO4,
+     $     CS_SO2,    CS_HCl,     CS_HOCl,
+     $     CS_BrNO3,  CS_CF3Cl,   CS_CCl3F,
+     $     CS_CCl4,   CS_CCl2O,   CS_F115,
+     $     CS_F114,   CS_F113,    CS_CF2O,
+     $     CS_CClFO,  CS_O2,      CS_CH3OH,
+     $     CS_H2O2,   CS_F22,     CS_F13B1,
+     $     CS_F12B1,  CS_CH3Br,   CS_CCl2F2,
+     $     CS_CH3OOH, CS_Cl2,     CS_CHBr3,
+     $     CS_Cl2O2,  CS_N2O5,    CS_O4,
+     $     CS_NO3n,   CS_O3H2O,   CS_HOI_Jen91,
+     $     CS_HOCH2OOH,CS_HOBr_JPL,CS_HOBr,
+     $     CS_BrCl,   CS_BrCl_noT,   CS_ClNO2,
+     $     CS_BrNO2,  CS_Br2,     CS_IO,
+     $     CS_INO3,   CS_CH3I,    CS_I2,
+     $     CS_ICl,    CS_IBr,     CS_C3H7I,
+     $     CS_CH2ClI, CS_CH2I2,   CS_INO2,
+     $     CS_BrO_noT, CS_OClO_noT, CS_Cl2_noT,
+     $     CS_HONO,
+     $     CS_NO2m,   CS_dumm23,
+     $     CS_dumm24,  CS_dumm25,   CS_dumm26
 
 c     cross sections CS_X at temperature T_X (X=specie)
       COMMON/CROSS_SEC_T/
@@ -1307,6 +1334,11 @@ c     cross sections CS_X at temperature T_X (X=specie)
      $     T_OCS(2),          T_ClONO2(3),        T_CH3CCl3(3),
      $     T_CO2(3),          T_HOI(3),           T_CH2O(2),
      $     T_CH3Cl(3)
+      REAL (KIND=DP) ::
+     $     CS_O3, CS_NO3, CS_NO2, CS_OCS, CS_ClONO2, CS_CH3CCl3, CS_CO2,
+     $     COEFF_HNO3, CS_HOI, CS_CH2O, CS_CH3Cl,
+     $     T_O3, T_NO3, T_NO2, T_OCS, T_ClONO2, T_CH3CCl3, T_CO2,
+     $     T_HOI, T_CH2O, T_CH3Cl
 
       COMMON/WL/WAVE(MAXWAV), !wavelength in the middle of the interval [cm]
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
@@ -1319,6 +1351,11 @@ c     local arrays
 
       DOUBLE PRECISION
      $     SRO2(13,0:MAXLAY)
+
+c     local scalars
+      INTEGER K, L
+      REAL (KIND=DP) :: A_O1D, B_O1D, C1_O3, C2_O3, C3_O3,
+     $     DWAVE, TEMPER, WAVE
 
 C--------------------------------------------------------------------
 C temperature dependent cross section
@@ -1497,7 +1534,7 @@ c$$$      END SUBROUTINE SR_O2_AF
 * Koppers GAA, Murtagh DP, Ann. Geophysicae 14, 68-79          *
 ****************************************************************
 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      IMPLICIT NONE
 
 C     INPUTS
 
@@ -1517,6 +1554,7 @@ C     CEBESHEV COEFFICIENT A AND B
 
       COMMON/CHEB_COEFF/CHEB_COEFF_A(20,13),
      $                  CHEB_COEFF_B(20,13)
+      DOUBLE PRECISION CHEB_COEFF_A, CHEB_COEFF_B
 
       DOUBLE PRECISION
      $                 COEFF_A(20),
@@ -1524,7 +1562,11 @@ C     CEBESHEV COEFFICIENT A AND B
 
 C     EXTERNAL FUNCTIONS
 
-      EXTERNAL CHEBEV
+      DOUBLE PRECISION, EXTERNAL :: CHEBEV
+
+C     LOCAL SCALARS
+      INTEGER I, K, L
+      DOUBLE PRECISION A, B, DL_O2
 
 c-----------------------------------------------------------------
 
@@ -2077,13 +2119,14 @@ c **********************************************************************
 !        - USE global_params for vertical grid parameters
 !        - removal of unused parameters and common blocks
 !        - cleaning, more DP declaration
+! 25/06/2021 jjb: all missing declarations and implicit none
 
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs,mdfs
       PARAMETER (MAXLAY=nrlay)
@@ -2097,10 +2140,15 @@ c input
      1                 t(ndfs), u0a(ndfs), f0a(ndfs)
       double precision fk1(ndfs), fk2(ndfs), a4(4,4,ndfs),
      1                 z4(4,ndfs), g4(4,ndfs)
+      double precision as
 c output
       double precision ffu(mdfs), ffd(mdfs), fsd(mdfs), uav(mdfs)
 c local
       double precision x(4), fi(4)
+      integer i, ii, jj, k, n, np, nrfl, m
+      double precision asbs, f0, fourpi, fw1, fw2, fw3, fw4,
+     $     pi, u0, y, y1
+
       n = nrfl
       m = np
       asbs = as
@@ -2242,7 +2290,7 @@ c **********************************************************************
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs,ndfs4
       PARAMETER (MAXLAY=nrlay)
@@ -2266,6 +2314,11 @@ c **********************************************************************
       double precision ab(13,ndfs4), bx(ndfs4), xx(ndfs4)
 c local
       double precision fu(4,4), wu(4)
+      double precision b1, c1, f0n, fk1t, fk2t, fw1, fw2, t0n, t1n,
+     $     u0n, v1, v2, v3, w1n, w2n, w3n, wn
+      integer i, i1, i2, i3, i8, j, j1, j2, j3, k, kf,
+     $     m1, m2, m18, m28, n, n4
+
       n = nrfl
       n4 = n*4
       do 333 i = 1, n4
@@ -2608,17 +2661,21 @@ c **********************************************************************
 !                 removal of unused parameters
 !                 cleaning.
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
 c input
       double precision b(4,3)
       double precision a(2,2,2)
       double precision z(4)
+      double precision b1, c1, f0, t0, t1, u0
 
 c output
-
       double precision aa(4,4,2), zz(4,2), a1(4,4), z1(4)
+      double precision fk1, fk2
 
+c local
+      integer i
+      double precision a2, b2, dt, fq0, fq1, fw, fw1, fw2, x, y, zx
 c--------------------------------------------------------------
       dt = t1 - t0
       x = sqrt ( b1 * b1 + 4.0D0 * c1 )
@@ -2690,14 +2747,17 @@ c **********************************************************************
 !                 removal of 2 unused argument,
 !                 removal of unused parameters and common block,
 !                 cleaning
+! 25/06/2021 jjb: all missing declarations and implicit none
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
+! input
+      double precision t0, t1
 ! output
       double precision z1(4), fk1, fk2, a1(4,4), zz(4,2), aa(4,4,2)
 ! Local scalars:
-      integer i, j
-      double precision dt, y
+      integer i, j, k
+      double precision dt, x, y
 
       fk1 = 4.7320545D0
       fk2 = 1.2679491D0
@@ -2765,12 +2825,13 @@ c **********************************************************************
 !        - USE global_params for vertical grid parameters
 !        - removal of unused parameters
 !        - cleaning
+! 25/06/2021 jjb: all missing declarations and implicit none
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs4
       PARAMETER (MAXLAY=nrlay)
@@ -2778,6 +2839,12 @@ c **********************************************************************
 
 c input/output
       double precision ab(13,ndfs4), b(ndfs4), x(ndfs4)
+c local
+      integer i, i0, i0f, i0m1, ifq, im1, j, k, k44, l,
+     $     m, m1, m18, m1f, m2, m28, m3, m38, m4, m48,
+     $     n, n1, n2, n3, n4, n44, nrfl
+      double precision p, t, xx, yy
+
       n = nrfl
       n4 = n*4
       do 5 k = 1, n - 1
