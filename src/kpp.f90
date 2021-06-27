@@ -2413,6 +2413,7 @@ subroutine fast_k_mt_t (freep,box,n_bl)  !_1D
 
 ! Modifications :
 ! -------------
+  ! jjb: bugfix, initialisation of xk1 was missing (typo: xk was initialised instead). This has an impact
   ! jjb: added all missing declarations and implicit none
   !      shorten the code by introducing lmax and llchem, to avoid duplicated part of code
   !       for vt calculation ("dry" case, meaning cm=0)
@@ -2678,6 +2679,7 @@ subroutine fast_k_mt_a (freep,box,n_bl)  !_1D
 
 ! Modifications :
 ! -------------
+  ! jjb: bugfix, initialisation of xk1 was missing (typo: xk was initialised instead). This has an impact
   ! jjb: added all missing declarations and implicit none
   !      shorten the code by introducing lmax and llchem, to avoid duplicated part of code
   !       for vt calculation ("dry" case, meaning cm=0)
@@ -4421,6 +4423,14 @@ end subroutine kpp_driver
 subroutine ionbalance (box,n_bl)
 ! check ion balance
 
+  USE config, ONLY : &
+! Imported Parameters:
+       coutdir
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfuniba, jpfunibd
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        j2, &
@@ -4437,6 +4447,10 @@ subroutine ionbalance (box,n_bl)
   logical, intent(in) :: box
   integer, intent(in) :: n_bl
 
+  character (len=*), parameter :: fnamea = "ionba.out"
+  character (len=*), parameter :: fnamed = "ionbd.out"
+
+  character (len=110) :: clpath
   integer :: k, kc
   integer :: n_min, n_max
 
@@ -4451,8 +4465,13 @@ subroutine ionbalance (box,n_bl)
 
 ! == End of declarations =======================================================
 
-  write (103,*) lday,lst,lmin,' aerosol'
-  write (104,*) lday,lst,lmin,' droplet'
+  clpath = trim(coutdir)//fnamea
+  open (unit=jpfuniba, file=trim(clpath), status='unknown', position='append')
+  clpath = trim(coutdir)//fnamed
+  open (unit=jpfunibd, file=trim(clpath), status='unknown', position='append')
+  
+  write (jpfuniba,*) lday,lst,lmin,' aerosol'
+  write (jpfunibd,*) lday,lst,lmin,' droplet'
 
   n_min=1
   n_max=n
@@ -4477,12 +4496,15 @@ subroutine ionbalance (box,n_bl)
              +sion1(34,kc,k)+sion1(35,kc,k)+sion1(36,kc,k) &
              +sion1(37,kc,k)+sion1(38,kc,k)+sion1(39,kc,k)
      enddo
-     write (103,101) k,xpos(1),xneg(1),xpos(1)-xneg(1), &
+     write (jpfuniba,101) k,xpos(1),xneg(1),xpos(1)-xneg(1), &
                        xpos(2),xneg(2),xpos(2)-xneg(2)
-     write (104,101) k,xpos(3),xneg(3),xpos(3)-xneg(3), &
+     write (jpfunibd,101) k,xpos(3),xneg(3),xpos(3)-xneg(3), &
                        xpos(4),xneg(4),xpos(4)-xneg(4)
   enddo
- 101  format (i3,6d16.8)
+101 format (i3,6d16.8)
+
+  close (jpfuniba)
+  close (jpfunibd)
 
 end subroutine ionbalance
 
@@ -5803,6 +5825,7 @@ subroutine mass_ch
 ! ------------
 ! Modules used:
   USE config, ONLY: &
+       coutdir,     &
        nkc_l
 
   USE file_unit, ONLY : &
@@ -5831,6 +5854,7 @@ subroutine mass_ch
   implicit none
 
 ! Local scalars:
+  character (len=110) :: clpath
   integer :: j, k
   logical :: cl_out
   real (kind=dp) :: brg, brgd, brgp, clg, clgd, clgp
@@ -6026,9 +6050,8 @@ subroutine mass_ch
 
 ! output
 
- 100  continue
-     open (jpfunmass,file='mass.out',status='unknown', position='append' &
-          ,err=100)
+     clpath=trim(coutdir)//'mass.out'
+     open (jpfunmass,file=trim(clpath),status='unknown', position='append')
      write (jpfunmass,10) lday,lst,lmin
      if (cl_out) then
         write (jpfunmass,20) brg, brgd, bra1, bra2, bra1d,bra2d, brsss*detw(1), &
@@ -8287,17 +8310,17 @@ function a_n2o5(k,kc)
   real(kind=dp) :: cw, cm
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real(kind=dp) :: sl1, sion1
-  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-  real(kind=dp) :: theta, thetl, t, talt, p, rho
+!  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n) ! for print only
+!  real(kind=dp) :: theta, thetl, t, talt, p, rho
 
-  if (cw(kc,k).gt.0.d0) then
+  if (cw(kc,k).gt.0._dp) then
 !     convert from (mol m-3) to (mol L-1), species 13: NO3-
 !     convert from (mol m-3) to (mol L-1), species 14: Cl-
      xno3m = sion1(13,kc,k)/cw(kc,k) * 1e-3_dp
      xclm  = sion1(14,kc,k)/cw(kc,k) * 1e-3_dp
   else
      xno3m = 0._dp
-     xclm = 0._dp
+     xclm  = 0._dp
   end if
 
 ! initialize water to (mol L-1)
@@ -8311,9 +8334,11 @@ function a_n2o5(k,kc)
 ! big honking reactive uptake coefficient parameterization
   xk2f = 1.15e6_dp - 1.15e6_dp * exp(-0.13_dp * xh2o)
 
-  denom = 1._dp
-  if (xno3m.gt.0.d0) &
-       denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
+  if (xno3m.gt.0._dp) then
+     denom = 1._dp + 6.e-2_dp*xh2o/xno3m + 29._dp*xclm/xno3m
+  else
+     denom = 1._dp
+  end if
   a_n2o5 = 3.2e-8_dp * xk2f * (1._dp - (1._dp/denom))
 
 !  if (k.eq.2) print *,'gamma(N2O5),k=2',k,a_n2o5,xh2o,xno3m &

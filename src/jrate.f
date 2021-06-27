@@ -1456,7 +1456,7 @@ c$$$* ALLEN M, FREDERICK JE, J. ATMOS. SCI. 39, 2066 FF               *
 c$$$* SPECTRAL RANGE: 179.4 - 201.0 NM,  WMO(1985) intervals          *
 c$$$*******************************************************************
 c$$$
-c$$$      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+c$$$      IMPLICIT NONE
 c$$$C     INPUTS
 c$$$
 c$$$      INTEGER MAXLAY,MJ
@@ -1477,6 +1477,10 @@ c$$$
 c$$$C     COEFFICIENTS AK(L,I), BK(L,I)
 c$$$
 c$$$      COMMON/C_O2/ AK(13,9),  BK(13,5)
+c$$$      DOUBLE PRECISION AK, BK
+c$$$
+c$$$      INTEGER I, J, K, L
+c$$$      DOUBLE PRECISION ALP, ALV2, CLN, SF, SLN, XL
 c$$$
 c$$$C----------------------------------------------------------------
 c$$$
@@ -3014,7 +3018,7 @@ c local
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
       DOUBLE PRECISION WAVE,DWAVE
 
-      CHARACTER FILEN*4
+      CHARACTER (LEN=4) FILEN
 
       INTEGER
      $     NWS(NW)             !specification of interval: 1 < NWS(L) < MAXWAV
@@ -3062,11 +3066,12 @@ c-------------------------------------------------------------------
 
       USE config, ONLY : cinpdir_phot     ! input directory for photolysis data files
       USE file_unit, ONLY : nlt=>jpfunnlt ! unit to open and read lookup table ('lookt0900.dat')
+      USE precision, ONLY : dp
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
 ! Local scalar:
-      integer i, j, k
+      INTEGER i, j, k
 
 *--------------------------------------------------------------------*
 *     LOOK-UP TABLE                                                  *
@@ -3097,7 +3102,15 @@ c-------------------------------------------------------------------
      $              CS_dumm24(58,2,2),
      $              CS_dumm25(58,2,2),
      $              CS_dumm26(58,2,2)
-
+      REAL (KIND=DP) ::
+     $     CS_O2, FS_O2, CS_O3, FS_O3, CS_N2O, FS_N2O,
+     $     CS_CFC11, FS_CFC11, CS_CFC12, FS_CFC12,
+     $     CS_H2O2, FS_H2O2, CS_HNO3, FS_HNO3, CS_HNO4, FS_HNO4,
+     $     CS_ClONO2, FS_ClONO2, CS_BrNO3, CS_Cl2O2, CS_HOCl,
+     $     CS_N2O5, FS_N2O5, CS_HO2, FS_HO2, CS_HO3, FS_HO3,
+     $     CS_BrCl_noT, CS_ClNO2, CS_BrNO2, CS_Br2, CS_CH3I,
+     $     CS_NO3n, FS_NO3n, CS_dumm23, CS_dumm24, CS_dumm25, CS_dumm26
+      
       COMMON/LOOK/
      $          TAUA1(55,3),     TAUB1(55,3),
      $          A1_O3(55,3),     B1_O3(55,3),
@@ -3210,6 +3223,50 @@ c-------------------------------------------------------------------
      $          A3_dumm24(55),   B3_dumm24(55),
      $          A3_dumm25(55),   B3_dumm25(55),
      $          A3_dumm26(55),   B3_dumm26(55)
+      REAL (KIND=DP) ::
+     $     TAUA1, TAUB1, A1_O3, B1_O3, A1_O2, B1_O2, A1_H2O2, B1_H2O2,
+     $     A1_HNO3, B1_HNO3, A1_HNO4, B1_HNO4, A1_N2O5, B1_N2O5,
+     $     A1_CH3OOH, B1_CH3OOH, A1_N2O, B1_N2O, A1_CFC11, B1_CFC11,
+     $     A1_CFC12, B1_CFC12, A1_ClONO2, B1_ClONO2, A1_BrNO3, B1_BrNO3,
+     $     A1_Cl2O2, B1_Cl2O2, A1_HOCl, B1_HOCl, A1_H_O2, B1_H_O2,
+     $     A1_H_O3, B1_H_O3, A1_BrCl_noT, B1_BrCl_noT,
+     $     A1_ClNO2, B1_ClNO2, A1_BrNO2, B1_BrNO2, A1_Br2, B1_Br2,
+     $     A1_CH3I, B1_CH3I, A1_ICl, B1_ICl, A1_IBr, B1_IBr,
+     $     A1_C3H7I, B1_C3H7I, A1_CH2ClI, B1_CH2ClI, A1_CH2I2, B1_CH2I2,
+     $     A1_INO2, B1_INO2, A1_Cl2_noT, B1_Cl2_noT, A1_NO3n, B1_NO3n,
+     $     A1_dumm23, B1_dumm23, A1_dumm24, B1_dumm24,
+     $     A1_dumm25, B1_dumm25, A1_dumm26, B1_dumm26,
+     $     TAUA2, TAUB2,
+     $     A2_TO3, B2_TO3, A2_O1D, B2_O1D, A2_O3P, B2_O3P,
+     $     A2_H2O2, B2_H2O2, A2_HNO3, B2_HNO3, A2_HNO4, B2_HNO4,
+     $     A2_N2O5, B2_N2O5, A2_CH3OOH, B2_CH3OOH, A2_NO2, B2_NO2,
+     $     A2_ClONO2, B2_ClONO2, A2_BrNO3, B2_BrNO3, A2_Cl2O2, B2_Cl2O2,
+     $     A2_HOCl, B2_HOCl, A2_H_O3, B2_H_O3, A2_H_NO2, B2_H_NO2,
+     $     A2_BrCl_noT, B2_BrCl_noT, A2_ClNO2, B2_ClNO2,
+     $     A2_BrNO2, B2_BrNO2, A2_Br2, B2_Br2, A2_INO3, B2_INO3,
+     $     A2_CH3I, B2_CH3I, A2_ICl, B2_ICl, A2_IBr, B2_IBr,
+     $     A2_C3H7I, B2_C3H7I, A2_CH2ClI, B2_CH2ClI, A2_CH2I2, B2_CH2I2,
+     $     A2_INO2, B2_INO2, A2_OClO_noT, B2_OClO_noT,
+     $     A2_Cl2_noT, B2_Cl2_noT, A2_HOBr, B2_HOBr, A2_NO3n, B2_NO3n,
+     $     A2_dumm23, B2_dumm23, A2_dumm24, B2_dumm24,
+     $     A2_dumm25, B2_dumm25, A2_dumm26, B2_dumm26,
+     $     TAUA3, TAUB3,
+     $     A3_TO3, B3_TO3, A3_O1D, B3_O1D, A3_O3P, B3_O3P,
+     $     A3_H2O2, B3_H2O2, A3_HNO3, B3_HNO3, A3_HNO4, B3_HNO4,
+     $     A3_N2O5, B3_N2O5, A3_CH3OOH, B3_CH3OOH, A3_NO2, B3_NO2,
+     $     A3_COH2, B3_COH2, A3_CHOH, B3_CHOH, A3_ClONO2, B3_ClONO2,
+     $     A3_BrNO3, B3_BrNO3, A3_Cl2O2, B3_Cl2O2, A3_HOCl, B3_HOCl,
+     $     A3_H_O3, B3_H_O3, A3_H_NO2, B3_H_NO2,
+     $     A3_BrCl_noT, B3_BrCl_noT, A3_ClNO2, B3_ClNO2,
+     $     A3_BrNO2, B3_BrNO2, A3_Br2, B3_Br2, A3_INO3, B3_INO3,
+     $     A3_CH3I, B3_CH3I, A3_ICl, B3_ICl, A3_IBr, B3_IBr,
+     $     A3_C3H7I, B3_C3H7I, A3_CH2ClI, B3_CH2ClI, A3_CH2I2, B3_CH2I2,
+     $     A3_INO2, B3_INO2, A3_BrO_noT, B3_BrO_noT,
+     $     A3_OClO_noT, B3_OClO_noT, A3_Cl2_noT, B3_Cl2_noT,
+     $     A3_HOI_jen91, B3_HOI_jen91,
+     $     A3_HOBr, B3_HOBr, A3_NO2m, B3_NO2m, A3_NO3n, B3_NO3n,
+     $     A3_dumm23, B3_dumm23, A3_dumm24, B3_dumm24,
+     $     A3_dumm25, B3_dumm25, A3_dumm26, B3_dumm26
 
       COMMON/C_POLY/
      $   C4_TAU(4),     C5_TAU(3),                    C7_TAU(2),
@@ -3261,7 +3318,55 @@ c-------------------------------------------------------------------
      $   C4_dumm24(2),   C5_dumm24(2),   C6_dumm24(1),   C7_dumm24(2),
      $   C4_dumm25(2),   C5_dumm25(2),   C6_dumm25(1),   C7_dumm25(2),
      $   C4_dumm26(2),   C5_dumm26(2),   C6_dumm26(1),   C7_dumm26(2)
-
+      REAL (KIND=DP)
+     $   C4_TAU,     C5_TAU,                 C7_TAU,
+     $   C4_T_O3,    C5_T_O3,                C7_T_O3,
+     $   C4_O1D,     C5_O1D,
+     $   C4_O3P,     C5_O3P,     C6_O3P,     C7_O3P,
+     $   C4_H2O2,    C5_H2O2,    C6_H2O2,
+     $   C4_HNO3,    C5_HNO3,    C6_HNO3,
+     $   C4_HNO4,    C5_HNO4,
+     $   C4_N2O5,    C5_N2O5,    C6_N2O5,
+     $   C4_CH3OOH,  C5_CH3OOH,  C6_CH3OOH,
+     $   C4_NO2,     C5_NO2,     C6_NO2,
+     $   C4_COH2,    C5_COH2,    C6_COH2,
+     $   C4_CHOH,    C5_CHOH,    C6_CHOH,
+     $                           C6_NO2O,    C7_NO2O,
+     $                                       C7_NOO2,
+     $   C4_ClONO2,  C5_ClONO2,  C6_ClONO2,
+     $   C4_BrNO3,   C5_BrNO3,   C6_BrNO3,   C7_BrNO3,
+     $   C4_Cl2O2,   C5_Cl2O2,   C6_Cl2O2,
+     $   C4_HOCl,    C5_HOCl,    C6_HOCl,
+     $   C4_H_O3,    C5_H_O3,    C6_H_O3,    C7_H_O3,
+     $                                       C7_H_O2,
+     $   C4_H_NO2,   C5_H_NO2,   C6_H_NO2,   C7_H_NO2,
+     $                           C6_H_O4,    C7_H_O4,
+     $   C4_BrCl_noT,C5_BrCl_noT,C6_BrCl_noT,C7_BrCl_noT,
+     $   C4_ClNO2,   C5_ClNO2,   C6_ClNO2,
+     $   C4_BrNO2,   C5_BrNO2,   C6_BrNO2,   C7_BrNO2,
+     $   C4_Br2,     C5_Br2,     C6_Br2,     C7_Br2,
+     $                           C6_IO,      C7_IO,
+     $   C4_INO3,    C5_INO3,    C6_INO3,    C7_INO3,
+     $   C4_CH3I,    C5_CH3I,    C6_CH3I,
+     $                           C6_I2,      C7_I2,
+     $   C4_ICl,     C5_ICl,     C6_ICl,     C7_ICl,
+     $   C4_IBr,     C5_IBr,     C6_IBr,     C7_IBr,
+     $   C4_C3H7I,   C5_C3H7I,   C6_C3H7I,
+     $   C4_CH2ClI,  C5_CH2ClI,  C6_CH2ClI,
+     $   C4_CH2I2,   C5_CH2I2,   C6_CH2I2,
+     $   C4_INO2,    C5_INO2,    C6_INO2,
+     $   C4_BrO_noT, C5_BrO_noT, C6_BrO_noT,
+     $   C4_OClO_noT,C5_OClO_noT,C6_OClO_noT,C7_OClO_noT,
+     $   C4_Cl2_noT, C5_Cl2_noT, C6_Cl2_noT, C7_Cl2_noT,
+     $   C4_HOI_jen91,C5_HOI_jen91,C6_HOI_jen91,C7_HOI_jen91,
+     $   C4_HOBr,    C5_HOBr,    C6_HOBr,   C7_HOBr,
+     $   C4_HONO,    C5_HONO,    C6_HONO,
+     $   C4_NO2m,    C5_NO2m,    C6_NO2m,
+     $   C4_NO3n,    C5_NO3n,    C6_NO3n,
+     $   C4_dumm23,  C5_dumm23,  C6_dumm23,  C7_dumm23,
+     $   C4_dumm24,  C5_dumm24,  C6_dumm24,  C7_dumm24,
+     $   C4_dumm25,  C5_dumm25,  C6_dumm25,  C7_dumm25,
+     $   C4_dumm26,  C5_dumm26,  C6_dumm26,  C7_dumm26
 
 c-------------------------------------------------------------------
 
@@ -4419,8 +4524,11 @@ c-------------------------------------------------------------------
 ! Imported Parameters:
      &     nrlay
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
       INTEGER MAXLAY,NW
       PARAMETER(MAXLAY=nrlay, NW=7)
@@ -4456,6 +4564,14 @@ c-------------------------------------------------------------------
      $              CS_dumm24(58,2,2),
      $              CS_dumm25(58,2,2),
      $              CS_dumm26(58,2,2)
+      REAL (KIND=DP) ::
+     $     CS_O2, FS_O2, CS_O3, FS_O3, CS_N2O, FS_N2O,
+     $     CS_CFC11, FS_CFC11, CS_CFC12, FS_CFC12,
+     $     CS_H2O2, FS_H2O2, CS_HNO3, FS_HNO3, CS_HNO4, FS_HNO4,
+     $     CS_ClONO2, FS_ClONO2, CS_BrNO3, CS_Cl2O2, CS_HOCl,
+     $     CS_N2O5, FS_N2O5, CS_HO2, FS_HO2, CS_HO3, FS_HO3,
+     $     CS_BrCl_noT, CS_ClNO2, CS_BrNO2, CS_Br2, CS_CH3I,
+     $     CS_NO3n, FS_NO3n, CS_dumm23, CS_dumm24, CS_dumm25, CS_dumm26
 
       COMMON/LOOK/
      $          TAUA1(55,3),     TAUB1(55,3),
@@ -4569,6 +4685,50 @@ c-------------------------------------------------------------------
      $          A3_dumm24(55),   B3_dumm24(55),
      $          A3_dumm25(55),   B3_dumm25(55),
      $          A3_dumm26(55),    B3_dumm26(55)
+      REAL (KIND=DP) ::
+     $     TAUA1, TAUB1, A1_O3, B1_O3, A1_O2, B1_O2, A1_H2O2, B1_H2O2,
+     $     A1_HNO3, B1_HNO3, A1_HNO4, B1_HNO4, A1_N2O5, B1_N2O5,
+     $     A1_CH3OOH, B1_CH3OOH, A1_N2O, B1_N2O, A1_CFC11, B1_CFC11,
+     $     A1_CFC12, B1_CFC12, A1_ClONO2, B1_ClONO2, A1_BrNO3, B1_BrNO3,
+     $     A1_Cl2O2, B1_Cl2O2, A1_HOCl, B1_HOCl, A1_H_O2, B1_H_O2,
+     $     A1_H_O3, B1_H_O3, A1_BrCl_noT, B1_BrCl_noT,
+     $     A1_ClNO2, B1_ClNO2, A1_BrNO2, B1_BrNO2, A1_Br2, B1_Br2,
+     $     A1_CH3I, B1_CH3I, A1_ICl, B1_ICl, A1_IBr, B1_IBr,
+     $     A1_C3H7I, B1_C3H7I, A1_CH2ClI, B1_CH2ClI, A1_CH2I2, B1_CH2I2,
+     $     A1_INO2, B1_INO2, A1_Cl2_noT, B1_Cl2_noT, A1_NO3n, B1_NO3n,
+     $     A1_dumm23, B1_dumm23, A1_dumm24, B1_dumm24,
+     $     A1_dumm25, B1_dumm25, A1_dumm26, B1_dumm26,
+     $     TAUA2, TAUB2,
+     $     A2_TO3, B2_TO3, A2_O1D, B2_O1D, A2_O3P, B2_O3P,
+     $     A2_H2O2, B2_H2O2, A2_HNO3, B2_HNO3, A2_HNO4, B2_HNO4,
+     $     A2_N2O5, B2_N2O5, A2_CH3OOH, B2_CH3OOH, A2_NO2, B2_NO2,
+     $     A2_ClONO2, B2_ClONO2, A2_BrNO3, B2_BrNO3, A2_Cl2O2, B2_Cl2O2,
+     $     A2_HOCl, B2_HOCl, A2_H_O3, B2_H_O3, A2_H_NO2, B2_H_NO2,
+     $     A2_BrCl_noT, B2_BrCl_noT, A2_ClNO2, B2_ClNO2,
+     $     A2_BrNO2, B2_BrNO2, A2_Br2, B2_Br2, A2_INO3, B2_INO3,
+     $     A2_CH3I, B2_CH3I, A2_ICl, B2_ICl, A2_IBr, B2_IBr,
+     $     A2_C3H7I, B2_C3H7I, A2_CH2ClI, B2_CH2ClI, A2_CH2I2, B2_CH2I2,
+     $     A2_INO2, B2_INO2, A2_OClO_noT, B2_OClO_noT,
+     $     A2_Cl2_noT, B2_Cl2_noT, A2_HOBr, B2_HOBr, A2_NO3n, B2_NO3n,
+     $     A2_dumm23, B2_dumm23, A2_dumm24, B2_dumm24,
+     $     A2_dumm25, B2_dumm25, A2_dumm26, B2_dumm26,
+     $     TAUA3, TAUB3,
+     $     A3_TO3, B3_TO3, A3_O1D, B3_O1D, A3_O3P, B3_O3P,
+     $     A3_H2O2, B3_H2O2, A3_HNO3, B3_HNO3, A3_HNO4, B3_HNO4,
+     $     A3_N2O5, B3_N2O5, A3_CH3OOH, B3_CH3OOH, A3_NO2, B3_NO2,
+     $     A3_COH2, B3_COH2, A3_CHOH, B3_CHOH, A3_ClONO2, B3_ClONO2,
+     $     A3_BrNO3, B3_BrNO3, A3_Cl2O2, B3_Cl2O2, A3_HOCl, B3_HOCl,
+     $     A3_H_O3, B3_H_O3, A3_H_NO2, B3_H_NO2,
+     $     A3_BrCl_noT, B3_BrCl_noT, A3_ClNO2, B3_ClNO2,
+     $     A3_BrNO2, B3_BrNO2, A3_Br2, B3_Br2, A3_INO3, B3_INO3,
+     $     A3_CH3I, B3_CH3I, A3_ICl, B3_ICl, A3_IBr, B3_IBr,
+     $     A3_C3H7I, B3_C3H7I, A3_CH2ClI, B3_CH2ClI, A3_CH2I2, B3_CH2I2,
+     $     A3_INO2, B3_INO2, A3_BrO_noT, B3_BrO_noT,
+     $     A3_OClO_noT, B3_OClO_noT, A3_Cl2_noT, B3_Cl2_noT,
+     $     A3_HOI_jen91, B3_HOI_jen91,
+     $     A3_HOBr, B3_HOBr, A3_NO2m, B3_NO2m, A3_NO3n, B3_NO3n,
+     $     A3_dumm23, B3_dumm23, A3_dumm24, B3_dumm24,
+     $     A3_dumm25, B3_dumm25, A3_dumm26, B3_dumm26
 
       COMMON/C_POLY/
      $   C4_TAU(4),     C5_TAU(3),                    C7_TAU(2),
@@ -4620,6 +4780,55 @@ c-------------------------------------------------------------------
      $   C4_dumm24(2),   C5_dumm24(2),   C6_dumm24(1),   C7_dumm24(2),
      $   C4_dumm25(2),   C5_dumm25(2),   C6_dumm25(1),   C7_dumm25(2),
      $   C4_dumm26(2),   C5_dumm26(2),   C6_dumm26(1),   C7_dumm26(2)
+      REAL (KIND=DP)
+     $   C4_TAU,     C5_TAU,                 C7_TAU,
+     $   C4_T_O3,    C5_T_O3,                C7_T_O3,
+     $   C4_O1D,     C5_O1D,
+     $   C4_O3P,     C5_O3P,     C6_O3P,     C7_O3P,
+     $   C4_H2O2,    C5_H2O2,    C6_H2O2,
+     $   C4_HNO3,    C5_HNO3,    C6_HNO3,
+     $   C4_HNO4,    C5_HNO4,
+     $   C4_N2O5,    C5_N2O5,    C6_N2O5,
+     $   C4_CH3OOH,  C5_CH3OOH,  C6_CH3OOH,
+     $   C4_NO2,     C5_NO2,     C6_NO2,
+     $   C4_COH2,    C5_COH2,    C6_COH2,
+     $   C4_CHOH,    C5_CHOH,    C6_CHOH,
+     $                           C6_NO2O,    C7_NO2O,
+     $                                       C7_NOO2,
+     $   C4_ClONO2,  C5_ClONO2,  C6_ClONO2,
+     $   C4_BrNO3,   C5_BrNO3,   C6_BrNO3,   C7_BrNO3,
+     $   C4_Cl2O2,   C5_Cl2O2,   C6_Cl2O2,
+     $   C4_HOCl,    C5_HOCl,    C6_HOCl,
+     $   C4_H_O3,    C5_H_O3,    C6_H_O3,    C7_H_O3,
+     $                                       C7_H_O2,
+     $   C4_H_NO2,   C5_H_NO2,   C6_H_NO2,   C7_H_NO2,
+     $                           C6_H_O4,    C7_H_O4,
+     $   C4_BrCl_noT,C5_BrCl_noT,C6_BrCl_noT,C7_BrCl_noT,
+     $   C4_ClNO2,   C5_ClNO2,   C6_ClNO2,
+     $   C4_BrNO2,   C5_BrNO2,   C6_BrNO2,   C7_BrNO2,
+     $   C4_Br2,     C5_Br2,     C6_Br2,     C7_Br2,
+     $                           C6_IO,      C7_IO,
+     $   C4_INO3,    C5_INO3,    C6_INO3,    C7_INO3,
+     $   C4_CH3I,    C5_CH3I,    C6_CH3I,
+     $                           C6_I2,      C7_I2,
+     $   C4_ICl,     C5_ICl,     C6_ICl,     C7_ICl,
+     $   C4_IBr,     C5_IBr,     C6_IBr,     C7_IBr,
+     $   C4_C3H7I,   C5_C3H7I,   C6_C3H7I,
+     $   C4_CH2ClI,  C5_CH2ClI,  C6_CH2ClI,
+     $   C4_CH2I2,   C5_CH2I2,   C6_CH2I2,
+     $   C4_INO2,    C5_INO2,    C6_INO2,
+     $   C4_BrO_noT, C5_BrO_noT, C6_BrO_noT,
+     $   C4_OClO_noT,C5_OClO_noT,C6_OClO_noT,C7_OClO_noT,
+     $   C4_Cl2_noT, C5_Cl2_noT, C6_Cl2_noT, C7_Cl2_noT,
+     $   C4_HOI_jen91,C5_HOI_jen91,C6_HOI_jen91,C7_HOI_jen91,
+     $   C4_HOBr,    C5_HOBr,    C6_HOBr,   C7_HOBr,
+     $   C4_HONO,    C5_HONO,    C6_HONO,
+     $   C4_NO2m,    C5_NO2m,    C6_NO2m,
+     $   C4_NO3n,    C5_NO3n,    C6_NO3n,
+     $   C4_dumm23,  C5_dumm23,  C6_dumm23,  C7_dumm23,
+     $   C4_dumm24,  C5_dumm24,  C6_dumm24,  C7_dumm24,
+     $   C4_dumm25,  C5_dumm25,  C6_dumm25,  C7_dumm25,
+     $   C4_dumm26,  C5_dumm26,  C6_dumm26,  C7_dumm26
 
 
       COMMON /T_COEFF/   TJ_O1D(4,7),   TJ_O3P(3,7),  TJ_NO2(2,7),
@@ -4766,18 +4975,28 @@ C     change the units (Part./cm^2 -> Dobson Units)
 C     Boltzmann constant K=1.38D-23 [J/K], normal conditions T0=273 [K],
 C     P0=1000 [mbar], so CONST=K*T0/P0=3.767e-20 cm^3
 
-      DATA CONSTANT / 3.767D-20 /
+      REAL (KIND=DP), PARAMETER :: CONSTANT = 3.767E-20_dp
+      REAL (KIND=DP), PARAMETER :: BOLTZ = 1.381D-23
+      REAL (KIND=DP), PARAMETER :: RELO2 = 0.2095D0
 
 C     arrays to calculate TAU_0
 
       DOUBLE PRECISION
+     $     P1, P2, P3, C0, C1, C2, C3, X, ! internal functions
      $     SIGI_O2,
      $     SIGI_O3,
      $     TEMP1(MAXLAY),
      $     TEMP2(MAXLAY)
 
+      REAL (KIND=DP)
+     $     DENS, DLV2I, DTAU_0,
+     $     P2_O1D, P3_O1D, P4_O1D, P5_O1D,
+     $     P2_O3P, P3_O3P, P4_O3P, P5_O3P, P6_O3P, P7_O3P,
+     $     SO2, SO3, TAU3_LIM, TAU4_LIM,
+     $     V3DU_3L, V3DU_4L, V3S_DU, V3_3L, V3_DU
+
       INTEGER
-     $     II
+     $     I, II, K
 
 c-------------------------------------------------------------------
 
@@ -4790,8 +5009,6 @@ C     internal functions
 
 **********************************************************************
 
-      BOLTZ=1.381D-23
-      RELO2 = 0.2095D0
 
 c      Do first the calculation of the optical depth TAU_0
 

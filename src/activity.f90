@@ -168,8 +168,8 @@ subroutine pitzer (k,kc,wact)
   real(kind=dp) :: omega(nc,na)
   real(kind=dp) :: xs(11)
 
-!  character ionn*6                                  ! jjb currently unused, but left commented for later use
-!  dimension ionn(7)                                 !     could be tested along with Mistra ion names (index)
+!  character (len=6) :: ionn(7)        ! jjb currently unused, but left commented for later use
+!                                      !     could be tested along with Mistra ion names (index)
 !  data ionn /'H+', 'NH4+', 'Na+', 'HSO4-','SO4--','NO3-', 'Cl-'/
 
   integer, parameter :: ionind(NC+NA) = (/1,2,20,19,8,13,14/) !indices of ions in sion1

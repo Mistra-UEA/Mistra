@@ -93,6 +93,9 @@ program mistra
        lstmax,       &
        lpJoyce14bc
 
+  USE file_unit, ONLY : &
+       jpfunae, jpfunout
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        nf,                  &
@@ -124,7 +127,7 @@ program mistra
   character (len=10) :: fname
   integer :: ilmin, it0, itmax, i, ia, ij, jt, k
   integer :: n_bl, n_bln, n_bl8, nz_box
-  logical :: both
+  logical :: llnucboth
   logical :: llinit, llcallphotol, llsetjrates0
   real (kind=dp) :: atmax, tkemax, xm2max, xra
   real (kind=dp) :: box_switch
@@ -190,7 +193,7 @@ program mistra
   ! Initialise the nucleation module: search for relevant species in user list
   if (chem .and. nuc) then
      call nuc_init(Napari,Lovejoy,iod)
-     both = Napari.and.Lovejoy
+     llnucboth = Napari.and.Lovejoy
   end if
 
 ! netCDF output
@@ -369,10 +372,10 @@ program mistra
 ! chemical reactions
               call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
               if (nuc) then
-                 if (both) then
-                    call appnucl2 (dd,both)
+                 if (llnucboth) then
+                    call appnucl2 (dd,llnucboth)
                  else
-                    call appnucl (dd,Napari,Lovejoy,both)
+                    call appnucl (dd,Napari,Lovejoy,llnucboth)
                  endif
 !                   --- de-comment if .asc output for gnu-plotting is desired ---
 !                    call nucout1
@@ -487,7 +490,7 @@ program mistra
      enddo
      open (99, file=fname,status='unknown',err=1000)
      write (99,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
-     write (*,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
+     write (jpfunout,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
 6000 format (' time: ',i2,':',i2,':',i2,3x,' iteration: ',f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
 6010 format (1x,i2,':',i2,':',i2,3f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
      close (99)
@@ -511,9 +514,9 @@ program mistra
   enddo
   fname='ae .out'
   fname(3:3)=fogtype
-  open (66, file=fname,status='unknown',form='unformatted')
-  write (66) aer
-  close (66)
+  open (jpfunae, file=fname,status='unknown',form='unformatted')
+  write (jpfunae) aer
+  close (jpfunae)
 
   if (netCDF) call close_netcdf(mic,chem,box,nuc)
 
@@ -665,21 +668,21 @@ subroutine openc (fogtype)
        rst
 
   USE file_unit, ONLY : &
-       jpfunprofc, &
+       jpfunprofc, jpfunmass, &
        jpfunsg1, jpfunion, jpfunsl1, jpfunsr1, jpfungr, jpfungs, &
        jpfunjra
-  character *10 fname
-  character *1 fogtype
+  character (len=10) :: fname
+  character (len=1)  :: fogtype
   character (len=150) :: clpath  ! complete path to file
 
 ! chemical concentrations for initialization
-!      fname='initc .dat'
-!      fname(6:6)=fogtype
-!      open (10,file=fname,status='old')
+!      this is now done in SR mk_interface (see utils.f90)
+
 ! vertical profiles of chemical species
-      fname='profc .out'
-      fname(6:6)=fogtype
-      open (jpfunprofc,file=fname,status='unknown')
+  fname='profc .out'
+  fname(6:6)=fogtype
+  open (jpfunprofc,file=fname,status='unknown')
+
 ! all plotfiles for chemical species
 ! Create output files by opening them once, only if no restart
   if (.not.rst) then
@@ -723,11 +726,12 @@ subroutine openc (fogtype)
      end if
   end if
 
-  open (74,file='mass.out',status='unknown')
-  write (74,101)
-  write (74,102)
-  write (74,103)
-  close (74)
+  clpath=trim(coutdir)//'mass.out'
+  open (jpfunmass,file=trim(clpath),status='unknown')
+  write (jpfunmass,101)
+  write (jpfunmass,102)
+  write (jpfunmass,103)
+  close (jpfunmass)
  101  format ('output of molecule burden/deposit/source; unit is', &
      & ' [mol/m2]')
  102  format ('to get balance: divide last output by first; to get', &
@@ -751,8 +755,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! Modifications :
 ! -------------
-  ! 12-May-2021  Josue Bock  Bugfix for p(1) = rp0. Start do loop at k=2 instead of k=1
-  !                          Initialisation of buoy, allows smoother model spinup (see SR atk1:
+  ! 12-May-2021  Josue Bock  Initialisation of buoy, allows smoother model spinup (see SR atk1:
   !                            filtering 80% old + 20% new values, but old has to be initialised though)
   !                          Introduce nwProfOpt for different subsidence profiles.
   !                            1- original BTZ96 paper. 2- current parameterisation
@@ -768,7 +771,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
        ug, vg, nuvProfOpt, wmin, wmax, nwProfOpt, &
-       isurf, binout, &
+       isurf, binout, coutdir, &
        lpJoyce14bc
 
 
@@ -788,8 +791,10 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE file_unit, ONLY : &
+       !jpfunae,            & ! initial aerosol distribution from previous run (if used)
        jpfunerr, jpfunout, & ! standard error/output files
-       jpfunpb               ! ploutm files: pm*, pb*
+       jpfunpb,            & ! ploutm files: pb*
+       jpfunfi, jpfunpi      ! initial output for plotting
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -816,7 +821,8 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   real (kind=dp), parameter :: gamma = 0.0098_dp ! = g / cp = dry adiabatic lapse rate (K/m)
   real (kind=dp), parameter :: xmol2 = 18._dp
 
-  character *10 fname
+  character (len=10) :: fname   ! file name
+  character (len=110) :: clpath ! path to file
   integer :: jm ! running indexes
   integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
   integer :: ia, jt, k, k0, ka
@@ -1058,10 +1064,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       enddo
 
 ! large scale hydrostatic pressure
+      ! jjb: in this formulation, the ground pressure (rp0) is taken as the bottom boundary of
+      !      layer #1, whose thickness (detw(1)) is NOT zero in this context (see SR grid:
+      !      detw(1)=detamin). This ensures the continuity for the calculation of diffusional
+      !      processes (see for instance difm: xc coefficients). This leads to a minor shift in
+      !      the pressure vertical profile.
       poben = rp0
       cc = g / (2._dp * r0)
-      p(1) = rp0
-      do k=2,n
+      do k=1,n
          punten = poben
          dd     = detw(k) * cc / t(k)
          poben  = punten * (1._dp - dd) / (1._dp + dd)
@@ -1185,9 +1195,9 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
 !#      fname(3:3)=fogtype
-!#      open (66, file=fname,status='old',form='unformatted')
-!#      read (66) aer
-!#      close (66)
+!#      open (jpfunae, file=fname,status='old',form='unformatted')
+!#      read (jpfunae) aer
+!#      close (jpfunae)
 !#      do k=1,nf
 !#         fsum(k)=0.
 !#         do ia=1,nka
@@ -1304,61 +1314,59 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 
 ! initial calculation of Clarke-functions and frictional velocity ustern
-      vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
-      zp    = deta(1) + z0
-      zpdz0 = log(zp/z0)
-      zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern = max(0.01_dp, vbt/cu)
-      gclu   = cu
-      gclt   = ctq
+     vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
+     zp    = deta(1) + z0
+     zpdz0 = log(zp/z0)
+     zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
+     call claf (zpdl,zpdz0,cu,ctq)
+     ustern = max(0.01_dp, vbt/cu)
+     gclu   = cu
+     gclt   = ctq
 
-      ajs   = 0._dp
-      ds1   = 0._dp
-      ds2   = 0._dp
-      trdep = 0._dp
-      tau   = 0._dp
-      reif  = 0._dp
+     ajs   = 0._dp
+     ds1   = 0._dp
+     ds2   = 0._dp
+     trdep = 0._dp
+     tau   = 0._dp
+     reif  = 0._dp
 
 ! temperature and volumetric moisture within soil
-      if(isurf == 1) then
-         x0=0.5*ebs
-!         if (iaertyp.eq.1) x0=x0*.9
-         do k=1,nb
-            tb(k)=285.0_dp
-            eb(k)=x0
-            if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
-         enddo
-         if (binout) then
-            write (jpfunpb) zb
-            close (jpfunpb)
-         end if
-      end if
+     if(isurf == 1) then
+        x0 = 0.5_dp * ebs
+!        if (iaertyp.eq.1) x0=x0*.9
+        do k=1,nb
+           tb(k) = 285.0_dp
+           eb(k) = x0
+           if (zb(k).lt.0.1_dp) tb(k)=(t(1)*(0.1_dp - zb(k)) + 285._dp*zb(k)) / 0.1_dp
+        enddo
+        if (binout) then
+           write (jpfunpb) zb
+           close (jpfunpb)
+        end if
+     end if
   end if ! no restart only
 
 ! initial output for plotting: both restart and no-restart cases
   fname='pi .out'
   fname(3:3)=fogtype
-  open (97, file=fname,status='unknown')
-  write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
+  clpath = trim(coutdir)//fname
+  open (jpfunpi, file=trim(clpath),status='unknown')
+  write (jpfunpi,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
  6001 format (5e16.8)
-  close (97)
+  close (jpfunpi)
 
   do jt=1,nkt
-!         jtp=min0(jt+1,nkt) ! jjb variable unreferenced
-!         de0=dew(jt)  ! jjb variable unreferenced
-!         dep=dew(jtp) ! jjb variable unreferenced
-!         de0p=de0+dep ! jjb variable unreferenced
      do ia=1,nka
         rk=rw(jt,ia)
-        sr(ia,jt)=max(.1d0,exp(a0m/(rk*t(2)) - b0m(ia)*en(ia)/ew(jt)))
+        sr(ia,jt)=max(0.1_dp, exp(a0m/(rk*t(2)) - b0m(ia)*en(ia)/ew(jt)))
      enddo
   enddo
   fname='fi .out'
   fname(3:3)=fogtype
-  open (44, file=fname,status='unknown')
-  write (44,6010) rn,en,rq,e,sr
-  close (44)
+  clpath = trim(coutdir)//fname
+  open (jpfunfi, file=clpath,status='unknown')
+  write (jpfunfi,6010) rn,en,rq,e,sr
+  close (jpfunfi)
  6010 format (5e16.8)
 
 end subroutine initm
@@ -1504,7 +1512,7 @@ subroutine grid
      etw(k) = etw(k) + x0
   enddo
 ! deduce detw, eta and deta from etw
-  detw(1) = detamin
+  detw(1) = detamin ! jjb: this is necessary for the boundary continuity in the diffusion scheme (and other?), not a mistake
   eta(1)  = 0._dp
   do k=2,n
      detw(k)   = etw(k) - etw(k-1)
@@ -3972,6 +3980,10 @@ subroutine surf1 (dt)
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunprofm
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
@@ -4179,10 +4191,10 @@ subroutine surf1 (dt)
      if (dabs(fts).le.1.d-1.and.dabs(fqs).le..1*dabs(ajq)) goto 2030
   end do
 
-  write (6,6000) eb1,ts,fts,fqs
+  write (jpfunprofm,6000) eb1,ts,fts,fqs
  6000 format (10x,'no convergence of ts- and eb1-iteration:'/ &
      & 'eb1',f16.4,'ts',f16.4,'fts',f16.4,'fqs',f16.4)
-  write (6,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
+  write (jpfunprofm,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
  6010 format (10x,3f16.4,e16.4)
 
 2030 if (tau.gt.0..and.ts.lt.t0) l1=.true.
@@ -5676,6 +5688,13 @@ end subroutine advseda
 !
 
 subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
+! chemical reactions
+! aerosol mass change due to chemical reactions
+!
+! NOTE: the aerosol processing as implemented here is mass conserving
+!       but shifts too many particles into the smallest bins, therefore
+!       the particle spectra are a bit odd
+!       this has to be improved in future versions
 
 
 ! Author:
@@ -5697,6 +5716,10 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 ! Imported Parameters:
        pi
 
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        j2, &
@@ -5712,24 +5735,18 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
        dp
 
   implicit none
-! chemical reactions
-! aerosol mass change due to chemical reactions
-!
-! NOTE: the aerosol processing as implemented here is mass conserving
-!       but shifts too many particles into the smallest bins, therefore
-!       the particle spectra are a bit odd
-!       this has to be improved in future versions
 
   real (kind=dp), intent(in) :: dd, xra, z_box
   integer, intent(in) :: n_bl
-  logical, intent(in) :: box,nuc ! jjb nuc has to be declared after adding it as an argument
+  logical, intent(in) :: box, nuc
 
   integer, parameter :: lsp=9
+  real (kind=dp), parameter :: fpi = 4._dp / 3._dp * pi
 
   integer :: ia, ial, iau, ic, iend, iia, iinkr, istart, ix, jt, jtl, jtu, k, kc, kkc, l, ll
   integer :: nfrom, nto, nmin, nmax
   integer tix,tixp
-  real (kind=dp) :: c0, den, fpi, vol_ch, x0, x1, xch, xfact
+  real (kind=dp) :: c0, den, vol_ch, x0, x1, xch, xfact
 
 ! Common blocks:
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
@@ -5746,8 +5763,6 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
   real (kind=dp) :: cw, cm
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-      ! Thus commented here, and the lines "feeding" it commented as well to save cpu time
-      ! If used again, the indexes should be re-ordered to save cpu-time (n=last, lsp first for dss)
 
   integer lj2(lsp)
   real (kind=dp) sion1o(lsp,nkc,n) ! sion1o old ion conc. [mole m**-3]
@@ -5761,8 +5776,6 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
   data lj2/1,2,8,9,13,14,19,20,30/
 
 ! == End of declarations =======================================================
-
-  fpi=4./3.*pi
 
   nmin = 2
   nmax = nf
@@ -5793,14 +5806,14 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
   do k=nmin,nmax
      do kc=1,nkc_l          !initialize variables
         do ic=1,nkc_l
-           vc(ic,kc,k)=0.
+           vc(ic,kc,k) = 0._dp
         enddo
-        sap(kc,k)=0.
-        smp(kc,k)=0.
-        if (cm(kc,k).eq.0.) goto 900
+        sap(kc,k) = 0._dp
+        smp(kc,k) = 0._dp
+        if (cm(kc,k).eq.0._dp) goto 900
 !       define upper and lower limits of ia loop
         if (kc.eq.1.or.kc.eq.3) then
-!           if ((nuc).and.(ifeed.eq.1)) then ! jjb corrected (?) below CHECH WITH Susanne PECHTL
+!           if ((nuc).and.(ifeed.eq.1)) then ! jjb corrected (?) below CHECK WITH Susanne PECHTL
 !              ial=1
 !           else
 !              ial=1+1
@@ -5817,21 +5830,21 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
         endif
 !       loop over all ia that are in the current kc bin
         do ia=ial,iau
-           fs(ia,kc,k)=0.
+           fs(ia,kc,k) = 0._dp
 !          define upper and lower limits of jt loop
            if (kc.eq.1.or.kc.eq.2) then
-              jtl=1
-              jtu=kw(ia)
+              jtl = 1
+              jtu = kw(ia)
            else
-              jtl=kw(ia)+1
-              jtu=nkt
+              jtl = kw(ia)+1
+              jtu = nkt
            endif
 !          loop over all jt that are in the current kc bin
            do jt=jtl,jtu
-              fs(ia,kc,k)=fs(ia,kc,k)+ff(jt,ia,k)*en(ia)
-              sap(kc,k)=sap(kc,k)+ff(jt,ia,k)
+              fs(ia,kc,k) = fs(ia,kc,k) + ff(jt,ia,k) * en(ia)
+              sap(kc,k) = sap(kc,k) + ff(jt,ia,k)
            enddo
-           smp(kc,k)=smp(kc,k)+fs(ia,kc,k)
+           smp(kc,k) = smp(kc,k) + fs(ia,kc,k)
         enddo
         do l=1,lsp
            ll=lj2(l)
@@ -5850,13 +5863,12 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 ! redistribution of particles along aerosol grid due to modified aerosol mass
   do k=nmin,nmax
      do kc=1,nkc_l
-        if (cm(kc,k).eq.0.) goto 1000
-        if (sap(kc,k).gt.1.e-6) then
+        if (cm(kc,k).eq.0._dp) goto 1000
+        if (sap(kc,k).gt.1.e-6_dp) then
 !          change in mass determining chemical species
            do l=1,lsp
               ll=lj2(l)
               dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06/sap(kc,k)
-!                  dss(k,l,kc)=dss(k,l,kc)+dsion1(l,kc,k) ! jjb output no longer used
            enddo
 ! den: new aerosol mass in mg/particle due to chemical reactions
 ! mole masses for l=1,2,8,9,13,14,19,20,30: H+=1g/mole, NH4=18g/mole, SO4(2-)=96g/mole,
@@ -5868,39 +5880,40 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
                 dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+ &
                 dsion1(8,kc,k)*23.+dsion1(9,kc,k)*95.)*1000.
 
-!              define upper and lower limits of ia loop
+!          define upper and lower limits of ia loop
            if (kc.eq.1.or.kc.eq.3) then
-              if ((nuc).and.(ifeed.eq.1)) then
-                 ial=1
+              if ((nuc).and.(ifeed.eq.2)) then
+                 ial=2
               else
-                 ial=1+1
+                 ial=1
               endif
               iau=ka
            else
               ial=ka+1
               iau=nka-1
            endif
-!              loop over all ia that are in the current kc bin
-!              c0: courant number for redistribution
+
+!          loop over all ia that are in the current kc bin
+!          c0: courant number for redistribution
 ! if growing reverse loop order to avoid increasing the mass of some
 ! particles twice
            istart=ial
            iend=iau
            iinkr=1
-           if (den.ge.0.) then
+           if (den.ge.0._dp) then
               istart=iau
               iend=ial
               iinkr=-1
            endif
 !           do ia=ial,iau
            do ia=istart,iend,iinkr
-              if (den.gt.0.) then
+              if (den.gt.0._dp) then
                  x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
               else
 !                 x0=en(ia)+den*fs(ia,kc,k)/smp(kc,k)*sap(kc,k)
                  x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
 !                 x0=dmax1(en(ia)+den,0.d0)
-                 if (x0.le.0.d0) print *,k,kc,ia,'aerosol growth'
+                 if (x0.le.0._dp) write(jpfunout,*) k,kc,ia,'aerosol growth'
               endif
               do iia=1,nka-1
                  if (en(iia).le.x0.and.en(iia+1).gt.x0) then
@@ -5915,7 +5928,7 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
                  c0=1._dp
               else
                  ix=nka-1
-                 c0=0.
+                 c0=0._dp
               endif
 2000          continue
 !             define upper and lower limits of jt loop
@@ -5928,9 +5941,9 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
               endif
 !             loop over all jt that are in the current kc bin
               do jt=jtl,jtu
-                 if (ff(jt,ia,k).gt.0.) then
+                 if (ff(jt,ia,k).gt.0._dp) then
                     x1=ff(jt,ia,k)
-                    ff(jt,ia,k)=0.
+                    ff(jt,ia,k)=0._dp
                     ff(jt,ix,k)=ff(jt,ix,k)+x1*c0
                     ff(jt,ix+1,k)=ff(jt,ix+1,k) + x1*(1._dp - c0)
 ! find "targetbin" for ix and ix+1:
@@ -5965,9 +5978,6 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 ! store change of volume for ix --> ix and ia --> ix+1
                     if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1*c0*fpi*rq(jt,ia)**3
                     if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1*(1.-c0)*fpi*rq(jt,ia)**3
-! output for control
-!                    if (tix.ne.kc)  fss(k,kc,tix)=fss(k,kc,tix) +x1*c0       ! jjb output no longer used
-!                    if (tixp.ne.kc) fss(k,kc,tixp)=fss(k,kc,tixp)+x1*(1.-c0) ! jjb output no longer used
                  endif
               enddo   ! jt loop
            enddo      ! ia loop
@@ -5976,19 +5986,20 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 1000    continue
      enddo  ! kc loop
   enddo     ! k  loop
+
 ! move chemical species if transport above chemistry bins took place
   do k=nmin,nmax
      do kc=1,nkc_l
         do kkc=1,nkc_l
            if (kkc.eq.kc) goto 1001
 ! "kc" (from) bin and "kkc" (to) bin, i.e. bin that loses moles and bin that gains moles
-           if (vc(kkc,kc,k).eq.0.) goto 1001
-           if (cw(kc,k).gt.0.) then
+           if (vc(kkc,kc,k).eq.0._dp) goto 1001
+           if (cw(kc,k).gt.0._dp) then
               nfrom=kc
               nto=kkc
 ! cw in m^3(aq)/m^3(air), vc in um^3/cm^3: 10^-12
               vol_ch=vc(kkc,kc,k)*1.d-12
-              xfact=0.
+              xfact=0._dp
 !            if (vol_ch.gt.1.e-4*cw(k,nfrom)) then
               xfact=1._dp-(cw(nfrom,k)-vol_ch)/cw(nfrom,k)
               do l=1,j2
@@ -6009,14 +6020,6 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 ! 1002       continue ! jjb statement label unreferenced
      enddo                  !kc loop
   enddo     ! k loop
-
-!  do k=2,n
-!     do kc=1,nkc_l
-!        do kcc=1,nkc_l
-!           svc(k,kc,kcc)=svc(k,kc,kcc)+vc(kcc,kc,k) ! jjb output no longer used
-!        enddo
-!     enddo
-!  enddo
 
 end subroutine stem_kpp
 

@@ -73,6 +73,7 @@
 
  ! Nucleation
  nuc=T           !<-- nuc: nucleation included (true)
+ ifeed=1         !<-- (0) no feedback on particle spectrum, (1) full feedback (2) partial feedback
 
  ! Miscelaneous
  scaleo3_m=401.  !<-- scaleo3_m: O3 [Dobson units] (only for scaling in photolysis calculations)
