@@ -77,7 +77,7 @@ mistra: precision.o constants.o global_params.o common_modules.o\
 	$(FC) $(CFLAGS) -o $@ $^ -lnetcdf -lnetcdff
 
 # modules
-global_params.o global_params.mod: global_params.f90 Makefile
+global_params.o global_params.mod: global_params.f90 tot_Parameters.h Makefile
 	rm -f global_params.mod
 	$(FC) $(CFLAGS) -c $<
 

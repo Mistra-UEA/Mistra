@@ -35,6 +35,8 @@ module global_params
 
   implicit none
 
+  include 'tot_Parameters.h'
+
   public
   save
 ! param_met
@@ -109,7 +111,8 @@ module global_params
 
   ! Number of chemical reactions in the tot mechanism
   !   (improvement: get this value from KPP header files)
-  integer, parameter :: nrxn = 1627
+  !integer, parameter :: nrxn = 1627
+  integer, parameter :: nrxn = NREACT
 
   ! Maximum level to compute prognostic chemistry in the aerosols
   integer, parameter :: nmax_chem_aer = nf
