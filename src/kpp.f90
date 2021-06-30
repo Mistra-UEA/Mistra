@@ -50,6 +50,7 @@ subroutine initc (box,n_bl)
        cmechdir,     &
        iaertyp,      &
        iod,          &
+       lpBuys13_0D,  &
        lpJoyce14bc,  &
        neula
 
@@ -346,7 +347,9 @@ subroutine initc (box,n_bl)
 !! ocean aerosol: particles with rn(ia)<.5 mum: 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
 ! ocean aerosol: particles with rn(ia)<.5 mum: 34% (NH4)2SO4, 65.6% NH4HSO4, 0.4% NH4NO3
      if (iaertyp == 3) then
-        if (rn(ia).lt.0.5_dp) then
+        if (rn(ia).lt.0.5_dp .and. .not.lpBuys13_0D) then
+           ! lpBuys13_0D: polar: assume all particles in spring to be sea salt/frost flower whatever the radius, thus exclude this case
+
            sa1(2,ia)  = x0 * 1.34_dp   !NH4+
            sa1(8,ia)  = x0 * 0.34_dp   !SO4=
 !           sa1(13,ia) = x0 * 0.04_dp   !NO3-
@@ -3801,6 +3804,7 @@ subroutine aer_source (box,dd,z_mbl,n_bl)
   ! work done:
   ! 28-Apr-2021  Josué Bock  Propagate rho3 from constants module, instead of hard coded values
   ! 04-Jun-2021  Josué Bock  Introduce aer_source_init so that u10 always match 10m height, whatever detamin
+  ! 30-Jun-2021  Josué Bock  Change jt_low initial value from -1 to 1, to avoid out of bound index
 
 ! == End of header =============================================================
 
@@ -3940,7 +3944,7 @@ subroutine aer_source (box,dd,z_mbl,n_bl)
 ! source functions are for rH=80%
            rr = rgl(rn(ia),a0,b0,0.8_dp)
 ! find jt-index that corresponds to rr for this dry aerosol radius
-           jt_low = -1
+           jt_low = 1
            do jtt=1,nkt
               if (rq(jtt,ia).le.rr) jt_low = jtt
            enddo
@@ -4176,7 +4180,8 @@ subroutine kpp_driver (box,dd_ch,n_bl)
   USE config, ONLY : &
        halo, &
        iod, &
-       neula
+       neula, &
+       lpBuys13_0D
 
   USE constants, ONLY : &
 ! Imported Parameters:
@@ -4215,7 +4220,7 @@ subroutine kpp_driver (box,dd_ch,n_bl)
   real (kind=dp) :: air, airmolec
   real (kind=dp) :: cvv1, cvv2, cvv3, cvv4
   real (kind=dp) :: dt_ch, h2o, h2o_cc, tkpp
-  real (kind=dp) :: rlat, rdec, zeit, horang, u00, ru0, u0
+  real (kind=dp) :: rlat, rdec, zeit, horang, ru0, u0, u00, u0min
   real (kind=dp) :: xhal, xiod, xliq1, xliq2, xliq3, xliq4, xhet1, xhet2
 ! Local arrays:
   real (kind=dp) :: ph_rat(nphrxn)
@@ -4308,8 +4313,16 @@ subroutine kpp_driver (box,dd_ch,n_bl)
 !     endif
 
 ! photolysis rates
+     if (lpBuys13_0D) then
+        ! polar: account for smaller solar angle
+        u0min = 1.75d-2
+     else
+        u0min = 3.48d-2
+     end if
+
      if (u0.ge.3.48d-2) then
         do i=1,nphrxn
+           !ph_rat(i)=photol_j(i,k)
            ph_rat(i)=(photol_j(i,k-1)+photol_j(i,k)) / 2._dp ! jjb photol_j defined for levels, not for layers
         enddo
 ! end of prelim j rates
@@ -5383,7 +5396,10 @@ subroutine gasdrydep (xra,tt,rho,freep)
 ! calculate dry deposition velocities for gas phase after Sehmel cited in
 ! Seinfeld and Pandis, 1999
 
+  ! List of changes:
+  !   rb_fact: corrected expression
 
+  ! Future work and remarks:
 ! jjb IMPORTANT NOTE
 !
 ! Some points need to be addressed in this subroutine.
@@ -5401,6 +5417,7 @@ subroutine gasdrydep (xra,tt,rho,freep)
 !   indexing of arrays vm, hs and f0, which pick up only relevant values.
 
   USE config, ONLY : &
+       lpBuys13_0D,  &
        lpJoyce14bc
 
   USE data_surface, ONLY : &
@@ -5715,7 +5732,11 @@ subroutine gasdrydep (xra,tt,rho,freep)
   f0(3) = 0._dp  !HNO3
   f0(4) = 0._dp  !NH3
   f0(5) = 0._dp  !SO2
-  f0(7) = 1._dp  !O3
+  if (.not.lpBuys13_0D) then
+     f0(7) = 1._dp  !O3
+  else
+     f0(7) = 0.1_dp !O3 snow!!
+  end if
   f0(8) = 0._dp  !CH4
   f0(9) = 0._dp  !C2H6
   f0(10)= 0._dp  !C3H8
@@ -5751,8 +5772,16 @@ subroutine gasdrydep (xra,tt,rho,freep)
            if (hs(ind_gas(i)).ne.0.) then
 !              vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
 !                  (rc_fact/hs(ind_gas(i)))) !Sehmel, 1980
-              vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
-                   1./(hs(ind_gas(i))*1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+              if (.not.lpBuys13_0D) then
+                 ! Standard case
+                 vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
+                      1./(hs(ind_gas(i))*1.d-5+f0(ind_gas(i))/2000.))  !Wesely, 1989
+              else
+                 ! Snow case in Buys et al 2013
+                 !    r_gsS=100., r_gsO=3500., also f0 changed!!
+                 vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+ &
+                      1./(hs(ind_gas(i))*1.d-5/100.+f0(ind_gas(i))/3500.))  !Wesely, 1989
+              end if
 
 !! jjb 27-05-2021: under development, not validated yet. Use the old v_mean_a/t routines for now
 !              vg(i)=1./(xra+(rb_fact/(vm(i)**(2./3.)))+1./(hs(ind_gas(i))* &
@@ -5765,8 +5794,15 @@ subroutine gasdrydep (xra,tt,rho,freep)
                                                               !to get a small v_dd
               if (f0(ind_gas(i)) > 0.) then
 !                 print*,xra,rb_fact,vm(i),f0(ind_gas(i))
-                 vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.))) &
-                      +1./(f0(ind_gas(i))/2000.))
+                 if (.not.lpBuys13_0D) then
+                    ! Standard case
+                    vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.))) &
+                         +1./(f0(ind_gas(i))/2000.))
+                 else
+                    ! Snow case in Buys et al 2013
+                    vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.))) &
+                         +1./(f0(ind_gas(i))/3500.))
+                 end if
               else
                  vg(i)=0._dp
               end if

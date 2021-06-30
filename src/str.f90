@@ -91,6 +91,7 @@ program mistra
        rst,          &
        iaertyp,      &
        lstmax,       &
+       lpBuys13_0D,  &
        lpJoyce14bc
 
   USE file_unit, ONLY : &
@@ -130,7 +131,7 @@ program mistra
   logical :: llnucboth
   logical :: llinit, llcallphotol, llsetjrates0
   real (kind=dp) :: atmax, tkemax, xm2max, xra
-  real (kind=dp) :: box_switch
+  real (kind=dp) :: box_switch, u0min
   real (kind=dp) :: aer(n,nka)
 
 ! Common blocks:
@@ -207,7 +208,7 @@ program mistra
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
 ! initial meteorological and chemical input
-     call initm (iaertyp,fogtype,rst)
+     call initm (fogtype,rst)
      if (chem) call initc(box,n_bl)
 
 ! number of iterations
@@ -226,7 +227,7 @@ program mistra
 ! read meteorological and chemical input from output of previous run
      call startm (fogtype)
 ! init some microphysical data that's not in SR startm
-     call initm (iaertyp,fogtype,rst)
+     call initm (fogtype,rst)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
      it0=0
      it=0
@@ -235,9 +236,10 @@ program mistra
 ! number of iterations
      itmax=it0+60*lstmax
 
-! allocate arrays and initialise vmean
-     if (chem) call v_mean_init
-     if (chem) call v_mean (t(:nmax_chem_aer))
+! jjb under development, commented on purpose
+!! allocate arrays and initialise vmean
+!     if (chem) call v_mean_init
+!     if (chem) call v_mean (t(:nmax_chem_aer))
 
   end if
 ! Continue the initialisation, both cases
@@ -293,6 +295,13 @@ program mistra
 
   ! initialisation switch
   llinit = .false.
+
+  ! Define minimum solar angle for photolysis rates calculation
+  if (lpBuys13_0D) then
+     u0min = 1.75e-2_dp
+  else
+     u0min = 3.48e-2_dp
+  end if
 
   print*,'end initialisation str.f'
 
@@ -416,12 +425,12 @@ program mistra
               llsetjrates0 = .true.
            end if
         else
-           if (u0.gt.3.48e-2_dp .and. lmin/2*2.eq.lmin) then
+           if (u0.gt.u0min .and. lmin/2*2.eq.lmin) then
               llcallphotol = .true.
               llsetjrates0 = .false.
            else
               llcallphotol = .false.
-              if (u0.gt.3.48e-2_dp) then ! in this case, keep using the previously calculated rates
+              if (u0.gt.u0min) then ! in this case, keep using the previously calculated rates
                  llsetjrates0 = .false.
               else
                  llsetjrates0 = .true.
@@ -745,7 +754,7 @@ end subroutine openc
 !-------------------------------------------------------------
 !
 
-subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
+subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 
 ! Author:
@@ -769,10 +778,11 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Scalar Variables with intent (in):
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
+       jpPartDistSet, iaertyp, &
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
        ug, vg, nuvProfOpt, wmin, wmax, nwProfOpt, &
        isurf, binout, coutdir, &
-       lpJoyce14bc
+       lpBuys13_0D, lpJoyce14bc
 
 
   USE constants, ONLY : &
@@ -812,7 +822,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! initial profiles of meteorological variables
 
   character (len=1), intent(in) :: fogtype
-  integer, intent(in) :: iaertyp
   logical, intent(in) :: rst
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
@@ -826,7 +835,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   integer :: jm ! running indexes
   integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
   integer :: ia, jt, k, k0, ka
-  integer :: ndist
   real (kind=dp) :: cc, ctq, cu, dd, deltat
   real (kind=dp) :: poben, punten, rdec, rk, tkorr, x0, xm21s, xnue, zgamma
   real (kind=dp) :: vbt, zp, zpdl, zpdz0
@@ -904,8 +912,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! constants for aerosol distributions
 ! 3 modes j=1,2,3
 ! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
-  ndist = 1
-  select case (ndist)
+  select case (jpPartDistSet)
   case (0)
 ! Distribution after jaenicke (1988)
      ! ((wn(i,j),i=1,4),j=1,3) &
@@ -958,12 +965,44 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      ws(3,1) = 0.14_dp
      ws(3,2) = 0.16_dp
      ws(3,3) = 0.18_dp
-     x0 = sqrt(2.*pi)
+     x0 = sqrt(2._dp * pi)
      do k=1,3
         wn(3,k) = wn(3,k)/(x0*ws(3,k))
-        ws(3,k) = 1./(2.*ws(3,k)**2)
+        ws(3,k) = 1._dp / (2._dp * ws(3,k)**2)
      enddo
 
+     if (iaertyp .ne. 3) then
+        write(jpfunerr,*) "Inconsistency in namelist settings:"
+        write(jpfunerr,*) "  jpPartDistSet=2 can only be used with maritime aerosol (iaertyp=3)"
+        call abortM ("Error in initm")
+     end if
+
+  case (3)
+! polar size distribution after Jaenicke, 1988, #164
+     wr(3,1) = 6.89e-2_dp
+     wr(3,2) = 3.75e-1_dp
+     wr(3,3) = 4.29_dp
+     wn(3,1) = 21.7_dp
+     wn(3,2) = 0.186_dp
+     wn(3,3) = 3.04e-4_dp
+     ws(3,1) = 0.245_dp
+     ws(3,2) = 0.300_dp
+     ws(3,3) = 0.291_dp
+     x0 = sqrt(2._dp * pi)
+     do k=1,3
+        wn(3,k) = wn(3,k)/(x0*ws(3,k))
+        ws(3,k) = 1._dp / (2._dp * ws(3,k)**2)
+     enddo
+
+     if (iaertyp .ne. 3) then
+        write(jpfunerr,*) "Inconsistency in namelist settings:"
+        write(jpfunerr,*) "  jpPartDistSet=3 can only be used with maritime aerosol (iaertyp=3)"
+        call abortM ("Error in initm")
+     end if
+
+  case default
+     write(jpfunerr,*) "Wrong choice for jpPartDistSet"
+     call abortM ("Error in initm")
   end select
 
 ! initialisation of solar time: nyear, nmonth, nday, nhour are read from namelist
@@ -1291,6 +1330,13 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! large are NaCl
         if (rn(ia).ge.0.5_dp) then
            xnue      = 2._dp     !no change in microphysics due to halogen chemistry
+           xmol3(ia) = 58.4_dp
+        end if
+
+        if (lpBuys13_0D) then
+           fcs(ia)   = 0._dp ! jjb: there was a mistake in Buys settings, fcs was commented out, thus not set
+                             !      use 0 instead, even if this is wrong, just to reproduce the same settings
+           xnue      = 2._dp
            xmol3(ia) = 58.4_dp
         end if
 
@@ -6650,9 +6696,8 @@ subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
   common /cb18/ alat,declin                ! for the SZA calculation
   real (kind=dp) :: alat,declin
 
-!  common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb warning time renamed xtime here
-  common /cb40/ xtime,lday,lst,lmin,it,lcl,lct ! jjb warning xtime here instead of time
-  real (kind=dp) :: xtime
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
   integer :: lday, lst, lmin, it, lcl, lct
 
   common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
@@ -6693,28 +6738,17 @@ subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
 
 !      if (lmin.eq.1.and.ij.eq.1) then
   if (box_switch.eq.1..and.lmin.eq.1.and.ij.eq.1) then
-!        free path length (lambda=freep):
+!    free path length (lambda=freep):
      do k=2,n
         freep(k)=2.28e-5 * t(k) / p(k)
      enddo
 
      call cw_rc (nf)
-!!         do k=2,nf
-!!            do kc=1,nkc ! jjb reordered
-!         do kc=1,nkc
-!            do k=2,nf
-!               cwm(k,kc)=cw(k,kc)
-!               rcm(k,kc)=rc(k,kc)
-!            enddo
-!         enddo
-         !stop 'jjb: box version has to be updated'
-     call v_mean (t(:nmax_chem_aer))
-!        call henry_a (t,p,nf) ! jjb second argument (p) not used
-     call henry_a (t,nf)   ! jjb removed
-!        call fast_k_mt_a(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
+
+     call v_mean_a (t,nf)
+     call henry_a (t,nf)
      call fast_k_mt_a(freep,fa_lse,nf)
-!        call equil_co_a (cw,t,nf)
-     call equil_co_a (t,nf) ! jjb cw now passed as a CB
+     call equil_co_a (t,nf)
      call activ (fa_lse,nf)
      call dry_cw_rc (nf)
      call dry_rates_g (t,freep,nf)
@@ -6724,11 +6758,9 @@ subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
      if (cm(3,n_bl).gt.0.) xph3 = 1.
      if (cm(4,n_bl).gt.0.) xph4 = 1.
      if (xph3.eq.1..or.xph4.eq.1.) then
-!           call henry_t (t,p,nf) ! jjb second argument (p) not used
-        call henry_t (t,nf)   ! jjb removed
-!           call fast_k_mt_t(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
+        call v_mean_t (t,nf)
+        call henry_t (t,nf)
         call fast_k_mt_t(freep,fa_lse,nf)
-!           call equil_co_t (cw,t,nf) ! jjb cw now passed as a CB
         call equil_co_t (t,nf)
      endif
 

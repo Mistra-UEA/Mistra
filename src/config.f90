@@ -88,6 +88,7 @@ logical :: &
   lpsmith    ! lpsmith  : activate Smith scheme for particle emission (see SR aer_source)
 
 integer :: &
+  jpPartDistSet, &      ! Whole set of particle distributions (for one or several aerosol types)
   iaertyp, & ! iaertyp  : type of aerosol; 1=urban, 2=rural, 3=ocean, 4=background
   ifeed,   & ! ifeed    : retroaction over microphysics, and/or chemistry. See manual.
   isurf,   & ! isurf    : type of surface, (0) for water or snow, (1) for bare soil
@@ -138,6 +139,7 @@ real (KIND=dp) :: &
 integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
 
 ! Special runs switchs
+logical :: lpBuys13_0D ! Switch on some special configuration of Buys et al 2013 (0D case)
 logical :: lpJoyce14bc ! Switch on some special configuration of Joyce et al 2014 (base case)
 
 character (len=100) :: cnmlfile
@@ -165,9 +167,9 @@ namelist /mistra_cfg/ &
 ! Surface setings
      isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
-     iaertyp,         &
+     jpPartDistSet, iaertyp,      &
 ! Chemistry setings
-     chem, halo, iod, nkc_l,   &
+     chem, halo, iod, nkc_l,      &
      cgaslistfile, cradlistfile,  &
      lpmona, lpsmith, &
      neula,           &
@@ -177,7 +179,7 @@ namelist /mistra_cfg/ &
      nuc, ifeed, Napari, Lovejoy, &
      scaleo3_m,       &
 ! Special configuration
-     lpJoyce14bc
+     lpBuys13_0D, lpJoyce14bc
 
 contains
 
@@ -305,6 +307,7 @@ rhsurf = 1._dp
 z0 = 0.01_dp
 jpAlbedoOpt = 0
 mic = .false.
+jpPartDistSet = 0
 iaertyp = 3
 ! Chemistry setings
 chem = .true.
@@ -330,6 +333,7 @@ Lovejoy = .true.
 scaleo3_m = 300._dp
 
 ! Special configuration
+lpBuys13_0D = .false.
 lpJoyce14bc = .false.
 
 call getenv ('NAMELIST',cnmlfile)
