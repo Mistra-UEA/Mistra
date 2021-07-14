@@ -79,6 +79,7 @@ program mistra
        binout,       &
        BL_box,       &
        box,          &
+       chamber,      &
        nlevbox,      &
        z_box,        &
        chem,         &
@@ -87,11 +88,14 @@ program mistra
        isurf,        &
        mic,          &
        netCDF,       &
-       nuc,          &
+       nuc, Napari, Lovejoy, &
        rst,          &
-       iaertyp,      &
        lstmax,       &
+       lpBuys13_0D,  &
        lpJoyce14bc
+
+  USE file_unit, ONLY : &
+       jpfunae, jpfunout
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -102,14 +106,13 @@ program mistra
        nka,                 &
        nkt,                 &
        nphrxn,              &
-       nmax_chem_aer,       &
        mbs
 
   USE precision, ONLY : &
 ! Imported Parameters:
        dp
 
-  implicit double precision (a-h,o-z)
+  implicit none
 
   interface
      subroutine equil (ncase,kk)
@@ -118,22 +121,31 @@ program mistra
      end subroutine equil
   end interface
 
-  logical Napari, Lovejoy, both
+  character (len=1), parameter :: fogtype = 'a'  ! kept for historical reasons, appendix to many file names
+  real (kind=dp), parameter :: dt = 60._dp       ! timestep for slowly varying processes
+  real (kind=dp), parameter :: dd = 10._dp       ! fractional timestep for faster processes
+  character (len=10) :: fname
+  integer :: ilmin, it0, itmax, ia, ij, jt, k
+  integer :: n_bl, n_bln, n_bl8, nz_box
+  logical :: llboxch, llnucboth
   logical :: llinit, llcallphotol, llsetjrates0
+  real (kind=dp) :: atmax, tkemax, xm2max, xra
+  real (kind=dp) :: box_switch, u0min
+  real (kind=dp) :: aer(n,nka)
 
 ! Common blocks:
   common /cb16/ u0,albedo(mbs),thk(nrlay)
-  double precision u0, albedo, thk
+  real (kind=dp) :: u0, albedo, thk
 
   common /cb40/ time,lday,lst,lmin,it,lcl,lct
   real (kind=dp) :: time
   integer :: lday, lst, lmin, it, lcl, lct
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
-  double precision detw, deta, eta, etw
+  real (kind=dp) :: detw, deta, eta, etw
 
   common /cb48/ sk,sl,dtrad(n),dtcon(n)
-  double precision sk, sl, dtrad, dtcon
+  real (kind=dp) :: sk, sl, dtrad, dtcon
 
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
@@ -148,11 +160,8 @@ program mistra
   real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
   common /band_rat/ photol_j(nphrxn,n)
+  real (kind=dp) :: photol_j
 
-
-  dimension aer(n,nka)
-  character *1 fogtype
-  character *10 fname
 
   ! initialisation switch
   llinit = .true.
@@ -160,72 +169,89 @@ program mistra
   ! Read namelist
   call read_config
 
-  fogtype='a'
+  if (box) then
+     write(jpfunout,*)'box model run'
+  elseif (chamber) then
+     write(jpfunout,*)'chamber model run'
+  else
+     write(jpfunout,*)'1-D model run'
+  endif
+  llboxch = box.or.chamber
 
-  if (chem) call mk_interface
-
-  Napari = .true. ; Lovejoy = .true.
-  if (chem .and. nuc) call nuc_init(Napari,Lovejoy,iod)
-
-  if (box) print *,'box model run'
 ! it's important to keep this n_bl = 2 for box runs as loops are designed that way
 ! (especially output)
   if (box) then
      n_bl  = 2
      n_bln = 2
      n_bl8 = 1
+  else if (chamber) then
+     n_bl  = 2 ! 3
+     n_bln = 2 ! 3
+     n_bl8 = 1
+     xra = 0._dp ! initialise since partdep will not be called
   else
      n_bl  = nf
      n_bln = n
      n_bl8 = 15
   endif
+! numerical gridpoints
+  call grid
 ! open input/output files
   call openm (fogtype)
   if (chem) call openc (fogtype)
+
+  ! Initialise the Mistra-KPP interface to handle the species
+  if (chem) call mk_interface
+
+  ! Initialise the nucleation module: search for relevant species in user list
+  if (chem .and. nuc) then
+     call nuc_init(Napari,Lovejoy,iod)
+     llnucboth = Napari.and.Lovejoy
+  end if
+
 ! netCDF output
-  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
-! numerical gridpoints
-  call grid
-  nz_box = 0
-  if (box) call get_n_box (z_box,nz_box)
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
+
+  if (box.or.chamber) call get_n_box (z_box,nz_box)
   call write_grid ! writes information on grid that is not f(t)
-  dt = 60._dp
 
   if (.not.rst) then
 
 ! Continue the initialisation, no-restart case
 ! --------------------------------------------
 ! initial meteorological and chemical input
-  call initm (iaertyp,fogtype,rst)
-  if (chem) call initc(box,n_bl)
+     call initm (fogtype,rst)
+     if (chem) call initc(n_bl)
+
 ! number of iterations
-  it0=0
-  itmax=60*lstmax
+     it0=0
+     itmax=60*lstmax
 ! initial exchange coefficients and turbulent kinetic energy
-  call atk0
+     call atk0
 
 ! initial position of humidified aerosols on Köhler curve
-  call equil(0)
+     call equil(0)
 
   else
 
 ! Continue the initialisation, restart case
 ! -----------------------------------------
 ! read meteorological and chemical input from output of previous run
-  call startm (fogtype)
+     call startm (fogtype)
 ! init some microphysical data that's not in SR startm
-  call initm (iaertyp,fogtype,rst)
+     call initm (fogtype,rst)
 !+      it0=it    ! use when time stamp from restart run is to be preserved
-  it0=0
-  it=0
-  if (chem) call startc (fogtype)
+     it0=0
+     it=0
+     if (chem) call startc (fogtype)
 
 ! number of iterations
-  itmax=it0+60*lstmax
+     itmax=it0+60*lstmax
 
-! allocate arrays and initialise vmean
-  if (chem) call v_mean_init
-  if (chem) call v_mean (t(:nmax_chem_aer))
+! jjb under development, commented on purpose
+!! allocate arrays and initialise vmean
+!     if (chem) call v_mean_init
+!     if (chem) call v_mean (t(:nmax_chem_aer))
 
   end if
 ! Continue the initialisation, both cases
@@ -233,6 +259,9 @@ program mistra
 
 ! initialization of radiation code, and first calculation
   call radiation (llinit)
+
+! 1D distribution of particles at model start
+  call oneD_dist_jjb
 
 ! output of meteorological and chemical constants of current run
   call constm
@@ -251,7 +280,7 @@ program mistra
 ! initial output for plotting
   if (binout) then
      call ploutm (fogtype,n_bln)
-     if (mic) call ploutp (fogtype)
+     if (mic.and..not.llboxch) call ploutp (fogtype)
      call ploutr (fogtype,n_bln)
      call ploutt (fogtype,n_bln)
      if (chem) then
@@ -261,25 +290,34 @@ program mistra
   endif
 
   if (chem) call out_mass
-  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
+  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
-  time=60.*float(it0)
+  time = dt * real(it0,dp)
 ! local time: day (lday), hours (lst), minutes (lmin)
   fname='tim .out'
   fname(4:4)=fogtype
   open (99, file=fname,status='unknown',err=2005)
-  atmax=0.
+  atmax=0._dp
   write (99,6000) lday,lst,lmin,atmax
   close (99)
 2005 continue
 
   if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
-  if (box) box_switch=1.
+  if (box) box_switch=1._dp
+  if (chamber) call chamb_init (n_bl)
+  if (chamber) box_switch=0._dp
 
   ! initialisation switch
   llinit = .false.
 
-  print*,'end initialisation str.f'
+  ! Define minimum solar angle for photolysis rates calculation
+  if (lpBuys13_0D) then
+     u0min = 1.75e-2_dp
+  else
+     u0min = 3.48e-2_dp
+  end if
+
+  write(jpfunout,*)'end initialisation str.f'
 
 ! ====================integration in time=====================
 ! outer time loop: minutes
@@ -298,16 +336,14 @@ program mistra
      endif
 
 ! dry dep velocities
-     call partdep (xra)
+     if (.not.chamber) call partdep (xra)
 
-! dd: fractional timestep in sec
-     dd = 10._dp
 ! inner time loop: 10 sec
      do ij=1,6
         time=time+dd
 ! --------1D only start------------
-! skip dynamics, microphysics and radiation for box model run
-        if (.not.box) then
+! skip dynamics, microphysics and radiation for box and chamber model run
+        if (.not.llboxch) then
 
 ! if w-field variable in time call wfield
 !   WARNING: check this routine before using, it is not the same as latest version used by Bott
@@ -357,52 +393,56 @@ program mistra
 ! wet deposition of chemical species
               call sedl (dd)
 ! chemical reactions
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
+              call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
               if (nuc) then
-! set switches for ternary nucleation: Napari: ternary H2SO4-H2O-NH3 nucleation
-!                                      Lovejoy: homogeneous OIO nucleation
-!                                      for further explanation see nuc.f
-                 if ((Napari) .and. (Lovejoy)) then
-                    both = .true.
+                 if (llnucboth) then
+                    call appnucl2 (dd,llnucboth)
                  else
-                    both = .false.
-                 endif
-                 if ((.not.Napari) .and. (.not.Lovejoy)) then
-                    STOP 'Napari or Lovejoy must be true'
-                 end if
-                 if (both) then
-                    call appnucl2 (dd,both)
-                 else
-                    call appnucl (dd,Napari,Lovejoy,both)
+                    call appnucl (dd,Napari,Lovejoy,llnucboth)
                  endif
 !                   --- de-comment if .asc output for gnu-plotting is desired ---
 !                    call nucout1
               endif
            endif
-        else                ! if .not.box
+        else                ! if .not.box .not.chamber
 ! --------1D only end------------
 ! --------box model version only start -------------------
+           if (box) then
 ! put aerosol into equilibrium with current rel hum
 !               if (.not.mic) call equil (1,n_bl)
 ! call u0, T, rh, J-values  .. update
            !call box_update(box_switch,ij,nlevbox,nz_box,n_bl,chem,halo,iod,BL_box) ! jjb 3 unused arguments
-           call box_update(box_switch,ij,nlevbox,nz_box,n_bl,BL_box)
+              call box_update(box_switch,ij,nlevbox,nz_box,n_bl,BL_box)
 ! gas phase emissions and deposition
-           call sedc_box (dd,z_box,n_bl)
+              call sedc_box (dd,z_box,n_bl)
 ! particle and aqueous phase deposition
-           call box_partdep (dd,z_box,n_bl)
+              call box_partdep (dd,z_box,n_bl)
 ! aerosol emission and chemical reactions
-           if (chem) then
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
-           endif
-        endif               ! if .not.box
+              if (chem) then
+                 call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
+              endif
+
+           else if (chamber) then
+! --------chamber model version only start -------------------
+! call u0, T, rh, J-values  .. update
+              call chamb_update (n_bl,ij)
+! aerosol emission and chemical reactions
+              if (chem) then
+                 call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
+              endif
+! --------chamber model version only end -------------------
+           end if
+
+        endif               ! if .not.box .not.chamber
 ! --------box model version only end -------------------
      enddo                  ! ij-loop : end of fractional timestep loop
 
 ! radiative fluxes and heating rates
-     if (.not.box) call radiation (llinit)
+     if (.not.llboxch) call radiation (llinit)
 ! new photolysis rates
-     if (chem) then
+! for chamber mode photolysis rates are read by SR photol_chamber
+! from file chamber.dat (see SR chamb_init and chamb_update)
+     if (chem.and..not.chamber) then
 
         ! Condition to call photolysis code (may depend on configuration)
         if (lpJoyce14bc) then
@@ -414,12 +454,12 @@ program mistra
               llsetjrates0 = .true.
            end if
         else
-           if (u0.gt.3.48e-2 .and. lmin/2*2.eq.lmin) then
+           if (u0.gt.u0min .and. lmin/2*2.eq.lmin) then
               llcallphotol = .true.
               llsetjrates0 = .false.
            else
               llcallphotol = .false.
-              if (u0.gt.3.48e-2) then ! in this case, keep using the previously calculated rates
+              if (u0.gt.u0min) then ! in this case, keep using the previously calculated rates
                  llsetjrates0 = .false.
               else
                  llsetjrates0 = .true.
@@ -431,24 +471,21 @@ program mistra
            call photol
            if (box.and.BL_box) call ave_j (nz_box,n_bl)
         else if (llsetjrates0) then
-           do k=1,n
-              do i=1,nphrxn
-                 photol_j(i,k)=0._dp
-              enddo
-           enddo
+           photol_j(:,:) = 0._dp
         endif
      endif
 
 ! output of meteorological and chemical variables ----------------------
      ilmin=15
-!    ilmin=1 !output every minute
+     if (chamber) ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
-        call oneD_dist_new
+        !call oneD_dist_new
+        call oneD_dist_jjb
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
-           if (lmin/30*30.eq.lmin.and.mic) call ploutp (fogtype)
+           if (lmin/30*30.eq.lmin.and.mic.and..not.llboxch) call ploutp (fogtype)
            call ploutr (fogtype,n_bln)
            call ploutt (fogtype,n_bln)
            if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
@@ -456,7 +493,7 @@ program mistra
         endif
 
 ! netCDF output
-        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,nuc)
+        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
 ! output of data from nucleation
         if (chem.and.nuc) call nucout2
 ! output from mass balance
@@ -487,7 +524,7 @@ program mistra
      enddo
      open (99, file=fname,status='unknown',err=1000)
      write (99,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
-     write (*,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
+     write (jpfunout,6010) lday,lst,lmin,tkemax,atmax,xm2max,eta(lcl),eta(lct)
 6000 format (' time: ',i2,':',i2,':',i2,3x,' iteration: ',f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
 6010 format (1x,i2,':',i2,':',i2,3f10.3,3x,'cloudy region: ',f7.1,' - ',f7.1)
      close (99)
@@ -511,9 +548,9 @@ program mistra
   enddo
   fname='ae .out'
   fname(3:3)=fogtype
-  open (66, file=fname,status='unknown',form='unformatted')
-  write (66) aer
-  close (66)
+  open (jpfunae, file=fname,status='unknown',form='unformatted')
+  write (jpfunae) aer
+  close (jpfunae)
 
   if (netCDF) call close_netcdf(mic,chem,box,nuc)
 
@@ -665,21 +702,21 @@ subroutine openc (fogtype)
        rst
 
   USE file_unit, ONLY : &
-       jpfunprofc, &
+       jpfunprofc, jpfunmass, &
        jpfunsg1, jpfunion, jpfunsl1, jpfunsr1, jpfungr, jpfungs, &
        jpfunjra
-  character *10 fname
-  character *1 fogtype
+  character (len=10) :: fname
+  character (len=1)  :: fogtype
   character (len=150) :: clpath  ! complete path to file
 
 ! chemical concentrations for initialization
-!      fname='initc .dat'
-!      fname(6:6)=fogtype
-!      open (10,file=fname,status='old')
+!      this is now done in SR mk_interface (see utils.f90)
+
 ! vertical profiles of chemical species
-      fname='profc .out'
-      fname(6:6)=fogtype
-      open (jpfunprofc,file=fname,status='unknown')
+  fname='profc .out'
+  fname(6:6)=fogtype
+  open (jpfunprofc,file=fname,status='unknown')
+
 ! all plotfiles for chemical species
 ! Create output files by opening them once, only if no restart
   if (.not.rst) then
@@ -723,11 +760,12 @@ subroutine openc (fogtype)
      end if
   end if
 
-  open (74,file='mass.out',status='unknown')
-  write (74,101)
-  write (74,102)
-  write (74,103)
-  close (74)
+  clpath=trim(coutdir)//'mass.out'
+  open (jpfunmass,file=trim(clpath),status='unknown')
+  write (jpfunmass,101)
+  write (jpfunmass,102)
+  write (jpfunmass,103)
+  close (jpfunmass)
  101  format ('output of molecule burden/deposit/source; unit is', &
      & ' [mol/m2]')
  102  format ('to get balance: divide last output by first; to get', &
@@ -741,7 +779,7 @@ end subroutine openc
 !-------------------------------------------------------------
 !
 
-subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
+subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 
 ! Author:
@@ -751,8 +789,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! Modifications :
 ! -------------
-  ! 12-May-2021  Josue Bock  Bugfix for p(1) = rp0. Start do loop at k=2 instead of k=1
-  !                          Initialisation of buoy, allows smoother model spinup (see SR atk1:
+  ! 12-May-2021  Josue Bock  Initialisation of buoy, allows smoother model spinup (see SR atk1:
   !                            filtering 80% old + 20% new values, but old has to be initialised though)
   !                          Introduce nwProfOpt for different subsidence profiles.
   !                            1- original BTZ96 paper. 2- current parameterisation
@@ -766,9 +803,12 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Scalar Variables with intent (in):
        nyear, nmonth, nday, nhour, &
        zalat=>alat, alon, & ! mind that alat is already used in cb16, import alat from config as zalat
+       jpPartDistSet, iaertyp, &
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
-       ug, vg, wmin, wmax, nwProfOpt, &
-       lpJoyce14bc
+       ug, vg, nuvProfOpt, wmin, wmax, nwProfOpt, &
+       isurf, binout, coutdir, &
+       chamber, &
+       lpBuys13_0D, lpJoyce14bc
 
 
   USE constants, ONLY : &
@@ -787,8 +827,10 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
   USE file_unit, ONLY : &
+       !jpfunae,            & ! initial aerosol distribution from previous run (if used)
        jpfunerr, jpfunout, & ! standard error/output files
-       jpfunpb               ! ploutm files: pm*, pb*
+       jpfunpb,            & ! ploutm files: pb*
+       jpfunfi, jpfunpi      ! initial output for plotting
 
   USE global_params, ONLY : &
 ! Imported Parameters:
@@ -802,22 +844,27 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! Imported Parameters:
        dp
 
-  implicit double precision (a-h,o-z)
+  implicit none
 ! initial profiles of meteorological variables
 
   character (len=1), intent(in) :: fogtype
-  integer, intent(in) :: iaertyp
   logical, intent(in) :: rst
 ! External function:
   real (kind=dp), external :: p21              ! saturation water vapour pressure [Pa]
 
   integer, parameter :: jpdaypermonth(12) = (/31,28,31,30,31,30,31,31,30,31,30,31/)
-  real (kind=dp), parameter :: gamma = 0.0098 ! = g / cp = dry adiabatic lapse rate (K/m)
+  real (kind=dp), parameter :: gamma = 0.0098_dp ! = g / cp = dry adiabatic lapse rate (K/m)
+  real (kind=dp), parameter :: xmol2 = 18._dp
 
-  character *10 fname
+  character (len=10) :: fname   ! file name
+  character (len=110) :: clpath ! path to file
   integer :: jm ! running indexes
   integer :: idayjul, itotyear, istort, immort ! julian day, total day per year, local hr, local min
-  real (kind=dp) :: deltat, rdec, zgamma
+  integer :: ia, jt, k, k0, ka
+  real (kind=dp) :: cc, ctq, cu, dd, deltat
+  real (kind=dp) :: poben, punten, rdec, rk, tkorr, x0, xm21s, xnue, zgamma
+  real (kind=dp) :: vbt, zp, zpdl, zpdz0
+
 ! Local arrays
   real(kind=dp) :: wn(4,3),wr(4,3),ws(4,3),sr(nka,nkt)
 !  dimension aer(nf,nka)
@@ -870,47 +917,139 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
   common /kinv_i/ kinv
   integer :: kinv
 
-  data xmol2 /18./
+! Statement functions:
+  real (kind=dp) :: dfdlogr, dfdlogr2, rr
+  real (kind=dp) :: dfdlogrch, dfdlogrch2 ! chamber version
 
-! constants for aerosol distributions after jaenicke (1988)
-! 3 modes j=1,2,3
-! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
-!      data ((wn(i,j),i=1,4),j=1,3)/1.6169d+05,1.1791d+04,80.76,79.788, &
-!     & 664.9,105.29,126.52,94.138,4.3091d+04,2.9846d+03,3.0827,0.0596/
-!      data ((wr(i,j),i=1,4),j=1,3)/6.51d-03,7.39d-03,3.9d-03,3.6d-03, &
-!     & 7.14d-03,.0269,.133,.127,.0248,.0419,.29,.259/
-!      data ((ws(i,j),i=1,4),j=1,3)/8.3299,9.8765,1.1583,1.2019, &
-!     & 1.1273,1.6116,11.338,7.8114,4.4026,7.0665,3.1885,2.7682/
-! constants for aerosol distributions after jaenicke (1988)
-! except constants for maritime aerosol distribution
-! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
-  data ((wn(i,j),i=1,4),j=1,3) &
-       /1.6169e+05_dp, 1.1791e+04_dp, 159.576_dp, 79.788_dp, &
-             664.9_dp,     105.29_dp, 427.438_dp, 94.138_dp, &
-        4.3091e+04_dp, 2.9846e+03_dp,   5.322_dp, 0.0596_dp/
-  data ((wr(i,j),i=1,4),j=1,3) &
-       /6.51e-03_dp, 7.39e-03_dp, 0.027_dp, 3.6e-03_dp, &
-        7.14e-03_dp,    .0269_dp,  .105_dp,    .127_dp, &
-           .0248_dp,    .0419_dp,   .12_dp,    .259_dp/
-  data ((ws(i,j),i=1,4),j=1,3) &
-       /8.3299_dp, 9.8765_dp,    8._dp, 1.2019_dp, &
-        1.1273_dp, 1.6116_dp, 39.86_dp, 7.8114_dp, &
-        4.4026_dp, 7.0665_dp, 2.469_dp, 2.7682_dp/
-
-!c aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
-      dfdlogr(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
-     &               wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)+ &
-     &               wn(ka,3)*dexp(-ws(ka,3)*dlog10(rr/wr(ka,3))**2)
-      dfdlogr2(rr,ka)=wn(ka,1)*dexp(-ws(ka,1)*dlog10(rr/wr(ka,1))**2)+ &
-     &                wn(ka,2)*dexp(-ws(ka,2)*dlog10(rr/wr(ka,2))**2)
+! aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
+  dfdlogr(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
+                 wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)+ &
+                 wn(ka,3)*exp(-ws(ka,3)*log10(rr/wr(ka,3))**2)
+  dfdlogr2(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
+                  wn(ka,2)*exp(-ws(ka,2)*log10(rr/wr(ka,2))**2)
 ! after Jaenicke/Sander/Kim:
-!      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*dexp(-dlog10(rr/8.8d-2) &
+!      dfdlogr(rr,ka)=2.8d2/(0.1106*sqrt(2*pi))*exp(-log10(rr/8.8d-2) &
 !     & **2/(2*0.1106**2))+ &
-!     &               6.6d-1/(0.1906*sqrt(2*pi))*dexp(-dlog10(rr/1.7d0) &
+!     &               6.6d-1/(0.1906*sqrt(2*pi))*exp(-log10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
 
+  dfdlogrch(rr)=wn(2,3)/(ws(2,3)*sqrt(2*pi))*exp(-log10(rr/wr(2,3))**2/(2*ws(2,3)**2))+ &
+                wn(2,2)/(ws(2,2)*sqrt(2*pi))*exp(-log10(rr/wr(2,2))**2/(2*ws(2,2)**2))
+  dfdlogrch2 = 1.0e-100_dp
+
 ! == End of declarations =======================================================
+
+! constants for aerosol distributions
+! 3 modes j=1,2,3
+! 4 aerosol types i=iaertyp: 1=urban; 2=rural; 3=ocean; 4=background
+  select case (jpPartDistSet)
+  case (0)
+! Distribution after jaenicke (1988)
+     ! ((wn(i,j),i=1,4),j=1,3) &
+     wn = reshape( &
+          (/1.6169e+05_dp, 1.1791e+04_dp,  80.76_dp, 79.788_dp, &
+                 664.9_dp,     105.29_dp, 126.52_dp, 94.138_dp, &
+            4.3091e+04_dp, 2.9846e+03_dp, 3.0827_dp, 0.0596_dp/), &
+            shape=(/4,3/) )
+     ! ((wr(i,j),i=1,4),j=1,3) &
+     wr = reshape( &
+          (/6.51e-03_dp, 7.39e-03_dp, 3.9e-03_dp, 3.6e-03_dp, &
+            7.14e-03_dp,    .0269_dp,    .133_dp,    .127_dp, &
+               .0248_dp,    .0419_dp,     .29_dp,    .259_dp/), &
+            shape=(/4,3/) )
+     ! ((ws(i,j),i=1,4),j=1,3) &
+     ws = reshape( &
+          (/8.3299_dp, 9.8765_dp, 1.1583_dp, 1.2019_dp, &
+            1.1273_dp, 1.6116_dp, 11.338_dp, 7.8114_dp, &
+            4.4026_dp, 7.0665_dp, 3.1885_dp, 2.7682_dp/), &
+            shape=(/4,3/) )
+
+  case (1)
+! constants for aerosol distributions after jaenicke (1988)
+! except constants for maritime aerosol distribution
+! after Hoppel et al. 1990 JGR 95, pp. 3659-3686
+     wn = reshape( &
+          (/1.6169e+05_dp, 1.1791e+04_dp, 159.576_dp, 79.788_dp, &
+                 664.9_dp,     105.29_dp, 427.438_dp, 94.138_dp, &
+            4.3091e+04_dp, 2.9846e+03_dp,   5.322_dp, 0.0596_dp/), &
+            shape=(/4,3/) )
+     wr = reshape( &
+          (/6.51e-03_dp, 7.39e-03_dp, 0.027_dp, 3.6e-03_dp, &
+            7.14e-03_dp,    .0269_dp,  .105_dp,    .127_dp, &
+               .0248_dp,    .0419_dp,   .12_dp,    .259_dp/), &
+            shape=(/4,3/) )
+     ws = reshape( &
+          (/8.3299_dp, 9.8765_dp,    8._dp, 1.2019_dp, &
+            1.1273_dp, 1.6116_dp, 39.86_dp, 7.8114_dp, &
+            4.4026_dp, 7.0665_dp, 2.469_dp, 2.7682_dp/), &
+            shape=(/4,3/) )
+
+  case (2)
+! maritime size distribution after hoppel et al. 1994, jgr. 14,443
+     wr(3,1) = 0.02_dp
+     wr(3,2) = 0.05_dp
+     wr(3,3) = 0.15_dp
+     wn(3,1) = 110._dp
+     wn(3,2) = 72._dp
+     wn(3,3) = 7._dp
+     ws(3,1) = 0.14_dp
+     ws(3,2) = 0.16_dp
+     ws(3,3) = 0.18_dp
+     x0 = sqrt(2._dp * pi)
+     do k=1,3
+        wn(3,k) = wn(3,k)/(x0*ws(3,k))
+        ws(3,k) = 1._dp / (2._dp * ws(3,k)**2)
+     enddo
+
+     if (iaertyp .ne. 3) then
+        write(jpfunerr,*) "Inconsistency in namelist settings:"
+        write(jpfunerr,*) "  jpPartDistSet=2 can only be used with maritime aerosol (iaertyp=3)"
+        call abortM ("Error in initm")
+     end if
+
+  case (3)
+! polar size distribution after Jaenicke, 1988, #164
+     wr(3,1) = 6.89e-2_dp
+     wr(3,2) = 3.75e-1_dp
+     wr(3,3) = 4.29_dp
+     wn(3,1) = 21.7_dp
+     wn(3,2) = 0.186_dp
+     wn(3,3) = 3.04e-4_dp
+     ws(3,1) = 0.245_dp
+     ws(3,2) = 0.300_dp
+     ws(3,3) = 0.291_dp
+     x0 = sqrt(2._dp * pi)
+     do k=1,3
+        wn(3,k) = wn(3,k)/(x0*ws(3,k))
+        ws(3,k) = 1._dp / (2._dp * ws(3,k)**2)
+     enddo
+
+     if (iaertyp .ne. 3) then
+        write(jpfunerr,*) "Inconsistency in namelist settings:"
+        write(jpfunerr,*) "  jpPartDistSet=3 can only be used with maritime aerosol (iaertyp=3)"
+        call abortM ("Error in initm")
+     end if
+
+  case (4)
+! special chamber case
+     wn(1:2,1:3) = reshape( &
+          (/   0.0_dp, 0.0_dp, 0.0_dp,        &
+          -0.17e+2_dp, 0.0_dp, 0.53e+02_dp/), &
+          shape=(/2,3/) )
+     wr(1:2,1:3) = reshape( &
+          (/ 0.0_dp, 0.0_dp, 0.0_dp,     &
+             1.4_dp, 0.0_dp, 0.357_dp/), &
+          shape=(/2,3/) )
+     ws(1:2,1:3) = reshape( &
+          (/ 0.0_dp, 0.0_dp, 0.0_dp,        &
+          -0.125_dp, 0.0_dp, 0.126_dp/), &
+          shape=(/2,3/) )
+
+  case default
+     write(jpfunerr,*) "Wrong choice for jpPartDistSet"
+     call abortM ("Error in initm")
+  end select
 
 ! initialisation of solar time: nyear, nmonth, nday, nhour are read from namelist
 ! -----------------------------
@@ -933,6 +1072,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      lday = 0
      lmin = 0
      lst = nhour
+     if (chamber) lst = 12
 
 ! equation of time:
      ! gamma is the day angle, also called fractional year, in radians
@@ -952,6 +1092,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
           - 0.006758_dp * cos(2._dp * zgamma) + 0.000907_dp * sin(2._dp * zgamma)
      ! in cb16, declination is in degree, convert here
      declin = rdec / rad
+     if (chamber) declin = 18._dp
 
 ! Fill alat in cb16 with alat=zalat from config
      alat = zalat
@@ -964,6 +1105,7 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      write (jpfunout,6303) tkorr
      write (jpfunout,6304) istort,immort
      write (jpfunout,6305) declin
+     write (jpfunout,6000)
 
 6000 format ('---------------------------------------------------------------&
              &-----------------')
@@ -975,7 +1117,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 6305 format ('Declination of the sun: ',f6.2,' deg')
 
   end if
-
 
 ! initialisation of temperature and humidity profile
 !---------------------------------------------------
@@ -1009,10 +1150,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
       enddo
 
 ! large scale hydrostatic pressure
+      ! jjb: in this formulation, the ground pressure (rp0) is taken as the bottom boundary of
+      !      layer #1, whose thickness (detw(1)) is NOT zero in this context (see SR grid:
+      !      detw(1)=detamin). This ensures the continuity for the calculation of diffusional
+      !      processes (see for instance difm: xc coefficients). This leads to a minor shift in
+      !      the pressure vertical profile.
       poben = rp0
       cc = g / (2._dp * r0)
-      p(1) = rp0
-      do k=2,n
+      do k=1,n
          punten = poben
          dd     = detw(k) * cc / t(k)
          poben  = punten * (1._dp - dd) / (1._dp + dd)
@@ -1042,21 +1187,41 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
          thetl(k) = theta(k)*(1._dp + 0.61_dp * xm1(k))
          dfddt(k) = 0._dp
          buoy(k) = -1e-4_dp
-         u(k) = ug
-         v(k) = vg
+
+! profile of geostrophic wind
+         select case (nuvProfOpt)
+         case (0)
+            u(k) = ug
+            v(k) = vg
+         case (3) ! Bott 2020 (p.160): decreasing linearly to zero at the surface
+            if (k <= kinv) then
+               u(k) = ug/zinv * eta(k)
+               v(k) = vg/zinv * eta(k)
+            else
+               u(k) = ug
+               v(k) = vg
+            end if
+         case default
+            call abortM ('Wrong option for nuvProfOpt, default = 0, other possible option = 3')
+         end select
+
+! profile of large scale subsidence
          select case (nwProfOpt)
+         ! Hyperbolic form: Bott et al 1996
          case (1)
             w(k) = 0.5_dp * wmax * (tanh((eta(k)-500._dp) / 250._dp) + 1._dp)
+
          case (2)
             w(k) = eta(k)/1000._dp * 0.5_dp * (wmin+wmax)
-         case (3) ! Bott 2020: wmax above kinv, decreasing linearly to zero (wmin) at the surface
+         ! Bott 2020: wmax above kinv, decreasing linearly to zero (wmin) at the surface
+         case (3)
             if (k <= kinv) then
                w(k) = (wmax-wmin)/zinv * eta(k) + wmin
             else
                w(k) = wmax
             end if
          case default
-            call abortM ('Wrong option for nwProfOpt, choose 1 or 2')
+            call abortM ('Wrong option for nwProfOpt, choose 1, 2 or 3')
          end select
 
          if (k <= kinv) then
@@ -1065,12 +1230,14 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
             tke(k) = 1.e-5_dp
          end if
       enddo
-      u(1) = 0._dp
-      v(1) = 0._dp
-      u(2) = 0.25_dp * ug
-      v(2) = 0.25_dp * vg
-      u(3) = 0.75_dp * ug
-      v(3) = 0.75_dp * vg
+      if (nuvProfOpt == 0) then
+         u(1) = 0._dp
+         v(1) = 0._dp
+         u(2) = 0.25_dp * ug
+         v(2) = 0.25_dp * vg
+         u(3) = 0.75_dp * ug
+         v(3) = 0.75_dp * vg
+      end if
       do k=n,1,-1
          w(k) = w(k) - w(1)
       enddo
@@ -1084,22 +1251,6 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! no restart only for the following block
   if (.not.rst) then
 
-! maritime size distribution after hoppel et al. 1994, jgr. 14,443
-!      wr(3,1)=0.02
-!      wr(3,2)=0.05
-!      wr(3,3)=0.15
-!      wn(3,1)=110.
-!      wn(3,2)=72.
-!      wn(3,3)=7.
-!      ws(3,1)=0.14
-!      ws(3,2)=0.16
-!      ws(3,3)=0.18
-!      x0=sqrt(2.*pi)
-!      do k=1,3
-!         wn(3,k)=wn(3,k)/(x0*ws(3,k))
-!         ws(3,k)=1./(2.*ws(3,k)**2)
-!      enddo
-
      ff(:,:,:) = 0._dp
      fsum(:)   = 0._dp
      do k=1,n
@@ -1110,16 +1261,22 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
         if (.not.lpJoyce14bc) then
            x0 = 1._dp
            if (iaertyp.lt.3.and.k.gt.nf) x0 = 0.2_dp
+           !if (iaertyp.lt.3.and.k.gt.kinv) x0 = 0.2_dp
         ! special case for Joyce et al 2014 study
         else if (lpJoyce14bc) then
            x0 = 1.e-4_dp
         end if
 
         do ia=1,nka
-           ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
-           ! special case: save the distribution to replenish (save only once, k==1)
-           if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
-           if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           if (.not.chamber) then
+              ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
+              ! special case: save the distribution to replenish (save only once, k==1)
+              if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
+              if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           else
+              ff(1,ia,k)=dfdlogrch(rn(ia))*dlgenw/3.*x0
+              if (k.gt.kinv) ff(1,ia,k)=dfdlogrch2*dlgenw/3.*x0
+           end if
            fsum(k) = fsum(k) + ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
@@ -1129,9 +1286,9 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
 ! read initial aerosol distribution from previous run
 !#      fname='ae .out'
 !#      fname(3:3)=fogtype
-!#      open (66, file=fname,status='old',form='unformatted')
-!#      read (66) aer
-!#      close (66)
+!#      open (jpfunae, file=fname,status='old',form='unformatted')
+!#      read (jpfunae) aer
+!#      close (jpfunae)
 !#      do k=1,nf
 !#         fsum(k)=0.
 !#         do ia=1,nka
@@ -1160,142 +1317,157 @@ subroutine initm (iaertyp,fogtype,rst) !change also SR surf0 !_aerosol_nosub
      a0m = 152200._dp / (r1*rhow)
   !else restart case: a0m is read in startm
   end if
-! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
-      k0=nar(2) !=iaertyp
-      do ia=1,nka
-      if (k0-2) 2000,2010,2020
+
 ! b0m=fcs*xnue*xmol2/xmol3: fcs(ia) fraction of soluble species
 ! xnue number of ions; xmol2 (xmol3) mol masses of water (aerosol)
-! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
-! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
-2000  continue
+  k0=nar(2) !=iaertyp
+  do ia=1,nka
+! aerosol types: 1=urban 2=rural 3=ocean 4=tropospheric
+     select case (k0)
 
 ! Aerosol type 1 = urban
+     case (1)
+! NH4NO3 mole mass 80; (NH4)2SO4 mole mass 132
+! soluble part of urban aerosol: 2 mole NH4NO3 and 1 mole (NH4)2SO4
+
       ! general case
-      if (.not.lpJoyce14bc) then
-         if (rn(ia).le.1._dp) then
-            fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
-         else
-            fcs(ia) = 0.1_dp
-         end if
-         xnue = (3._dp + 2._dp * 2._dp) / 3._dp
-         xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
+        if (.not.lpJoyce14bc) then
+           if (rn(ia).le.1._dp) then
+              fcs(ia) = 0.4_dp - rn(ia) * (0.4_dp - 0.1_dp)
+           else
+              fcs(ia) = 0.1_dp
+           end if
+           xnue = (3._dp + 2._dp * 2._dp) / 3._dp
+           xmol3(ia) = (132._dp + 80._dp * 2._dp) / 3._dp
 
       ! special case for Joyce et al 2014 study
       ! making urban aerosol H2SO4 with remaining mass DOM and gas uptake
-      else if (lpJoyce14bc) then
-         if (rn(ia).le.1._dp) then
-            fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
-         else
-            fcs(ia) = 0.1_dp
-         end if
+        else if (lpJoyce14bc) then
+           if (rn(ia).le.1._dp) then
+              fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+           else
+              fcs(ia) = 0.1_dp
+           end if
          ! "average" number of dissoc. ions, H+,SO4=,DOM, Cl- (4)
-         xnue = (3._dp ) / 4._dp
+           xnue = (3._dp ) / 4._dp
          ! "average" MW of ion = MW components/#
          ! sulfacid(98.08)+octene(122.21)+Cl- / 4 diss. com
-         xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
-      end if
+           xmol3(ia) = (98.08_dp + 122.21_dp + 35.45_dp) / 4._dp
+        end if
 
-      go to 1030
+
+! Aerosol type 2 = rural
+     case (2)
 ! soluble part of rural aerosol: pure (NH4)2SO4
-2010  continue
-      if (rn(ia).le.1._dp) then
-         !fcs(ia) = 0.5_dp - rn(ia) * (0.5_dp - 0.1_dp)
-         fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
-      else
-         !fcs(ia) = 0.1_dp
-         fcs(ia) = 0.5_dp
-      end if
-      xnue = 3._dp
-      xmol3(ia) = 132._dp
-      go to 1030
+        if (rn(ia).le.1._dp) then
+           !fcs(ia) = 0.5_dp - rn(ia) * (0.5_dp - 0.1_dp)
+           fcs(ia) = 0.9_dp - rn(ia) * (0.9_dp - 0.5_dp)
+        else
+           !fcs(ia) = 0.1_dp
+           fcs(ia) = 0.5_dp
+        end if
+        xnue = 3._dp
+        xmol3(ia) = 132._dp
+
+! Aerosol type 3 = maritime
+     case (3)
 !c soluble part of ocean aerosol: small pure (NH4)2SO4; large pure NaCl
 ! soluble part of ocean aerosol: pure (NH4)2SO4;
- 2020 continue
-      fcs(ia)=1.
-!      xnue=3.
-!      xmol3(ia)=132.
+        fcs(ia) = 1._dp
+!        xnue      = 3._dp
+!        xmol3(ia) = 132._dp
 ! 32% (NH4)2SO4, 64% NH4HSO4, 4% NH4NO3
-      xnue=0.32*3.+0.64*2+0.04*2
-      xmol3(ia)=0.32*132.+0.64*115+0.04*80
+        xnue      = 0.32_dp*3. + 0.64_dp*2. + 0.04_dp*2.
+        xmol3(ia) = 0.32_dp*132. + 0.64_dp*115. + 0.04_dp*80.
 ! large are NaCl
-      if (rn(ia).ge.0.5) then
-      xnue=2.     !no change in microphysics due to halogen chemistry
-      xmol3(ia)=58.4
-      end if
+        if (rn(ia).ge.0.5_dp) then
+           xnue      = 2._dp     !no change in microphysics due to halogen chemistry
+           xmol3(ia) = 58.4_dp
+        end if
 
-1030  continue
-      if (.not.rst) then
-      b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
-      !else restart case: b0m is read in startm
-      end if
-   end do
+        if (lpBuys13_0D) then
+           fcs(ia)   = 0._dp ! jjb: there was a mistake in Buys settings, fcs was commented out, thus not set
+                             !      use 0 instead, even if this is wrong, just to reproduce the same settings
+           xnue      = 2._dp
+           xmol3(ia) = 58.4_dp
+        end if
+
+     end select
+
+     if (.not.rst) then
+        b0m(ia)=fcs(ia)*xnue*xmol2/xmol3(ia)
+        !else restart case: b0m is read in startm
+     end if
+  end do
 
   if (.not.rst) then
 
 ! in radiation code: background aerosol = rural aerosol
-      do k=2,n
-         if (nar(k).eq.4) nar(k)=2
-      enddo
+     do k=2,n
+        if (nar(k).eq.4) nar(k)=2
+     enddo
 
 
 !      call adjust_f !only if Kim aerosol is used!!
 
 
 ! initial calculation of Clarke-functions and frictional velocity ustern
-      vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
-      zp    = deta(1) + z0
-      zpdz0 = log(zp/z0)
-      zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
-      call claf (zpdl,zpdz0,cu,ctq)
-      ustern = max(0.01_dp, vbt/cu)
-      gclu   = cu
-      gclt   = ctq
+     vbt   = sqrt(u(2)*u(2)+v(2)*v(2))
+     zp    = deta(1) + z0
+     zpdz0 = log(zp/z0)
+     zpdl  = g * (theta(2) - t(1)) * zp / (theta(2) * vbt)
+     call claf (zpdl,zpdz0,cu,ctq)
+     ustern = max(0.01_dp, vbt/cu)
+     gclu   = cu
+     gclt   = ctq
 
-      ajs   = 0._dp
-      ds1   = 0._dp
-      ds2   = 0._dp
-      trdep = 0._dp
-      tau   = 0._dp
-      reif  = 0._dp
+     ajs   = 0._dp
+     ds1   = 0._dp
+     ds2   = 0._dp
+     trdep = 0._dp
+     tau   = 0._dp
+     reif  = 0._dp
+
 ! temperature and volumetric moisture within soil
-      x0=0.5*ebs
-!      if (iaertyp.eq.1) x0=x0*.9
-      do k=1,nb
-         tb(k)=285.0
-         eb(k)=x0
-         if (zb(k).lt..1) tb(k)=(t(1)*(.1-zb(k))+285.*zb(k))/.1
-      enddo
+     if(isurf == 1) then
+        x0 = 0.5_dp * ebs
+!        if (iaertyp.eq.1) x0=x0*.9
+        do k=1,nb
+           tb(k) = 285.0_dp
+           eb(k) = x0
+           if (zb(k).lt.0.1_dp) tb(k)=(t(1)*(0.1_dp - zb(k)) + 285._dp*zb(k)) / 0.1_dp
+        enddo
+        if (binout) then
+           write (jpfunpb) zb
+           close (jpfunpb)
+        end if
+     end if
   end if ! no restart only
 
 ! initial output for plotting: both restart and no-restart cases
-      fname='pi .out'
-      fname(3:3)=fogtype
-      open (97, file=fname,status='unknown')
-      write (97,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
+  fname='pi .out'
+  fname(3:3)=fogtype
+  clpath = trim(coutdir)//fname
+  open (jpfunpi, file=trim(clpath),status='unknown')
+  write (jpfunpi,6001) (eta(k),etw(k),rho(k),p(k),w(k),k=1,n)
  6001 format (5e16.8)
-      close (97)
-      write (jpfunpb) zb
-      close (jpfunpb)
-      do jt=1,nkt
-!         jtp=min0(jt+1,nkt) ! jjb variable unreferenced
-!         de0=dew(jt)  ! jjb variable unreferenced
-!         dep=dew(jtp) ! jjb variable unreferenced
-!         de0p=de0+dep ! jjb variable unreferenced
-         do ia=1,nka
-            rk=rw(jt,ia)
-            sr(ia,jt)=dmax1(.1d0,dexp(a0m/(rk*t(2)) &
-     &                -b0m(ia)*en(ia)/ew(jt)))
-         enddo
-      enddo
-      fname='fi .out'
-      fname(3:3)=fogtype
-      open (44, file=fname,status='unknown')
-      write (44,6010) rn,en,rq,e,sr
-      close (44)
+  close (jpfunpi)
+
+  do jt=1,nkt
+     do ia=1,nka
+        rk=rw(jt,ia)
+        sr(ia,jt)=max(0.1_dp, exp(a0m/(rk*t(2)) - b0m(ia)*en(ia)/ew(jt)))
+     enddo
+  enddo
+  fname='fi .out'
+  fname(3:3)=fogtype
+  clpath = trim(coutdir)//fname
+  open (jpfunfi, file=clpath,status='unknown')
+  write (jpfunfi,6010) rn,en,rq,e,sr
+  close (jpfunfi)
  6010 format (5e16.8)
 
-      end subroutine initm
+end subroutine initm
 
 !
 !-------------------------------------------------------------
@@ -1326,6 +1498,7 @@ subroutine grid
   USE config, ONLY : &
 ! External subroutine
        abortM, &
+       chamber, &
        isurf, &
        detamin, etaw1,       & ! atmospheric grid: constant height, and top of grid [m]
        rnw0, rnw1, rw0, rw1    ! microphysics grid: min/max dry aerosol, min/max particle radius [um]
@@ -1358,15 +1531,20 @@ subroutine grid
   real (kind=dp), parameter :: etaw1_max = 2500._dp ! max authorised height for prognostic grid
   real (kind=dp), parameter :: dzbw0 = 0.001_dp, zbw1 = 1._dp ! minimum-maximum values of soil grid
 ! Local scalars:
-  integer :: ia, jt, j, k, nf1
+  integer :: ia, ij, iij, jt, j, k, nf1, ndistrp
   real (kind=dp) :: ax, dlgzbw
   real (kind=dp) :: enwmin, enwmax
   real (kind=dp) :: ewmin, ewmax
+  real (kind=dp) :: rqmin, rqmax, rfact
   real (kind=dp) :: x0, x1, x2, x3
   real (kind=dp) :: xfac
-  real (kind=dp) :: zbw0, zbw
+  real (kind=dp) :: zbw0, zbw, zradthres
+! Local arrays:
+  real (kind=dp) :: rq1D(nkt*nka),rqcp(nkt,nka)
 
 ! Common blocks:
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
   common /cb08/ re1(nkt), re2(nkt), re3(nkt)
   real (kind=dp) :: re1, re2, re3
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
@@ -1380,8 +1558,8 @@ subroutine grid
   real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
   common /cb51/ dlgew,dlgenw,dlne
   real (kind=dp) :: dlgew, dlgenw, dlne
-  common /blck06/ kw(nka),ka
-  integer :: kw, ka
+  common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+  real (kind=dp) :: rpw, part1D
 
 ! == End of declarations =======================================================
 
@@ -1391,7 +1569,7 @@ subroutine grid
 ! equidistant grid between earth's surface and eta(nf)
   etw(1) = 0._dp
   do k=2,nf
-     etw(k) = float(k-1) * detamin
+     etw(k) = real(k-1,dp) * detamin
   end do
 
 ! logarithmically equidistant grid above eta(nf)
@@ -1433,7 +1611,7 @@ subroutine grid
      etw(k) = etw(k) + x0
   enddo
 ! deduce detw, eta and deta from etw
-  detw(1) = detamin
+  detw(1) = detamin ! jjb: this is necessary for the boundary continuity in the diffusion scheme (and other?), not a mistake
   eta(1)  = 0._dp
   do k=2,n
      detw(k)   = etw(k) - etw(k-1)
@@ -1449,7 +1627,7 @@ subroutine grid
      x2 = 0._dp
      do while (x2.lt.dzbw0)
         zbw0   = zbw0 + 0.0001_dp
-        dlgzbw = log10(zbw1/zbw0)/float(nb)
+        dlgzbw = log10(zbw1/zbw0)/real(nb,dp)
         x3     = 10._dp**dlgzbw
         zbw    = zbw0 * x3
         x2     = zbw-zbw0
@@ -1482,7 +1660,7 @@ subroutine grid
   enwmin = x2 * rnw0**3 * 1.e-12_dp
   enwmax = x2 * rnw1**3 * 1.e-12_dp
 ! logarithmic equidistant mass grid en(i), enw(i)
-  dlgenw = log10(enwmax/enwmin) / float(nka)
+  dlgenw = log10(enwmax/enwmin) / real(nka,dp)
   x3 = 10._dp**dlgenw
 
   enw(1) = enwmin * x3
@@ -1497,7 +1675,7 @@ subroutine grid
 ! water mass ew in mg  (lowest and largest class)
   ewmin = x1 * rw0**3 * 1.e-12_dp
   ewmax = x1 * rw1**3 * 1.e-12_dp
-  dlgew = log10(ewmax/ewmin) / float(nkt) ! jjb nkt, not nkt-1
+  dlgew = log10(ewmax/ewmin) / real(nkt,dp) ! jjb nkt, not nkt-1
   ax = 10._dp**dlgew
 ! ax: growth factor for consecutive masses
 ! ln(10)=2.3025851  ln(x)=ln(10)*log(x)
@@ -1525,11 +1703,195 @@ subroutine grid
      enddo
   enddo
 
+!
+! Set 1d radius for oneD_dist routine
+!
+
+! jjb explanations: setting 1-D radius bounds to project the 2D particle spectrum onto a 1D one for output
+!                   is not straightforward.
+!                   If the 1D bounds are too small, there will be bounds without particle
+!                   leading to ugly output
+!                   If 1D bounds are too large, the output will be poorly defined.
+!                   Also, by construction, the space between 2D bins is not equal depending on the position
+!                   on the 2D spectrum, with much smaller bins for small (a, r) and much coarser
+!                   for large (a,r).
+!                   Below are various tests
+
+  ndistrp = 7 ! <-- after several tests, satisfying results with this one
+  select case (ndistrp)
+
+  ! as many particle bins from rq(:,:) array in each rp(:) array (i.e. 1/70 th percentile spliting)
+  case (1)
+  ! local copy of rq that will be altered
+  rqcp(:,:) = rq(:,:)
+  rqmax = maxval(rqcp(:,:))
+  ! Sort rq values in increasing order into a 1D array containing all values
+  do ij=1,nka*nkt
+     rqmin = minval(rqcp(:,:))
+     rq1D(ij) = rqmin
+     ! remove the min value by setting twice the max
+     where(rqcp == rqmin) rqcp = 2._dp * rqmax
+  end do
+  ! Create rpw by picking one every nka value in rq1D array
+  do ij=1,nka+11
+     iij = ij + (ij - 1) * (nka-10)
+     !iij = ij + (ij - 1) * (nka+10)
+     iij = min(iij,nka*nkt)
+     rpw(ij) = rq1D(iij)
+  end do
+
+  ! linear increase of rp(:)
+  case (2)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     do ij=1,nka
+        rpw(ij) = rqmin + (ij-1) * (rqmax-rqmin)/(nka-1)
+     end do
+
+  ! exp increase of rp(:) (thus linear on a log scale)
+  case (3)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     rfact = 10**(log10(rqmax/rqmin)/(nka-1-10))
+     rpw(1) = rqmin
+     do ij=2,nka
+        rpw(ij)=rpw(ij-1)*rfact
+     enddo
+
+  ! same as 1 but with coarser steps for small rq: 1/140th percentile
+  case (4)
+     ! local copy of rq that will be altered
+     rqcp(:,:) = rq(:,:)
+     rqmax = maxval(rqcp(:,:))
+     ! Sort rq values in increasing order into a 1D array containing all values
+     do ij=1,nka*nkt
+        rqmin = minval(rqcp(:,:))
+        rq1D(ij) = rqmin
+        ! remove the min value by setting twice the max
+        where(rqcp == rqmin) rqcp = 2._dp * rqmax
+     end do
+     ! Create rpw by picking one every nka value in rq1D array
+     ij=1
+     iij=1
+     do while (rq1D(iij) <= rq(1,nka) * 4.)
+        rpw(ij) = rq1D(iij)
+        ij = ij+1
+        iij = iij+140
+     end do
+     print*,'end large steps',ij-1
+     iij = iij-70
+     do while (iij <= nka*nkt)
+        rpw(ij) = rq1D(iij)
+        ij = ij+1
+        iij = iij+70
+     end do
+     print*,'end small steps',ij-1
+     do while (ij < nka+1)
+        rpw(ij) = rpw(ij-1)*1.001
+        ij = ij+1
+     end do
+
+  ! exp increase of rp(:) (thus linear on a log scale) with 2 distinct slopes
+  case (5)
+     rqmin = minval(rq(:,:))
+     rqmax = maxval(rq(:,:))
+     rfact = 10**(log10(rqmax/rqmin)/(nka-1))
+     rpw(1) = rqmin
+     ij = 1
+     ! apply a constant increase factor rfact**1.5 for small radius
+     do while (rpw(ij)*rfact*rfact <= rq(1,nka) * 4.)
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*rfact**1.5
+     end do
+     ! apply a constant increase factor rfact for large radius
+     do while (rpw(ij)*rfact <= rq(nkt,nka))
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*rfact
+     enddo
+     ! fill the remaining indexes with slightly increasing radius, to avoid zeros
+     do while (ij<nka)
+        ij = ij + 1
+        rpw(ij) = rpw(ij-1)*1.001
+     end do
+
+  ! another idea: use "diagonal" rw values
+  case (6)
+     do ia=1,nka
+        rpw(ia) = rw(ia,ia)
+     end do
+
+  ! another idea (modified): use "diagonal" rq values
+  case (62)
+     do ia=1,nka
+        rpw(ia) = rq(ia,ia)
+     end do
+
+  ! similar to 6 but coarser up to rw(1,nka) (1 over 2 bins)
+  case (7)
+     rpw(1) = rw(1,1)**2 / rw(3,3)
+     ij = 2
+     ! one every 2 indexes up to rw(1,nka)
+     iij = 2*(ij-1)-1
+     do while (rw(iij,iij) <= rw(1,nka))
+        rpw(ij) = rw(iij,iij)
+        ij = ij+1
+        iij = 2*(ij-1)-1
+     end do
+     iij = iij+1
+     ! one every index after
+     ia = 0
+     do while (iij+ia <= nka)
+        rpw(ij+ia) = rw(iij+ia, iij+ia)
+        ia = ia + 1
+     end do
+     ! fill the remaining indexes with slightly increasing values
+     do while (ij+ia <= nka)
+        rpw(ij+ia) = rpw(ij+ia-1)*1.001
+        ia = ia + 1
+     end do
+
+  ! same as 7 but even coarser: 1 over 3 bins up to rw(1,nka)
+  case (72)
+     rpw(1) = rw(1,1)**2 / rw(4,4)
+     ij = 2
+     ! one every 2 indexes up to rw(1,nka)
+     iij = 3*(ij-1)-2
+     do while (rw(iij,iij) <= rw(1,nka))
+        rpw(ij) = rw(iij,iij)
+        ij = ij+1
+        iij = 3*(ij-1)-2
+     end do
+     iij = iij+1
+     ! one every index after
+     ia = 0
+     do while (iij+ia <= nka)
+        rpw(ij+ia) = rw(iij+ia, iij+ia)
+        ia = ia + 1
+     end do
+     ! fill the remaining indexes with slightly increasing values
+     do while (ij+ia <= nka)
+        rpw(ij+ia) = rpw(ij+ia-1)*1.001
+        ia = ia + 1
+     end do
+
+
+  end select
+  ! Initialise part1D
+  part1D(:,:) = 0._dp
+
 ! aerosol + cloud chemistry: partition into small and large aerosol  : ka
 !                       and small and large water content (aer-drop) : kw(nka)
   ka=-1
+
+  ! Radius threshold between small and large aerosol
+  if (.not. chamber) then
+     zradthres = 0.5_dp
+  else
+     zradthres = 0.1_dp
+  end if
+
   do ia=1,nka
-     if (rn(ia).gt..5_dp .and. ka.lt.0) ka=ia-1
+     if (rn(ia).gt.zradthres .and. ka.lt.0) ka=ia-1
      kw(ia)=-1
   enddo
   if (ka.lt.0) ka=nka
@@ -1721,8 +2083,8 @@ subroutine startc (fogtype)
   real (kind=dp) :: conv2
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /blck78/ sa1(nka,j2),sac1(nka,j2)
-  real (kind=dp) :: sa1, sac1
+  common /blck78/ sa1(j2,nka)
+  real (kind=dp) :: sa1
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
@@ -1735,7 +2097,7 @@ subroutine startc (fogtype)
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
   common /kpp_l1/ cloudt(nkc,n)
   logical :: cloudt
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
   real (kind=dp) :: vt, vd, vdm
@@ -1752,7 +2114,7 @@ subroutine startc (fogtype)
   read (jpfunrstc) &
 ! double precision arrays
        am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
-       sac1,sl1,sion1,vd,vdm,vt,xgamma, &
+       sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
        xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
@@ -1773,15 +2135,15 @@ subroutine startc (fogtype)
      fname(4:4)=fogtype
      clpath=trim(coutdir)//trim(fname)
      open (jpfunsg1, file=trim(clpath), status='old',form='unformatted')
-     write (61) is4
-     close (61)
+     write (jpfunsg1) is4
+     close (jpfunsg1)
 
      fname='sr1 .out'
      fname(4:4)=fogtype
      clpath=trim(coutdir)//trim(fname)
      open (jpfunsr1, file=trim(clpath), status='old',form='unformatted')
-     write (64) is4
-     close (64)
+     write (jpfunsr1) is4
+     close (jpfunsr1)
   end if
 
   write(jpfunout,*)"restart file for chemistry read, filename: ",fname
@@ -1981,10 +2343,10 @@ subroutine sedp (dt)
         dt0  = dt
         xsum = 0._dp
         do k=2,nf
-           psi(k) = ff(jt,ia,k)
+           psi(k) = ff(jt,ia,k) * detw(k)
            xsum   = xsum + psi(k)
         enddo
-        
+
 ! restrict sedimentation to classes with significant particle content
         if (xsum.gt.1.e-6_dp) then
            x0 = 0._dp
@@ -2021,7 +2383,7 @@ subroutine sedp (dt)
 
 ! new values of ff
            do k=2,nf-1
-              ff(jt,ia,k) = psi(k)
+              ff(jt,ia,k) = psi(k) / detw(k)
            enddo
            ff(jt,ia,nf) = ff(jt,ia,nf-1)
         endif
@@ -2150,7 +2512,7 @@ subroutine sedc (dt)
   ! special case for Joyce et al 2014 study
   if (lpJoyce14bc) then
      if(ind_gas_rev(34) /= 0) &
-          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff, 2010)  PJ
+          vg(ind_gas_rev(34))=5.9e-3_dp            ! N2O5, median field value, (Huff et al, 2011)  PJ
   ! general case
   else
      if(ind_gas_rev(34) /= 0 .and. ind_gas_rev(30) /= 0) &
@@ -2345,11 +2707,11 @@ subroutine sedl (dt)
      cc(2)=min(cc(2),-1._dp/deta(2)*vdm(kc))
      do l=1,j2
         do k=2,nf
-           psi(k)=sl1(l,kc,k)
+           psi(k)=sl1(l,kc,k) * detw(k)
         enddo
         dt0  = dt
         x0   = 0._dp
-        xxxt =-.999_dp / cc(2)
+        xxxt =-.999_dp / cc(2) ! jjb difference with sedp: cc(2) is used instead of ww (computed with t(nf) and p(nf) ) and here -.999 instead of -deta(2)
 
 ! time step control
 ! multiple calls of advection scheme for large courant numbers
@@ -2359,6 +2721,7 @@ subroutine sedl (dt)
            do k=2,nf
               c(k)=cc(k)*dtmax
            enddo
+           ! jjb maybe missing here: c(2) = min(c(2),dtmax/deta(2)*vdm(kc)*(-1.))
            c(1)   = c(2)
            x1     = psi(2)
            psi(1) = x1
@@ -2368,7 +2731,7 @@ subroutine sedl (dt)
 
 ! new values of sl1
         do k=2,nf-1
-           sl1(l,kc,k) = psi(k)
+           sl1(l,kc,k) = psi(k) / detw(k)
         enddo
 ! wet deposition to the ground in mole/m**2
         sl1(l,kc,1) = sl1(l,kc,1) + x0 * deta(2)
@@ -2388,10 +2751,10 @@ subroutine sedl (dt)
         cc(k)=min(cc(k),-1._dp*vt(kc,k)/deta(k))
      enddo
 ! particle dry deposition velocity in lowest model layer:
-     cc(2)=min(cc(2),-1._dp/deta(k)*vdm(kc))
+     cc(2)=min(cc(2),-1._dp/deta(2)*vdm(kc))
      do l=1,j6
         do k=2,nf
-           psi(k)=sion1(l,kc,k)
+           psi(k)=sion1(l,kc,k) * detw(k)
         enddo
         dt0  = dt
         x0   = 0._dp
@@ -2414,7 +2777,7 @@ subroutine sedl (dt)
 
 ! new values of sion1
         do k=2,nf-1
-           sion1(l,kc,k) = psi(k)
+           sion1(l,kc,k) = psi(k) / detw(k)
         enddo
 ! wet deposition to the ground in mole/m**2
         sion1(l,kc,1) = sion1(l,kc,1) + x0 * deta(2)
@@ -2440,44 +2803,48 @@ end subroutine sedl
      &     r0, &                   ! Specific gas constant of dry air, in J/(kg.K)
      &     rhow                  ! Water density [kg/m**3]
 
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
       implicit none
 
-      double precision :: vterm
+      real (kind=dp) :: vterm
 
-      double precision, intent(in) :: a ! radius       in [m]
-      double precision, intent(in) :: t ! temperature  in [K]
-      double precision, intent(in) :: p ! pressure     in [Pa]
+      real (kind=dp), intent(in) :: a ! radius       in [m]
+      real (kind=dp), intent(in) :: t ! temperature  in [K]
+      real (kind=dp), intent(in) :: p ! pressure     in [Pa]
 
       ! Polynomial coefficients for Beard approximation
       ! Pruppacher & Klett, p. 417, equation (10-145)
-      double precision, parameter :: b0=-.318657d+1
-      double precision, parameter :: b1= .992696d+0
-      double precision, parameter :: b2=-.153193d-2
-      double precision, parameter :: b3=-.987059d-3
-      double precision, parameter :: b4=-.578878d-3
-      double precision, parameter :: b5=+.855176d-4
-      double precision, parameter :: b6=-.327815d-5
+      real (kind=dp), parameter :: b0=-.318657d+1
+      real (kind=dp), parameter :: b1= .992696d+0
+      real (kind=dp), parameter :: b2=-.153193d-2
+      real (kind=dp), parameter :: b3=-.987059d-3
+      real (kind=dp), parameter :: b4=-.578878d-3
+      real (kind=dp), parameter :: b5=+.855176d-4
+      real (kind=dp), parameter :: b6=-.327815d-5
 
-      double precision, parameter :: c1 = 2.d0 * g / 9.d0       ! constant factor in equation (10-138)
-      double precision, parameter :: c2 = 1.26d0                ! constant in equation (10-139)
-      double precision, parameter :: P0 = 101325                ! Standard pressure    [Pa]
-      double precision, parameter :: T0 = 293.15                ! Standard temperature [K]
-      double precision, parameter :: lambda0 = 6.6d-8           ! mean free path STP   [m]
-      double precision, parameter :: c3 = c2 * lambda0 * P0/T0  ! constant factor in equation (10-139) and (10-140)
-      double precision, parameter :: c4 = 32.d0 * g / 3.d0      ! constant factor in equation (10-142)
+      real (kind=dp), parameter :: c1 = 2.d0 * g / 9.d0       ! constant factor in equation (10-138)
+      real (kind=dp), parameter :: c2 = 1.26d0                ! constant in equation (10-139)
+      real (kind=dp), parameter :: P0 = 101325                ! Standard pressure    [Pa]
+      real (kind=dp), parameter :: T0 = 293.15_dp             ! Standard temperature [K]
+      real (kind=dp), parameter :: lambda0 = 6.6d-8           ! mean free path STP   [m]
+      real (kind=dp), parameter :: c3 = c2 * lambda0 * P0/T0  ! constant factor in equation (10-139) and (10-140)
+      real (kind=dp), parameter :: c4 = 32.d0 * g / 3.d0      ! constant factor in equation (10-142)
 
-      double precision :: best  ! Davies or Best number, see equation (10-142) [-]
-      double precision :: x     ! ln(best)                                     [-]
-      double precision :: rho_a ! air density                                  [kg/m3]
-      double precision :: eta   ! dynamic viscosity                            [kg/(m.s)]
-      double precision :: y     ! Reynolds number = exp(y) in Regime 2         [-]
+      real (kind=dp) :: best  ! Davies or Best number, see equation (10-142) [-]
+      real (kind=dp) :: x     ! ln(best)                                     [-]
+      real (kind=dp) :: rho_a ! air density                                  [kg/m3]
+      real (kind=dp) :: eta   ! dynamic viscosity                            [kg/(m.s)]
+      real (kind=dp) :: y     ! Reynolds number = exp(y) in Regime 2         [-]
 
       rho_a=p/(r0*t)
       eta=3.7957d-06+4.9d-08*t
 
       if (a.le.1.d-5) then
          ! Regime 1: see P & K pp. 415-417, equations (10-138) to (10-140)
-         vterm=c1*a*a*(rhow-rho_a)/eta*(1.+c3*t/(a*p))
+         vterm=c1*a*a*(rhow-rho_a)/eta*(1._dp+c3*t/(a*p))
          ! 2.17... = 2*g/9, see (10-138)
          ! 3.0849d-5 = 1.26 * lamda_0 * P_0 / T_0 with a mistake over T_0: 273.15 instead of 293.15 in P & K
       else
@@ -2979,7 +3346,7 @@ subroutine difc (dt)
   xe(1)=0._dp
   do k=2,nm
      xa(k)=atkh(k)*dt/(detw(k)*deta(k))
-     xc(k)=xa(k-1)*detw(k-1)/detw(k)*am3(k-1)/am3(k)
+     xc(k)=xa(k-1)*detw(k-1)/detw(k)
      xb(k)=1._dp+xa(k)+xc(k)
      xd(k)=xb(k)-xc(k)*xe(k-1)
      xe(k)=xa(k)/xd(k)
@@ -3280,7 +3647,7 @@ subroutine atk1
   integer :: lday, lst, lmin, it, lcl, lct
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
-  double precision detw, deta, eta, etw
+  real (kind=dp) :: detw, deta, eta, etw
 
   common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
   real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
@@ -3720,6 +4087,10 @@ subroutine surf1 (dt)
        ustern, z0,&                ! frictional velocity, roughness length
        gclu, gclt                  ! coefficients for momentum, and temperature and humidity
 
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunprofm
+
   USE global_params, ONLY : &
 ! Imported Parameters:
        n, &
@@ -3927,10 +4298,10 @@ subroutine surf1 (dt)
      if (dabs(fts).le.1.d-1.and.dabs(fqs).le..1*dabs(ajq)) goto 2030
   end do
 
-  write (6,6000) eb1,ts,fts,fqs
+  write (jpfunprofm,6000) eb1,ts,fts,fqs
  6000 format (10x,'no convergence of ts- and eb1-iteration:'/ &
      & 'eb1',f16.4,'ts',f16.4,'fts',f16.4,'fqs',f16.4)
-  write (6,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
+  write (jpfunprofm,6010) (ebb(i),tss(i),ftss(i),fqss(i),i=1,20)
  6010 format (10x,3f16.4,e16.4)
 
 2030 if (tau.gt.0..and.ts.lt.t0) l1=.true.
@@ -5048,7 +5419,7 @@ subroutine advec (dt,u,y)
         y(k)=y(k)+z(i)
         cycle iloop
      end if
-     x0=float(k)+u(k)*dt0           ! from dt0 definition above, x0 will lie in the [k-1 ; k+1] interval
+     x0=real(k,dp)+u(k)*dt0         ! from dt0 definition above, x0 will lie in the [k-1 ; k+1] interval
      dt1=dt1-dt0
      k1 = k
 
@@ -5077,7 +5448,7 @@ subroutine advec (dt,u,y)
            y(k)=y(k)+z(i)
            cycle iloop
         end if
-        x0=float(k)+u(k)*dt0
+        x0=real(k,dp)+u(k)*dt0
         dt1=dt1-dt0
 
      end do
@@ -5085,7 +5456,7 @@ subroutine advec (dt,u,y)
      k_low  = int(floor(x0))
      k_high = k_low + 1
 
-     c0 = x0 - float(k_low) ! = x0 - floor(x0)
+     c0 = x0 - real(k_low,dp) ! = x0 - floor(x0)
 
      ! Check these final indexes
      !  (k_high is actually used only if c0 > 0.)
@@ -5189,7 +5560,7 @@ subroutine advsed0 (c, y)
 ! Subroutine arguments
   real (kind=dp), intent(in)    :: c(nf)
   real (kind=dp), intent(inout) :: y(nf)
-  
+
 ! Local scalars:
   integer :: i                      ! running index
 ! Local arrays:
@@ -5259,7 +5630,7 @@ subroutine advsed1 (c, y)
 ! Subroutine arguments
   real (kind=dp), intent(in)    :: c(nf)
   real (kind=dp), intent(inout) :: y(nf)
-  
+
 ! Local scalars:
   integer :: i                      ! running index
   real (kind=dp) :: cl, clm
@@ -5309,7 +5680,7 @@ subroutine advsed1 (c, y)
      w=y(i)/max(fmim+1.e-15_dp,y(i))
      fm(i-1)=fmim*w
   enddo
-      
+
 ! new values of y
   y(1) = y(1) + fm(1)
   do i=2,nf-1
@@ -5362,7 +5733,7 @@ subroutine advseda (c, y)
   real (kind=dp) :: flux(nf)
 
 ! == End of declarations =======================================================
-  
+
 ! initialisation
   flux(:) = 0._dp
 
@@ -5423,7 +5794,14 @@ end subroutine advseda
 !------------------------------------------------------------------------
 !
 
-      subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
+subroutine stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
+! chemical reactions
+! aerosol mass change due to chemical reactions
+!
+! NOTE: the aerosol processing as implemented here is mass conserving
+!       but shifts too many particles into the smallest bins, therefore
+!       the particle spectra are a bit odd
+!       this has to be improved in future versions
 
 
 ! Author:
@@ -5437,86 +5815,93 @@ end subroutine advseda
 
 ! == End of header =============================================================
 
-      USE config, ONLY : &
-     &     ifeed,        &
-     &     nkc_l
+  USE config, ONLY : &
+       ifeed,        &
+       nkc_l
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE file_unit, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       jpfunout
 
-      USE precision, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-           dp
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      implicit double precision (a-h,o-z)
-! chemical reactions
-! aerosol mass change due to chemical reactions
-!
-! NOTE: the aerosol processing as implemented here is mass conserving
-!       but shifts too many particles into the smallest bins, therefore
-!       the particle spectra are a bit odd
-!       this has to be improved in future versions
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
 
-      logical box,nuc ! jjb nuc has to be declared after adding it as an argument
-      integer tix,tixp
+  implicit none
 
-      parameter (lsp=9)
+  real (kind=dp), intent(in) :: dd, xra, z_box
+  integer, intent(in) :: n_bl
+  logical, intent(in) :: box, chamber, nuc
+
+  integer, parameter :: lsp=9
+  real (kind=dp), parameter :: fpi = 4._dp / 3._dp * pi
+
+  integer :: ia, ial, iau, iend, iia, iinkr, istart, ix, jt, jtl, jtu, k, kc, kkc, l, ll
+  integer :: nfrom, nto, nmin, nmax
+  integer tix,tixp
+  logical :: llboxch
+  real (kind=dp) :: c0, den, vol_ch, x0, x1, xch, xfact
+
 ! Common blocks:
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck06/ kw(nka),ka
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      ! Thus commented here, and the lines "feeding" it commented as well to save cpu time
-      ! If used again, the indexes should be re-ordered to save cpu-time (n=last, lsp first for dss)
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
 
-      dimension lj2(lsp)
-      dimension sion1o(lsp,nkc,n) ! sion1o old ion conc. [mole m**-3]
-      dimension dsion1(lsp,nkc,n) ! dsion1 change in ion conc. [mole/part.]
+  integer lj2(lsp)
+  real (kind=dp) sion1o(lsp,nkc,n) ! sion1o old ion conc. [mole m**-3]
+  real (kind=dp) dsion1(lsp,nkc,n) ! dsion1 change in ion conc. [mole/part.]
       ! jjb fs is not used over all its dimensions (only in an old line commented)
       ! maybe worth to reduce its dimensions after double check, to save cpu time
-      dimension fs(nka,nkc,n)
-      dimension sap(nkc,n) ! sap total number of aerosols [cm**-3]
-      dimension smp(nkc,n) ! smp total aerosol mass [mg cm**-3]
-      dimension vc(nkc,nkc,n)
-      data lj2/1,2,8,9,13,14,19,20,30/
+  real (kind=dp) fs(nka,nkc,n)
+  real (kind=dp) sap(nkc,n) ! sap total number of aerosols [cm**-3]
+  real (kind=dp) smp(nkc,n) ! smp total aerosol mass [mg cm**-3]
+  real (kind=dp) vc(nkc,nkc,n)
+  data lj2/1,2,8,9,13,14,19,20,30/
 
 ! == End of declarations =======================================================
 
-!      fpi=4./3.*3.1415927
-      fpi=4./3.*pi
+  nmin = 2
+  nmax = nf
+  if (box) then
+     nmin = n_bl
+     nmax = n_bl
+  else if (chamber) then
+     nmax = n_bl
+  endif
 
-      nmin = 2
-      nmax = nf
-      if (box) then
-         nmin = n_bl
-         nmax = n_bl
-      endif
-!      print*,'in stem_kpp call aer_source'
-      call aer_source (box,dd,z_box,n_bl)
-!      print*,'in stem_kpp call liq_parm'
-      call liq_parm (xra,box,n_bl)
+  if (.not.chamber) call aer_source (box,dd,z_box,n_bl)
+
+  llboxch = box.or.chamber
+  call liq_parm (xra,llboxch,n_bl)
 
 !*************************** no aerosol processing *****************
-!      call kpp_driver (box,dd,n_bl)
-!      return
+!   call kpp_driver (box,dd,n_bl)
+!   return
 !*************************** no aerosol processing *****************
 
 ! sion1 ion conc. [mole m**-3], sion1o old ion conc. [mole m**-3],
@@ -5527,242 +5912,228 @@ end subroutine advseda
 
 !      if (.not.box) then
 
+! initialize variables
+  vc(:,:,:) = 0._dp
+  sap(:,:) = 0._dp
+  smp(:,:) = 0._dp
+
 ! loop over aqueous chemistry layers to get values of sion1, fs, smp, sap
 ! before chemistry integration (at t=t_0)
-      do k=nmin,nmax
-         do kc=1,nkc_l          !initialize variables
-            do ic=1,nkc_l
-               vc(ic,kc,k)=0.
-            enddo
-            sap(kc,k)=0.
-            smp(kc,k)=0.
-            if (cm(kc,k).eq.0.) goto 900
-!           define upper and lower limits of ia loop
-            if (kc.eq.1.or.kc.eq.3) then
-!               if ((nuc).and.(ifeed.eq.1)) then ! jjb corrected (?) below CHECH WITH Susanne PECHTL
-!                 ial=1
-!               else
-!                 ial=1+1
-!               endif
-               if ((nuc).and.(ifeed.eq.2)) then
-                 ial=2
-               else
-                 ial=1
-               endif
-               iau=ka
-            else
-               ial=ka+1
-               iau=nka-1
-            endif
-!           loop over all ia that are in the current kc bin
-            do ia=ial,iau
-               fs(ia,kc,k)=0.
-!              define upper and lower limits of jt loop
-               if (kc.eq.1.or.kc.eq.2) then
-                  jtl=1
-                  jtu=kw(ia)
-               else
-                  jtl=kw(ia)+1
-                  jtu=nkt
-               endif
-!              loop over all jt that are in the current kc bin
-               do jt=jtl,jtu
-                  fs(ia,kc,k)=fs(ia,kc,k)+ff(jt,ia,k)*en(ia)
-                  sap(kc,k)=sap(kc,k)+ff(jt,ia,k)
-               enddo
-               smp(kc,k)=smp(kc,k)+fs(ia,kc,k)
-            enddo
-            do l=1,lsp
-               ll=lj2(l)
-               sion1o(l,kc,k)=sion1(ll,kc,k)
-            enddo
- 900        continue
-         enddo   ! kc
-      enddo      ! k
+  do k=nmin,nmax
+     do kc=1,nkc_l
+        if (cm(kc,k).eq.0._dp) goto 900
+!       define upper and lower limits of ia loop
+        if (kc.eq.1.or.kc.eq.3) then
+!           if ((nuc).and.(ifeed.eq.1)) then ! jjb corrected (?) below CHECK WITH Susanne PECHTL
+!              ial=1
+!           else
+!              ial=1+1
+!           endif
+           if ((nuc).and.(ifeed.eq.2)) then
+              ial=2
+           else
+              ial=1
+           endif
+           iau=ka
+        else
+           ial=ka+1
+           iau=nka-1
+        endif
+!       loop over all ia that are in the current kc bin
+        do ia=ial,iau
+           fs(ia,kc,k) = 0._dp
+!          define upper and lower limits of jt loop
+           if (kc.eq.1.or.kc.eq.2) then
+              jtl = 1
+              jtu = kw(ia)
+           else
+              jtl = kw(ia)+1
+              jtu = nkt
+           endif
+!          loop over all jt that are in the current kc bin
+           do jt=jtl,jtu
+              fs(ia,kc,k) = fs(ia,kc,k) + ff(jt,ia,k) * en(ia)
+              sap(kc,k) = sap(kc,k) + ff(jt,ia,k)
+           enddo
+           smp(kc,k) = smp(kc,k) + fs(ia,kc,k)
+        enddo
+        do l=1,lsp
+           ll=lj2(l)
+           sion1o(l,kc,k)=sion1(ll,kc,k)
+        enddo
+900     continue
+     enddo   ! kc
+  enddo      ! k
 
 !      endif ! .not.box
 ! chemistry SR
-!      print*,'in stem_kpp call kpp_driver'
-      call kpp_driver (box,dd,n_bl)
+
+  call kpp_driver (box,dd,n_bl)
+
 !      if (box) return
 
 ! redistribution of particles along aerosol grid due to modified aerosol mass
-      do k=nmin,nmax
-         do kc=1,nkc_l
-            if (cm(kc,k).eq.0.) goto 1000
-            if (sap(kc,k).gt.1.e-6) then
-!              change in mass determining chemical species
-               do l=1,lsp
-                  ll=lj2(l)
-                  dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06 &
-     &                 /sap(kc,k)
-!                  dss(k,l,kc)=dss(k,l,kc)+dsion1(l,kc,k) ! jjb output no longer used
-               enddo
+  do k=nmin,nmax
+     do kc=1,nkc_l
+        if (cm(kc,k).eq.0._dp) goto 1000
+        if (sap(kc,k).gt.1.e-6_dp) then
+!          change in mass determining chemical species
+           do l=1,lsp
+              ll=lj2(l)
+              dsion1(l,kc,k)=(sion1(ll,kc,k)-sion1o(l,kc,k))*1.e-06/sap(kc,k)
+           enddo
 ! den: new aerosol mass in mg/particle due to chemical reactions
 ! mole masses for l=1,2,8,9,13,14,19,20,30: H+=1g/mole, NH4=18g/mole, SO4(2-)=96g/mole,
 ! HCO3-=61g/mole, NO3=62g/mole, Cl-=35.5g/mole, HSO4-=97g/mole, Na+=23g/mole, CH3SO3-=95g/mole
 ! HCO3-=61g/mole --> 44 g/mole as water remains in particle when CO2 degasses due to acidification
-               den=(dsion1(1,kc,k)*1.+dsion1(2,kc,k)*18.+dsion1(3,kc,k) &
-!     &              *96.+dsion1(4,kc,k)*61.+dsion1(5,kc,k)*62.+ &
-     &              *96.+dsion1(4,kc,k)*44.+dsion1(5,kc,k)*62.+ &
-     &              dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+ &
-     &              dsion1(8,kc,k)*23.+dsion1(9,kc,k)*95.)*1000.
+           den=(dsion1(1,kc,k)*1.+dsion1(2,kc,k)*18.+dsion1(3,kc,k) &
+!                *96.+dsion1(4,kc,k)*61.+dsion1(5,kc,k)*62.+ &
+                *96.+dsion1(4,kc,k)*44.+dsion1(5,kc,k)*62.+ &
+                dsion1(6,kc,k)*35.5+dsion1(7,kc,k)*97.+ &
+                dsion1(8,kc,k)*23.+dsion1(9,kc,k)*95.)*1000.
 
-!              define upper and lower limits of ia loop
-               if (kc.eq.1.or.kc.eq.3) then
-                  if ((nuc).and.(ifeed.eq.1)) then
-                    ial=1
-                  else
-                    ial=1+1
-                  endif
-                  iau=ka
-               else
-                  ial=ka+1
-                  iau=nka-1
-               endif
-!              loop over all ia that are in the current kc bin
-!              c0: courant number for redistribution
+!          define upper and lower limits of ia loop
+           if (kc.eq.1.or.kc.eq.3) then
+              if ((nuc).and.(ifeed.eq.2)) then
+                 ial=2
+              else
+                 ial=1
+              endif
+              iau=ka
+           else
+              ial=ka+1
+              iau=nka-1
+           endif
+
+!          loop over all ia that are in the current kc bin
+!          c0: courant number for redistribution
 ! if growing reverse loop order to avoid increasing the mass of some
 ! particles twice
-               istart=ial
-               iend=iau
-               iinkr=1
-               if (den.ge.0.) then
-                  istart=iau
-                  iend=ial
-                  iinkr=-1
-               endif
-!               do ia=ial,iau
-               do ia=istart,iend,iinkr
-                  if (den.gt.0.) then
-                     x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
-                  else
-!                     x0=en(ia)+den*fs(ia,kc,k)/smp(kc,k)*sap(kc,k)
-                     x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
-!                     x0=dmax1(en(ia)+den,0.d0)
-                     if (x0.le.0.d0) print *,k,kc,ia,'aerosol growth'
-                  endif
-                  do iia=1,nka-1
-                     if (en(iia).le.x0.and.en(iia+1).gt.x0) then
-                        ix=iia
-                        c0=(en(iia+1)-x0)/(en(iia+1)-en(iia))
-!                        c0=(dlog10(en(iia+1))-dlog10(x0))/dlgenw
-                        go to 2000
-                     endif
-                  enddo
-                  if (en(1).gt.x0) then
-                     ix=1
-                     c0=1.
-                  else
-                     ix=nka-1
-                     c0=0.
-                  endif
- 2000             continue
-!              define upper and lower limits of jt loop
-               if (kc.eq.1.or.kc.eq.2) then
-                  jtl=1
-                  jtu=kw(ia)
-               else
-                  jtl=kw(ia)+1
-                  jtu=nkt
-               endif
-!              loop over all jt that are in the current kc bin
-                  do jt=jtl,jtu
-                     if (ff(jt,ia,k).gt.0.) then
-                        x1=ff(jt,ia,k)
-                        ff(jt,ia,k)=0.
-                        ff(jt,ix,k)=ff(jt,ix,k)+x1*c0
-                        ff(jt,ix+1,k)=ff(jt,ix+1,k)+x1*(1.-c0)
+           istart=ial
+           iend=iau
+           iinkr=1
+           if (den.ge.0._dp) then
+              istart=iau
+              iend=ial
+              iinkr=-1
+           endif
+!           do ia=ial,iau
+           do ia=istart,iend,iinkr
+              if (den.gt.0._dp) then
+                 x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
+              else
+!                 x0=en(ia)+den*fs(ia,kc,k)/smp(kc,k)*sap(kc,k)
+                 x0=en(ia)+den*en(ia)/smp(kc,k)*sap(kc,k)
+!                 x0=dmax1(en(ia)+den,0.d0)
+                 if (x0.le.0._dp) write(jpfunout,*) k,kc,ia,'aerosol growth'
+              endif
+              do iia=1,nka-1
+                 if (en(iia).le.x0.and.en(iia+1).gt.x0) then
+                    ix=iia
+                    c0=(en(iia+1)-x0)/(en(iia+1)-en(iia))
+!                    c0=(log10(en(iia+1))-log10(x0))/dlgenw
+                    go to 2000
+                 endif
+              enddo
+              if (en(1).gt.x0) then
+                 ix=1
+                 c0=1._dp
+              else
+                 ix=nka-1
+                 c0=0._dp
+              endif
+2000          continue
+!             define upper and lower limits of jt loop
+              if (kc.eq.1.or.kc.eq.2) then
+                 jtl=1
+                 jtu=kw(ia)
+              else
+                 jtl=kw(ia)+1
+                 jtu=nkt
+              endif
+!             loop over all jt that are in the current kc bin
+              do jt=jtl,jtu
+                 if (ff(jt,ia,k).gt.0._dp) then
+                    x1=ff(jt,ia,k)
+                    ff(jt,ia,k)=0._dp
+                    ff(jt,ix,k)=ff(jt,ix,k)+x1*c0
+                    ff(jt,ix+1,k)=ff(jt,ix+1,k) + x1*(1._dp - c0)
 ! find "targetbin" for ix and ix+1:
 ! ix
-                        if (ix.gt.ka) then
-                           if (jt.gt.kw(ix)) then
-                              tix=4
-                           else
-                              tix=2
-                           endif
-                        else
-                           if (jt.gt.kw(ix)) then
-                              tix=3
-                           else
-                              tix=1
-                           endif
-                        endif
+                    if (ix.gt.ka) then
+                       if (jt.gt.kw(ix)) then
+                          tix=4
+                       else
+                          tix=2
+                       endif
+                    else
+                       if (jt.gt.kw(ix)) then
+                          tix=3
+                       else
+                          tix=1
+                       endif
+                    endif
 ! ix+1
-                        if (ix+1.gt.ka) then
-                           if (jt.gt.kw(ix+1)) then
-                              tixp=4
-                           else
-                              tixp=2
-                           endif
-                        else
-                           if (jt.gt.kw(ix+1)) then
-                              tixp=3
-                           else
-                              tixp=1
-                           endif
-                        endif
+                    if (ix+1.gt.ka) then
+                       if (jt.gt.kw(ix+1)) then
+                          tixp=4
+                       else
+                          tixp=2
+                       endif
+                    else
+                       if (jt.gt.kw(ix+1)) then
+                          tixp=3
+                       else
+                          tixp=1
+                       endif
+                    endif
 ! store change of volume for ix --> ix and ia --> ix+1
-                        if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1* &
-     &                       c0*fpi*rq(jt,ia)**3
-                        if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1* &
-     &                       (1.-c0)*fpi*rq(jt,ia)**3
-! output for control
-!                       if (tix.ne.kc)  fss(k,kc,tix)=fss(k,kc,tix) +x1* ! jjb output no longer used
-!     &                       c0
-!                       if (tixp.ne.kc) fss(k,kc,tixp)=fss(k,kc,tixp)+x1* ! jjb output no longer used
-!     &                       (1.-c0)
-                     endif
-                  enddo   ! jt loop
-               enddo      ! ia loop
-            endif
+                    if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1*c0*fpi*rq(jt,ia)**3
+                    if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1*(1._dp-c0)*fpi*rq(jt,ia)**3
+                 endif
+              enddo   ! jt loop
+           enddo      ! ia loop
+        endif
 
- 1000       continue
-         enddo  ! kc loop
-      enddo     ! k  loop
+1000    continue
+     enddo  ! kc loop
+  enddo     ! k  loop
+
 ! move chemical species if transport above chemistry bins took place
-      do k=nmin,nmax
-         do kc=1,nkc_l
-            do kkc=1,nkc_l
-               if (kkc.eq.kc) goto 1001
+  do k=nmin,nmax
+     do kc=1,nkc_l
+        do kkc=1,nkc_l
+           if (kkc.eq.kc) goto 1001
 ! "kc" (from) bin and "kkc" (to) bin, i.e. bin that loses moles and bin that gains moles
-               if (vc(kkc,kc,k).eq.0.) goto 1001
-               if (cw(kc,k).gt.0.) then
-                  nfrom=kc
-                  nto=kkc
+           if (vc(kkc,kc,k).eq.0._dp) goto 1001
+           if (cw(kc,k).gt.0._dp) then
+              nfrom=kc
+              nto=kkc
 ! cw in m^3(aq)/m^3(air), vc in um^3/cm^3: 10^-12
-                  vol_ch=vc(kkc,kc,k)*1.d-12
-                  xfact=0.
+              vol_ch=vc(kkc,kc,k)*1.d-12
+              xfact=0._dp
 !            if (vol_ch.gt.1.e-4*cw(k,nfrom)) then
-                  xfact=1.-(cw(nfrom,k)-vol_ch)/cw(nfrom,k)
-                  do l=1,j2
-                     xch=sl1(l,nfrom,k)*xfact
-                     sl1(l,nfrom,k)=sl1(l,nfrom,k)-xch
-                     sl1(l,nto,k)  =sl1(l,nto,k) +xch
-                  enddo
-                  do l=1,j6
-                     xch=sion1(l,nfrom,k)*xfact
-                     sion1(l,nfrom,k)=sion1(l,nfrom,k)-xch
-                     sion1(l,nto,k)  =sion1(l,nto,k) +xch
-                  enddo
-               end if
+              xfact=1._dp-(cw(nfrom,k)-vol_ch)/cw(nfrom,k)
+              do l=1,j2
+                 xch=sl1(l,nfrom,k)*xfact
+                 sl1(l,nfrom,k)=sl1(l,nfrom,k)-xch
+                 sl1(l,nto,k)  =sl1(l,nto,k) +xch
+              enddo
+              do l=1,j6
+                 xch=sion1(l,nfrom,k)*xfact
+                 sion1(l,nfrom,k)=sion1(l,nfrom,k)-xch
+                 sion1(l,nto,k)  =sion1(l,nto,k) +xch
+              enddo
+           end if
 !            endif  ! if vol_ch > 10^-4* cw
- 1001          continue
+1001       continue
 !         enddo  ! ic loop
-            enddo               ! kkc loop
+        enddo               ! kkc loop
 ! 1002       continue ! jjb statement label unreferenced
-         enddo                  !kc loop
-      enddo     ! k loop
+     enddo                  !kc loop
+  enddo     ! k loop
 
-!      do k=2,n
-!         do kc=1,nkc_l
-!            do kcc=1,nkc_l
-!               svc(k,kc,kcc)=svc(k,kc,kcc)+vc(kcc,kc,k) ! jjb output no longer used
-!            enddo
-!         enddo
-!      enddo
-
-      end subroutine stem_kpp
+end subroutine stem_kpp
 
 !
 !----------------------------------------------------------------------
@@ -5859,7 +6230,7 @@ end subroutine adjust_f
 
 !----------------------------------------------------------------------
 
-      subroutine partdep (ra)
+subroutine partdep (ra)
 ! calculate particle dry deposition velocity after Seinfeld and Pandis,
 ! 1998, p.958ff
 
@@ -5884,108 +6255,116 @@ end subroutine adjust_f
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
+
+  real (kind=dp), intent(out) :: ra
+
+  real (kind=dp), external :: vterm
+
+  integer :: ia,jt, k, kc
+  real (kind=dp) :: cc, phi, rb, rx, Sc, St, vs
+  real (kind=dp) :: xd, xeta, xk, xlam, xnu, z
+  real (kind=dp) :: xx1(nkc)
 
 ! Common blocks:
-      common /blck06/ kw(nka),ka
-      common /blck12/ cw(nkc,n),cm(nkc,n)
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /kinv_i/ kinv
-      integer :: kinv
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kinv_i/ kinv
+  integer :: kinv
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real (kind=dp) :: vt, vd, vdm
 !      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o &
 !     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
-!      double precision ra,rb,vs,vd,z,xD,sc,st,rx,Cc
-      dimension xx1(nkc)
-
-      integer ia,jt
+!      real (kind=dp) :: ra,rb,vs,vd,z,xD,sc,st,rx,Cc
 
 ! == End of declarations =======================================================
 
-      call monin (phi)
+  call monin (phi)
 
 ! particle dry deposition velocity:v_d=1/(ra + rb + ra rb v_s)+ v_s
 !    ra=1/(kappa ustar) (ln (z/z0) +Phi) ;where z=height of surface (constant flux) layer
 !                                         Phi takes stratification into account
-!    rb=1/(ustar(Sc^(2/3) + 10^(-3/St))) ;Sc=nu/D  St=v_s*ustar^2/(g nu)
+!    rb=1/(ustar(Sc^(-2/3) + 10^(-3/St))) ;Sc=nu/D  St=v_s*ustar^2/(g nu)
 
-      xk=1.38066d-23 !Boltzmann number
-      z=0.1*eta(kinv) !surface layer height: 10% of BL (Stull), insensitive parameter
-      ra=1./(kappa*ustern)*(dlog(z/z0)+phi)  !ra:aerodynamic resistance; kappa=0.4
+  xk=1.38066d-23 !Boltzmann number
+  z=0.1*eta(kinv) !surface layer height: 10% of BL (Stull), insensitive parameter
+  ra=1./(kappa*ustern)*(log(z/z0)+phi)  !ra:aerodynamic resistance; kappa=0.4
 
-      k=2 ! only in lowest model layer
-      xeta=1.8325e-5*(416.16/(t(k)+120.))*((t(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
-      xnu=xeta/rho(k)  !kinematic viscosity of air
-!      write (110,*) 'nu eta',xnu,xeta
+  k=2 ! only in lowest model layer
+  xeta=1.8325e-5*(416.16/(t(k)+120._dp))*((t(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
+  xnu=xeta/rho(k)  !kinematic viscosity of air
+!  write (110,*) 'nu eta',xnu,xeta
 
 ! set xx1(kc)=0.
-      do kc=1,nkc
-         xx1(kc) = 0.d0
-         vdm(kc) = 0.d0 ! jjb added this initialisation. If not, old values are still used when cw goes to 0 from t to t+1
-      enddo
+  do kc=1,nkc
+     xx1(kc) = 0.d0
+     vdm(kc) = 0.d0 ! jjb added this initialisation. If not, old values are still used when cw goes to 0 from t to t+1
+  enddo
 ! free path length
-      xlam = 2.28e-5 * t(k) / p(k)
+  xlam = 2.28e-5 * t(k) / p(k)
 
-      do ia=1,nka
-         do jt=1,nkt
-            rx=rq(jt,ia)*1.e-6
-            vs=vterm(rx,t(k),p(k)) ! Stokes fall velocity incl Cc
-            Cc=1.+xlam/rx*(1.257+.4*dexp(-1.1*rx/xlam)) ! Cunningham slip flow corr.
-            xD=xk*t(k)*Cc/(6*pi*xeta*rx) ! aerosol diffusivity
-            Sc=xnu/xD !Schmidt number
-            St=vs*ustern**2/(g*xnu) !Stokes number
-            rb=1./(ustern*(sc**(-2./3.)+10**(-3./st))) !quasi laminar resistance
-            vd(jt,ia)=1./(ra+rb+ra*rb*vs)+vs !deposition velocity
-!            write (110,20) ia,jt,rq(jt,ia),vs*100.,vd*100.,100./ &
-!     &           (ra+rb+ra*rb*vs)
+  do ia=1,nka
+     do jt=1,nkt
+        rx=rq(jt,ia)*1.e-6
+        vs=vterm(rx,t(k),p(k)) ! Stokes fall velocity incl Cc
+        Cc=1.+xlam/rx*(1.257_dp+.4*exp(-1.1*rx/xlam)) ! Cunningham slip flow corr.
+        xD=xk*t(k)*Cc/(6*pi*xeta*rx) ! aerosol diffusivity
+        Sc=xnu/xD !Schmidt number
+        St=vs*ustern**2/(g*xnu) !Stokes number
+        rb=1./(ustern*(sc**(-2./3.)+10**(-3./st))) !quasi laminar resistance
+        vd(jt,ia)=1./(ra+rb+ra*rb*vs)+vs !deposition velocity
+        !        write (110,20) ia,jt,rq(jt,ia),vs*100.,vd*100.,100./(ra+rb+ra*rb*vs)
+
 ! calculate mass weighted mean dry deposition velocities
 ! loop over the nkc different chemical bins
-            do kc=1,nkc
-               if (cw(kc,k).eq.0.) goto 1001
+        do kc=1,nkc
+           if (cw(kc,k).eq.0.) goto 1001
 ! define kc limits  ---
-               if (kc.eq.1.and.(ia.gt.ka.or.jt.gt.kw(ia))) goto 1001
-               if (kc.eq.2.and.(ia.lt.(ka+1).or.jt.gt.kw(ia))) goto 1001
-               if (kc.eq.3.and.(ia.gt.ka.or.jt.lt.(kw(ia)+1))) goto 1001
-               if (kc.eq.4.and.(ia.lt.(ka+1).or.jt.lt.(kw(ia)+1))) goto 1001
+           if (kc.eq.1.and.(ia.gt.ka.or.jt.gt.kw(ia))) goto 1001
+           if (kc.eq.2.and.(ia.lt.(ka+1).or.jt.gt.kw(ia))) goto 1001
+           if (kc.eq.3.and.(ia.gt.ka.or.jt.lt.(kw(ia)+1))) goto 1001
+           if (kc.eq.4.and.(ia.lt.(ka+1).or.jt.lt.(kw(ia)+1))) goto 1001
 ! LWC weighted deposition velocity
-               xx1(kc)=xx1(kc)+rx*rx*rx*vd(jt,ia)*ff(jt,ia,k)*1.e6
+           xx1(kc)=xx1(kc)+rx*rx*rx*vd(jt,ia)*ff(jt,ia,k)*1.e6
 ! deposition velocity:
 !!              vdm(kc)=4.*3.1415927/(3.*cw(kc,k))*xx1(kc)
 !              vdm(kc)=4.*pi/(3.*cw(kc,k))*xx1(kc)
- 1001          continue
-            enddo               ! kc
-         enddo
-      enddo
+1001       continue
+        enddo               ! kc
+     enddo
+  enddo
 
-      do kc=1,nkc
-         if (cw(kc,k).gt.0.d0) &
-!     &              vdm(kc)=4.*3.1415927/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
+  do kc=1,nkc
+     if (cw(kc,k).gt.0.d0) &
      &              vdm(kc)=4.*pi/(3.*cw(kc,k))*xx1(kc) ! don't make this calculation nka * nkt * nkc times!
-      end do
+  end do
 
 !      do kc=1,nkc
 !         rx=rc(2,kc)
@@ -5995,13 +6374,13 @@ end subroutine adjust_f
 ! 20   format (1p,2i3,5d16.8)
 ! 21   format (1p,i3,3d16.8)
 
-      end subroutine partdep
+end subroutine partdep
 
 !
 !-------------------------------------------------------
 !
 
-      subroutine monin (phi)
+subroutine monin (phi)
 ! calculate the Monin-Obukhov length after Seinfeld and Pandis, 1998, p.862
 
 
@@ -6029,92 +6408,92 @@ end subroutine adjust_f
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n
+       n
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      double precision, intent(out) :: phi ! see S & P 1st Ed, p. 963, equation (19.14)
-      double precision :: xeta
+  real (kind=dp), intent(out) :: phi ! see S & P 1st Ed, p. 963, equation (19.14)
+
+  integer :: k
+  real (kind=dp) :: dtdz, q3, xeta, xeta0, xmo, z, zeta, zeta0
 
 ! Common blocks:
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
-      common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
-      real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
+  common /cb42/ atke(n),atkh(n),atkm(n),tke(n),tkep(n),buoy(n)
+  real (kind=dp) :: atke, atkh, atkm, tke, tkep, buoy
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /kinv_i/ kinv
+  integer :: kinv
 
 ! == End of declarations =======================================================
 
 ! check inversion height - it is diagnosed in SR atk1 but might be zero after restart
-      if (kinv.eq.0)  then
-         kinv = 70
-         print *,'SR monin: kinv = 0., set to kinv=70'
-      endif
+  if (kinv.eq.0)  then
+     kinv = 70
+     print *,'SR monin: kinv = 0., set to kinv=70'
+  endif
 
 ! reference height = 10 % of BL height
-      z=0.1*eta(kinv)
-      do k=1,kinv
-         if (eta(k).ge.z) goto 100
-      enddo
- 100  continue
+  z=0.1*eta(kinv)
+  do k=1,kinv
+     if (eta(k).ge.z) goto 100
+  enddo
+100 continue
 
 ! L=-rho c_p T_0 Ustar^3/(kappa g \bar(q_3))
 ! with \bar(q_3)=rho c_p \bar(w'theta')=rho c_p (-1.) atkh d theta/d z
 
 ! dtheat'/dz in height k
-      if (k.eq.1) then
-         k=2
-         print *,'SR monin: index out of bounds (1)'
-      endif
-      if (k.eq.n) then
-         k=n-1
-         print *,'SR monin: index out of bounds (2)'
-      endif
-      dtdz=((theta(k+1)-theta(k))/deta(k)+(theta(k)-theta(k-1))/ &
-     &     deta(k-1))/2.
-      q3=rho(k)*cp*(-1.)*atkh(k)*dtdz
+  if (k.eq.1) then
+     k=2
+     print *,'SR monin: index out of bounds (1)'
+  endif
+  if (k.eq.n) then
+     k=n-1
+     print *,'SR monin: index out of bounds (2)'
+  endif
+  dtdz=((theta(k+1)-theta(k))/deta(k)+(theta(k)-theta(k-1))/deta(k-1))/2.
+  q3=rho(k)*cp*(-1.)*atkh(k)*dtdz
 
-      xmo=-1.*rho(k)*cp*t(1)*ustern**3/(kappa*g*q3) ! Seinfeld 2, p. 747, (16.70)
+  xmo=-1.*rho(k)*cp*t(1)*ustern**3/(kappa*g*q3) ! Seinfeld 2, p. 747, (16.70)
 
 ! effect on ra
-      zeta=z/xmo
-      zeta0=z0/xmo
+  zeta=z/xmo
+  zeta0=z0/xmo
 ! |L|>10^5  (neutral) => phi=0.
-      if (abs(xmo) > 1.d5) then
-         phi=0.
-      else
+  if (abs(xmo) > 1.d5) then
+     phi=0.
+  else
 ! stable
-         if (xmo.gt.0.) then
-            phi=4.7*(zeta-zeta0)
+     if (xmo.gt.0.) then
+        phi=4.7*(zeta-zeta0)
 ! unstable
-         else if (xmo.lt.0) then
-            xeta0=(1.-15.*zeta0)**0.25
-            xeta=(1.-15.*zeta)**0.25
-            phi=log( (xeta0**2+1.)*(xeta0+1.)**2 &
-     &               /((xeta**2+1.)*(xeta+1.)**2) )  &
-     &       +2.*(atan(xeta)-atan(xeta0))
-         else            ! jjb: note that the case xmo=0 is not explained in S & P
-            print*,'Warning, in SR monin, xmo=0',xmo
-         endif
-      endif
+     else if (xmo.lt.0) then
+        xeta0=(1._dp - 15.*zeta0)**0.25
+        xeta=(1._dp - 15.*zeta)**0.25
+        phi=log( (xeta0**2+1.)*(xeta0+1.)**2 /((xeta**2+1.)*(xeta+1.)**2) )  &
+             +2.*(atan(xeta)-atan(xeta0))
+     else            ! jjb: note that the case xmo=0 is not explained in S & P
+        print*,'Warning, in SR monin, xmo=0',xmo
+     endif
+  endif
 
 
 
-      print *,'L, Ri',xmo,z/xmo
-      print *,'Phi= ',phi
+  print *,'L, Ri',xmo,z/xmo
+  print *,'Phi= ',phi
 
-      end subroutine monin
+end subroutine monin
 
 !
 !----------------------------------------------------------------------
@@ -6231,7 +6610,7 @@ end subroutine ion_mass
 !-------------------------------------------------------
 !
 
-      subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
+subroutine box_init (nlevbox,nz_box,n_bl,BL_box)
 !     initialisation for box models runs
 
 
@@ -6246,57 +6625,62 @@ end subroutine ion_mass
 
 ! == End of header =============================================================
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n
+       nf, &
+       n
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-      logical BL_box
+  implicit none
 
-      real(kind=dp), external :: p21
+  integer, intent(in) :: nlevbox, nz_box, n_bl
+  logical, intent(in) :: BL_box
+
+  real(kind=dp), external :: p21
+
+  integer :: k
+  real(kind=dp) :: t0, tsum, xm10, xmsum
 
 ! Common blocks:
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
 !      common /boxdat/ t0, xm10 ! this CB was fed here, but used nowhere else
-      common /kinv_i/ kinv
-      integer :: kinv
+  common /kinv_i/ kinv
+  integer :: kinv
 
 ! == End of declarations =======================================================
 
 ! initialize kinv (needed in SR kpp_driver)
-      kinv=nf
+  kinv=nf
 ! important for restart only: call init_konc only to start with "fresh" aerosol
 !      call init_konc
 
-      if (.not.BL_box) then
+  if (.not.BL_box) then
 ! init vals from certain level:
-         t0   = t(nlevbox)
-         xm10 = xm1(nlevbox)
-         print *,' level used for box run: ',nlevbox
-      else
+     t0   = t(nlevbox)
+     xm10 = xm1(nlevbox)
+     print *,' level used for box run: ',nlevbox
+  else
 !  arithmetic average over box
-         tsum  = 0.
-         xmsum = 0.
-         do k=2,nz_box
-            tsum  = tsum + t(k)
-            xmsum = xmsum + xm1(k)
-         enddo
-         t0   = tsum/(nz_box-1)
-         xm10 = xmsum/(nz_box-1)
-      endif
-      t(n_bl)  = t0
-      xm1(n_bl)= xm10
-      feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
-      print *,"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
+     tsum  = 0.
+     xmsum = 0.
+     do k=2,nz_box
+        tsum  = tsum + t(k)
+        xmsum = xmsum + xm1(k)
+     enddo
+     t0   = tsum/(nz_box-1)
+     xm10 = xmsum/(nz_box-1)
+  endif
+  t(n_bl)  = t0
+  xm1(n_bl)= xm10
+  feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
+  print *,"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
 
 ! for strange reasons it didn't work to init the whole Mistra column and
 ! not producing a crash or strange results, therefore this 1D column
@@ -6309,16 +6693,16 @@ end subroutine ion_mass
 
 ! also make sure for smogchamber that deposition occurs also to the sidewalls of the chamber
 
-      end subroutine box_init
+end subroutine box_init
 
 !
 !-------------------------------------------------------
 !
 
 !      subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl,chem, ! jjb unused arguments CHEM, HALO, IOD
-      subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
-!      &     halo,iod,BL_box)
-     &     BL_box)
+subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
+!           halo,iod,BL_box)
+          BL_box)
 
 ! update of astronomical, aerosol and meteorological properties for box model runs
 
@@ -6334,73 +6718,80 @@ end subroutine ion_mass
 
 ! == End of header =============================================================
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nrlay, &
-     &     nkc, &
-     &     nmax_chem_aer, &
-     &     mbs
+       nf, &
+       n, &
+       nrlay, &
+       nkc, &
+       mbs
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
-      interface
-         subroutine equil (ncase,kk)
-           integer,           intent(in)  :: ncase
-           integer, optional, intent(in)  :: kk    ! model level for calculation
-         end subroutine equil
-      end interface
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
 
 !      logical chem,halo,iod,fa_lse,BL_box ! jjb unused arguments removed: chem, halo, iod
-      logical fa_lse,BL_box
+  logical fa_lse,BL_box
+  real (kind=dp) :: box_switch
+  integer :: ij, nlevbox, n_bl, nz_box
+
+  real (kind=dp), external :: p21
+
+  integer :: k
+  real (kind=dp) :: xph3, xph4
+  real (kind=dp) :: horang, rlat, rdec, ru0, u00, zeit
 
 ! Common blocks:
-      common /cb16/ u0,albedo(mbs),thk(nrlay)
-      double precision u0, albedo, thk
+  common /cb16/ u0,albedo(mbs),thk(nrlay)
+  real (kind=dp) :: u0, albedo, thk
 
-      common /cb18/ alat,declin                ! for the SZA calculation
-      double precision alat,declin
+  common /cb18/ alat,declin                ! for the SZA calculation
+  real (kind=dp) :: alat,declin
 
-!      common /cb40/ time,lday,lst,lmin,it,lcl,lct ! jjb warning time renamed xtime here
-      common /cb40/ xtime,lday,lst,lmin,it,lcl,lct ! jjb warning xtime here instead of time
-      real (kind=dp) :: xtime
-      integer :: lday, lst, lmin, it, lcl, lct
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
 
-      common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
-      real(kind=dp) :: theta, thetl, t, talt, p, rho
-      common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
-      real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
 
-      common /blck12/ cw(nkc,n),cm(nkc,n)
+  common /blck12/ cw(nkc,n),cm(nkc,n)
+  real (kind=dp) :: cw, cm
 
 !     dimension rc(nf,nkc),freep(nf) ! jjb rc now in blck11
-      dimension freep(nf)
+  real (kind=dp) :: freep(n)
 
 ! == End of declarations =======================================================
 
 !      nmin = n_bl ! jjb variable unreferenced
 !      nmax = n_bl ! jjb variable unreferenced
 
-      fa_lse = .false. ! jjb was missing, thus undefined when calling SRs fast_k_mt_* below
+  fa_lse = .false. ! jjb was missing, thus undefined when calling SRs fast_k_mt_* below
 
 ! calculate u0
-      rlat=alat*1.745329e-02
-      rdec=declin*1.745329e-02
-      zeit=lst*3600.+dfloat(lmin-1)*60.
+  rlat=alat*1.745329e-02
+  rdec=declin*1.745329e-02
+  zeit=lst*3600.+real(lmin-1,dp)*60.
 ! greater intervals and variable dtg is known only in the old chemical module
-      horang=7.272205e-05*zeit-pi
-      u00=dcos(rdec)*dcos(rlat)*dcos(horang)+dsin(rdec)*dsin(rlat)
-      ru0=6371.*u00
-      u0=8./(sqrt(ru0**2+102000.)-ru0)
+  horang=7.272205e-05*zeit-pi
+  u00=cos(rdec)*cos(rlat)*cos(horang)+sin(rdec)*sin(rlat)
+  ru0=6371.*u00
+  u0=8./(sqrt(ru0**2+102000.)-ru0)
 
 ! new photolysis rates are calculated from main program!
 
@@ -6411,63 +6802,48 @@ end subroutine ion_mass
 ! just call this at the beginning of the run
 
 !      if (lmin.eq.1.and.ij.eq.1) then
-      if (box_switch.eq.1..and.lmin.eq.1.and.ij.eq.1) then
-!        free path length (lambda=freep):
-         do k=2,nf
-            freep(k)=2.28e-5 * t(k) / p(k)
-         enddo
+  if (box_switch.eq.1..and.lmin.eq.1.and.ij.eq.1) then
+!    free path length (lambda=freep):
+     do k=2,n
+        freep(k)=2.28e-5 * t(k) / p(k)
+     enddo
 
-         call cw_rc (nf)
-!!         do k=2,nf
-!!            do kc=1,nkc ! jjb reordered
-!         do kc=1,nkc
-!            do k=2,nf
-!               cwm(k,kc)=cw(k,kc)
-!               rcm(k,kc)=rc(k,kc)
-!            enddo
-!         enddo
-         !stop 'jjb: box version has to be updated'
-         call v_mean (t(:nmax_chem_aer))
-!        call henry_a (t,p,nf) ! jjb second argument (p) not used
-         call henry_a (t,nf)   ! jjb removed
-!        call fast_k_mt_a(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
-         call fast_k_mt_a(freep,fa_lse,nf)
-!        call equil_co_a (cw,t,nf)
-         call equil_co_a (t,nf) ! jjb cw now passed as a CB
-         call activ (fa_lse,nf)
-         call dry_cw_rc (nf)
-         call dry_rates_g (t,p,nf)
-         call dry_rates_a (freep,nf)
-         xph3=0.
-         xph4=0.
-         if (cm(3,n_bl).gt.0.) xph3 = 1.
-         if (cm(4,n_bl).gt.0.) xph4 = 1.
-         if (xph3.eq.1..or.xph4.eq.1.) then
-!           call henry_t (t,p,nf) ! jjb second argument (p) not used
-            call henry_t (t,nf)   ! jjb removed
-!           call fast_k_mt_t(freep,cw,fa_lse,nf) ! jjb cw now passed as a CB
-            call fast_k_mt_t(freep,fa_lse,nf)
-!           call equil_co_t (cw,t,nf) ! jjb cw now passed as a CB
-            call equil_co_t (t,nf)
-         endif
+     call cw_rc (nf)
 
-         if (BL_box) then
+     call v_mean_a (t,nf)
+     call henry_a (t,nf)
+     call fast_k_mt_a(freep,fa_lse,nf)
+     call equil_co_a (t,nf)
+     call activ (fa_lse,nf)
+     call dry_cw_rc (nf)
+     call dry_rates_g (t,freep,nf)
+     call dry_rates_a (freep,nf)
+     xph3=0.
+     xph4=0.
+     if (cm(3,n_bl).gt.0.) xph3 = 1.
+     if (cm(4,n_bl).gt.0.) xph4 = 1.
+     if (xph3.eq.1..or.xph4.eq.1.) then
+        call v_mean_t (t,nf)
+        call henry_t (t,nf)
+        call fast_k_mt_t(freep,fa_lse,nf)
+        call equil_co_t (t,nf)
+     endif
+
+     if (BL_box) then
 !           average parameters over depth of BL if BL_box=.true.
-            call ave_parms (n_bl,nz_box)
-            call ave_aer (n_bl,nz_box)
-            if (xph3.eq.1..or.xph4.eq.1.)  &
-     &           call ave_tot (n_bl,nz_box)
-         else
-            call set_box_gas (nlevbox,n_bl)
-            call set_box_lev_a (nlevbox,n_bl)
-            feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
-            call equil (1,n_bl)
-            if (xph3.eq.1..or.xph4.eq.1.)  &
-     &           call set_box_lev_t (nlevbox,n_bl)
-         endif
+        call ave_parms (n_bl,nz_box)
+        call ave_aer (n_bl,nz_box)
+        if (xph3.eq.1..or.xph4.eq.1.) call ave_tot (n_bl,nz_box)
+     else
+        call set_box_gas (nlevbox,n_bl)
+        call set_box_lev_a (nlevbox,n_bl)
+        feu(n_bl)=xm1(n_bl)*p(n_bl)/((0.62198+0.37802*xm1(n_bl))*p21(t(n_bl)))
+        call equil (1,n_bl)
+        if (xph3.eq.1..or.xph4.eq.1.) call set_box_lev_t (nlevbox,n_bl)
+     endif
 !         call print_vals (nlevbox,n_bl)
-         box_switch = 0.
-      endif
+     box_switch = 0.
+  endif
 
 
 ! the following parameters are used at the beginning of SR kpp_driver, so they
@@ -6504,7 +6880,7 @@ end subroutine ion_mass
 !      rho(n_bl)          ! density [kg/m3]
 !      p(n_bl)            ! pressure [Pa]
 
-      end subroutine box_update
+end subroutine box_update
 
 
 !
@@ -6642,7 +7018,7 @@ end subroutine sedc_box
 !----------------------------------------------------------------
 !
 
-      subroutine box_partdep (dt, z_box, n_bl)
+subroutine box_partdep (dt, z_box, n_bl)
 
 
 ! Author:
@@ -6656,30 +7032,38 @@ end subroutine sedc_box
 
 ! == End of header =============================================================
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     j2, &
-     &     j6, &
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt, &
-     &     nkc
+       j2, &
+       j6, &
+       nf, &
+       n, &
+       nka, &
+       nkt, &
+       nkc
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
+
+  real (kind=dp), intent(in) :: dt, z_box
+  integer, intent(in) :: n_bl
+
+  integer :: ia, jt, kc, l
+  real (kind=dp) :: ff_old, s_old, x_depterm
 
 ! dry deposition of particles and aqueous constituents in box
 ! Common blocks:
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
-      common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
+  real (kind=dp) :: sl1, sion1
+  common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
+  real (kind=dp) :: vt, vd, vdm
 
 ! == End of declarations =======================================================
 
@@ -6687,38 +7071,37 @@ end subroutine sedc_box
 ! the roughness length z0 has to be adjusted in SRs box_init
 
 ! apply v_dep to particles
-      do ia = 1, nka
-         do jt = 1, nkt
-!            x = x0 * exp(-dt/z_box*vdep(l))
-            ff_old = ff(jt,ia,n_bl)
-            ff(jt,ia,n_bl) =  ff_old * exp(-dt/z_box*vd(jt,ia))
+  do ia = 1, nka
+     do jt = 1, nkt
+!        x = x0 * exp(-dt/z_box*vdep(l))
+        ff_old = ff(jt,ia,n_bl)
+        ff(jt,ia,n_bl) =  ff_old * exp(-dt/z_box*vd(jt,ia))
 ! add deposited numbers
-            ff(jt,ia,1) = ff(jt,ia,1) + (ff_old - ff(jt,ia,n_bl))*z_box
-         enddo
-      enddo
+        ff(jt,ia,1) = ff(jt,ia,1) + (ff_old - ff(jt,ia,n_bl))*z_box
+     enddo
+  enddo
 ! apply v_dep to non-ionic aqueous constituents
-      do kc = 1, nkc
-         x_depterm = exp(-dt/z_box*vdm(kc))
-         do l = 1, j2
-            s_old = sl1(l,kc,n_bl)
-            sl1(l,kc,n_bl) = s_old * x_depterm
+  do kc = 1, nkc
+     x_depterm = exp(-dt/z_box*vdm(kc))
+     do l = 1, j2
+        s_old = sl1(l,kc,n_bl)
+        sl1(l,kc,n_bl) = s_old * x_depterm
 ! add deposited numbers
-            sl1(l,kc,1) = sl1(l,kc,1) + (s_old - sl1(l,kc,n_bl))*z_box
-         enddo
-      enddo
+        sl1(l,kc,1) = sl1(l,kc,1) + (s_old - sl1(l,kc,n_bl))*z_box
+     enddo
+  enddo
 ! apply v_dep to ionic aqueous constituents
-      do kc = 1, nkc
-         x_depterm = exp(-dt/z_box*vdm(kc))
-         do l = 1, j6
-            s_old = sion1(l,kc,n_bl)
-            sion1(l,kc,n_bl) = s_old * x_depterm
+  do kc = 1, nkc
+     x_depterm = exp(-dt/z_box*vdm(kc))
+     do l = 1, j6
+        s_old = sion1(l,kc,n_bl)
+        sion1(l,kc,n_bl) = s_old * x_depterm
 ! add deposited numbers
-            sion1(l,kc,1) = sion1(l,kc,1) + (s_old - sion1(l,kc,n_bl)) &
-     &           *z_box
-         enddo
-      enddo
+        sion1(l,kc,1) = sion1(l,kc,1) + (s_old - sion1(l,kc,n_bl))*z_box
+     enddo
+  enddo
 
-      end subroutine box_partdep
+end subroutine box_partdep
 
 
 !
@@ -6774,7 +7157,7 @@ subroutine out_mass
   integer :: lday, lst, lmin, it, lcl, lct
 
   common /cb41/ detw(n),deta(n),eta(n),etw(n)
-  double precision detw, deta, eta, etw
+  real (kind=dp) :: detw, deta, eta, etw
 
   common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
                 e(nkt),dew(nkt),rq(nkt,nka)
@@ -6843,134 +7226,146 @@ end subroutine out_mass
 !-----------------------------------------------------------------------------
 !
 
-      subroutine get_n_box (z_box,nz_box)
-
-      USE global_params, ONLY : &
-! Imported Parameters:
-     &     n
-
-      implicit double precision (a-h,o-z)
+subroutine get_n_box (z_box,nz_box)
 ! get grid level for box height
 
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real (kind=dp), intent(in) :: z_box
+  integer, intent(out) :: nz_box
+  integer :: k
 ! Common blocks:
-      common /cb41/ detw(n),deta(n),eta(n),etw(n)
-      double precision detw, deta, eta, etw
+  common /cb41/ detw(n),deta(n),eta(n),etw(n)
+  real (kind=dp) :: detw, deta, eta, etw
 
 ! == End of declarations =======================================================
 
 
-      nz_box=0
-      do k=1,n
-         if (etw(k).ge.z_box) then
-            nz_box=k
-            goto 6543
-         endif
-      enddo
- 6543 continue
+  nz_box=0
+  do k=1,n
+     if (etw(k).ge.z_box) then
+        nz_box=k
+        exit
+     endif
+  enddo
 
-      if (nz_box.eq.0) then
-         nz_box=70
-         print *,"WARNING!! box height too high, set to ",etw(nz_box)
-      endif
+  if (nz_box.eq.0) then
+     nz_box=70
+     print *,"WARNING!! box height too high, set to ",etw(nz_box)
+  endif
 
-      print *,"box height set to ",etw(nz_box)
-      print *,"box height corresponds to level ",nz_box
+  print *,"box height set to ",etw(nz_box)
+  print *,"box height corresponds to level ",nz_box
 
-      end subroutine get_n_box
+end subroutine get_n_box
 
 !
 !-------------------------------------------------------------------------
 !
 
-      subroutine ffssuumm
+subroutine ffssuumm
 ! calculation of particle number
 
 !      jjb cleaning
 !          do end do without label
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka, &
-     &     nkt
+       n, &
+       nka, &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
+  implicit none
 
+  integer :: ia, jt, k
+  real (kind=dp) :: fsum1, fsum2
 ! Common blocks:
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /blck06/ kw(nka),ka
-!      common /kpp_kg/ vol2(nkc,n),vol1(n,nkc,nka),part_o
-!     &     (n,nkc,nka),part_n(n,nkc,nka),pntot(nkc,n),kw(nka),ka
+  common /blck06/ kw(nka),ka
+  integer :: kw, ka
 
 ! == End of declarations =======================================================
 
 
-      do k=2,n
-         fsum1=0.
-         fsum2=0.
+  do k=2,n
+     fsum1=0.
+     fsum2=0.
 ! small aerosol
-         do ia=1,ka
-            do jt=1,kw(ia)
-               fsum1=fsum1+ff(jt,ia,k)
-            enddo
-         enddo
+     do ia=1,ka
+        do jt=1,kw(ia)
+           fsum1=fsum1+ff(jt,ia,k)
+        enddo
+     enddo
 ! large aerosol
-         do ia=ka+1,nka
-            do jt=1,kw(ia)
-               fsum2=fsum2+ff(jt,ia,k)
-            enddo
-         enddo
-         print *,k,fsum1,fsum2,fsum(k)
-      end do
+     do ia=ka+1,nka
+        do jt=1,kw(ia)
+           fsum2=fsum2+ff(jt,ia,k)
+        enddo
+     enddo
+     print *,k,fsum1,fsum2,fsum(k)
+  end do
 
-      end subroutine ffssuumm
+end subroutine ffssuumm
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist
+subroutine oneD_dist
 !  calculate 1D size distribution of 2D particles dist.
 
-      USE constants, ONLY : &
+  USE constants, ONLY : &
 ! Imported Parameters:
-     & pi
+       pi
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     n, &
-     &     nka, &
-     &     nkt
+       n, &
+       nka, &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-      double precision Np
+  implicit none
+
+  integer :: ia, ij, jt, jtt, k
+  real (kind=dp) :: fpi
+
+  real (kind=dp) :: rp(nka+nkt)  !particle radius [um]
+  real (kind=dp) :: Np(nka+nkt)  !particle number [part cm-3]
+  real (kind=dp) :: Ap(nka+nkt)  !particle surface [um2 cm-3]
+  real (kind=dp) :: Vp(nka+nkt)  !particle volume [um3 cm-3]
 
 ! Common blocks:
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-      common /oneDs_0/partN(n,nka+nkt),partA(n,nka+nkt),partV(n,nka+nkt) &
-     &     ,partr(n,nka+nkt),drp(nka+nkt),nrp
-      dimension rp(nka+nkt)  !particle radius [um]
-      dimension Np(nka+nkt)  !particle number [part cm-3]
-      dimension Ap(nka+nkt)  !particle surface [um2 cm-3]
-      dimension Vp(nka+nkt)  !particle volume [um3 cm-3]
+  common /oneDs_0/partN(n,nka+nkt),partA(n,nka+nkt),partV(n,nka+nkt), &
+       partr(n,nka+nkt),drp(nka+nkt),nrp
+  real (kind=dp) :: partN, partA, partV, partr, drp
+  integer :: nrp
 
 ! == End of declarations =======================================================
 
@@ -6983,76 +7378,73 @@ end subroutine out_mass
 !     is nka+nkt; to avoid having drp=0. the
 
 
-      rnmax = rn(nka)
-      do ia=1,nka
-         rp(ia)=rq(1,ia)
-      enddo
-      do jt=1,nkt
-         jtt=jt
-         if (rq(jt,nka).gt.rp(nka)*1.05) goto 1021
-      enddo
- 1021 continue
-      do jt=1,nkt-jtt
-         rp(nka+jt)=rq(jt+jtt,nka)
-      enddo
-      do ij=1,nka+nkt-1
-         drp(ij)=rp(ij+1)-rp(ij)
-!         print *,ij,rp(ij),drp(ij)
-      enddo
-      nrp=nka+nkt-jtt
-      drp(nrp)=drp(nrp-1)
+  do ia=1,nka
+     rp(ia)=rq(1,ia)
+  enddo
+  do jt=1,nkt
+     jtt=jt
+     if (rq(jt,nka).gt.rp(nka)*1.05) goto 1021
+  enddo
+1021 continue
+  do jt=1,nkt-jtt
+     rp(nka+jt)=rq(jt+jtt,nka)
+  enddo
+  do ij=1,nka+nkt-1
+     drp(ij)=rp(ij+1)-rp(ij)
+!     print *,ij,rp(ij),drp(ij)
+  enddo
+  nrp=nka+nkt-jtt
+  drp(nrp)=drp(nrp-1)
 
-      do k=2,n
-      do ij = 1,nrp
-       Np(ij) = 0.
-       Ap(ij) = 0.
-       Vp(ij) = 0.
-       fpi=4.*pi
-       do ia = 1, nka
-          if (rn(ia).gt.rp(ij)) goto 2001
-          do jt = 1,nkt
-             if (rq(jt,ia).le.rp(ij)) then
-                if (ij.gt.1) then
-                   if (rq(jt,ia).gt.rp(ij-1)) then
-                      Np(ij) = Np(ij) + ff(jt,ia,k)
-                      Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
-                      Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)* &
-     &                     rp(ij)*rp(ij)/3.
-                   endif
-                else if ((ij.eq.1).and.(rq(jt+1,ia).gt.rp(ij))) then           ! jjb BUG here, jt+1 leads to out of bounds index when jt = nkt
+  do k=2,n
+     do ij = 1,nrp
+        Np(ij) = 0.
+        Ap(ij) = 0.
+        Vp(ij) = 0.
+        fpi=4.*pi
+        do ia = 1, nka
+           if (rn(ia).gt.rp(ij)) goto 2001
+           do jt = 1,nkt
+              if (rq(jt,ia).le.rp(ij)) then
+                 if (ij.gt.1) then
+                    if (rq(jt,ia).gt.rp(ij-1)) then
+                       Np(ij) = Np(ij) + ff(jt,ia,k)
+                       Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
+                       Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)*rp(ij)/3.
+                    endif
+                 else if ((ij.eq.1).and.(rq(jt+1,ia).gt.rp(ij))) then           ! jjb BUG here, jt+1 leads to out of bounds index when jt = nkt
 !                write (*,100) ij,ia,jt,rq(jt,1),rp(ij),rq(jt,ia),ff(jt,ia,k)
-                   Np(ij) = Np(ij) + ff(jt,ia,k)
-                   Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
-                   Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)* &
-     &                  rp(ij)*rp(ij)/3.
-                endif
-             else
-                goto 2002
-             endif
-          enddo                 !jt
- 2002     continue
+                    Np(ij) = Np(ij) + ff(jt,ia,k)
+                    Ap(ij) = Ap(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)
+                    Vp(ij) = Vp(ij) + ff(jt,ia,k)*fpi*rp(ij)*rp(ij)*rp(ij)/3.
+                 endif
+              else
+                 goto 2002
+              endif
+           enddo                 !jt
+2002       continue
         enddo                    !ia
- 2001  continue
+2001    continue
 
 ! to plot dN/dr, dA/dr, dV/dr:
-       partN(k,ij) = Np(ij)/drp(ij)
-       partA(k,ij) = Ap(ij)/drp(ij)
-       partV(k,ij) = Vp(ij)/drp(ij)
-       partr(k,ij) = rp(ij)
+        partN(k,ij) = Np(ij)/drp(ij)
+        partA(k,ij) = Ap(ij)/drp(ij)
+        partV(k,ij) = Vp(ij)/drp(ij)
+        partr(k,ij) = rp(ij)
 
-      enddo                     !ij
-      enddo                     ! k
+     enddo                     !ij
+  enddo                     ! k
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist
+end subroutine oneD_dist
 
 
 !
 !----------------------------------------------------------------
 !
 
-      subroutine oneD_dist_new
+subroutine oneD_dist_new
 !  calculate 1D size distribution of 2D particles dist.
 
 ! jjb rewritten, but needs improvements.
@@ -7060,35 +7452,38 @@ end subroutine out_mass
 !     (XXX could be equal to any of the already used parameters, nka, nkt, nka+nkt for finer resolution, or whatever)
 !     currently, many particles are likely to be in the last rp class
 
-      USE global_params, ONLY : &
+  USE global_params, ONLY : &
 ! Imported Parameters:
-     &     nf, &
-     &     n, &
-     &     nka, &
-     &     nkt
+       nf, &
+       n, &
+       nka, &
+       nkt
 
-      USE precision, ONLY : &
+  USE precision, ONLY : &
 ! Imported Parameters:
-           dp
+       dp
 
-      implicit double precision (a-h,o-z)
-      double precision Np
+  implicit none
+
+  integer :: ia, ij, jt, k
+  real (kind=dp) :: rmin, rmax, rfact, xnsum
+  real (kind=dp) :: Np(nkt)  !particle number [part cm-3]
+  real (kind=dp) :: rp(0:nkt)  !particle radius [um]
+  real (kind=dp) :: xlogdrp(nkt) ! jjb removed from /oneDs/
 
 ! Common blocks:
-      common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
-     &              e(nkt),dew(nkt),rq(nkt,nka)
-      double precision enw,ew,rn,rw,en,e,dew,rq
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  real (kind=dp) :: enw,ew,rn,rw,en,e,dew,rq
 
-      common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
-      real (kind=dp) :: ff, fsum
-      integer :: nar
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
 
-!     common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt),xlogdrp(nkt) ! jjb last variable shouldn't be in this CB
-      common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)              ! jjb removed and declared below
-      dimension xlogdrp(nkt) ! jjb
-
-      dimension rp(nkt)  !particle radius [um]
-      dimension Np(nkt)  !particle number [part cm-3]
+  !     common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt),xlogdrp(nkt) ! jjb last variable shouldn't be in this CB
+  ! jjb : reindexing would be good, and decrease n to nf of increase the loop below (and in out_netcdf)
+  common /oneDs/  partN(n,nkt,2),partr(n,nkt),drp(nkt)              ! jjb removed and declared below
+  real (kind=dp) :: partN, partr, drp
 
 ! == End of declarations =======================================================
 
@@ -7101,69 +7496,140 @@ end subroutine out_mass
 ! are no "empty" bins as when using the old radius 2D --> 1D mapping nka+nkt
 
 ! define 1D grid
-      do jt=1,nkt
-         rp(jt)=rq(jt,1)
-      enddo
-      rp(nkt) = rq(nkt,nka) ! jjb correction to be tested
+  rmin = rw(1,1)
+  rmax = rw(nkt,nka)
+  rfact = 10**(log10(rmax/rmin)/(nkt-1))
+  rp(0) = rmin/rfact
+  do jt=1,nkt
+     rp(jt)=rp(jt-1)*rfact
+  enddo
+
 ! calculate width of each bin in 1D grid
 !      drp(1)=rp(1)
 !      xlogdrp(1)=log10(rp(1))
-      do ij=1,nkt-1
-         drp(ij)=rp(ij+1)-rp(ij)
+  do ij=1,nkt
+     drp(ij)=rp(ij)-rp(ij-1)
 ! unit: "implicit" division of rp by 1um to get a unit-less property to be able to use log
-         xlogdrp(ij)=log10(rp(ij+1))-log10(rp(ij))
+     xlogdrp(ij)=log10(rp(ij))-log10(rp(ij-1))
 !         print *,ij,rp(ij),drp(ij)
 !         print *,drp(ij),xlogdrp(ij),log10(drp(ij))
-      enddo
-      drp(nkt)=rq(nkt,nka)-rp(nkt)
-      xlogdrp(nkt)=log10(rq(nkt,nka))-log10(rp(nkt))
+  enddo
+
 ! map 2D spectrum on 1D spectrum
-      do k=2,nf
-         Np(:)=0.
-         do ij = 1,nkt-1
-            do ia = 1, nka
-               if (rn(ia).gt.rp(ij+1)) goto 2001 ! save time
-               do jt = 1,nkt
-                  if (rq(jt,ia).lt.rp(ij+1)) then
-                     if (rq(jt,ia).ge.rp(ij)) then
-                        Np(ij) = Np(ij) + ff(jt,ia,k)
-                     endif
-                  else
-                     if (ij == nkt-1) then ! special case
-                        Np(nkt) = Np(nkt) + ff(jt,ia,k)
-                     else
-                        goto 2002 ! save time
-                     end if
-                  endif
-               enddo           !jt
- 2002          continue
-            enddo              !ia
- 2001       continue
-         end do                !ij
-         Np(2) = Np(2)+ff(1,1,k) ! jjb correction to be tested
-       do ij = 1,nkt
+  do k=2,nf
+     Np(:)=0.
+     do ij = 1,nkt-1
+        do ia = 1, nka
+           if (rn(ia).gt.rp(ij+1)) goto 2001 ! save time
+           do jt = 1,nkt
+              if (rq(jt,ia).lt.rp(ij+1)) then
+                 if (rq(jt,ia).ge.rp(ij)) then
+                    Np(ij) = Np(ij) + ff(jt,ia,k)
+                 endif
+              else
+                 if (ij == nkt-1) then ! special case
+                    Np(nkt) = Np(nkt) + ff(jt,ia,k)
+                 else
+                    goto 2002 ! save time
+                 end if
+              endif
+           enddo           !jt
+2002       continue
+        enddo              !ia
+2001    continue
+     end do                !ij
+     Np(2) = Np(2)+ff(1,1,k) ! jjb correction to be tested
+     do ij = 1,nkt
 ! to plot dN/dr, dA/dr, dV/dr:
-          partN(k,ij,1) = Np(ij)/drp(ij)      ! #/um/cm3
+        partN(k,ij,1) = Np(ij)/drp(ij)      ! #/um/cm3
 ! to plot dN/dlogr, dA/dlogr, dV/dlogr:
-          partN(k,ij,2) = Np(ij)/xlogdrp(ij)  ! #/cm3
-          partr(k,ij) = rp(ij)
+        partN(k,ij,2) = Np(ij)/xlogdrp(ij)  ! #/cm3
+        partr(k,ij) = rp(ij)
 !         print *,partN(k,ij),partA(k,ij),partV(k,ij),partr(k,ij)
-       enddo                    !ij
+     enddo                    !ij
 
 ! check if bins were "missed":
-       xnsum=0.
-       do jt=1,nkt
-          xnsum=xnsum+Np(jt)
-       enddo
-       if (xnsum.lt..99*fsum(k)) print *,'N too small',k,fsum(k),xnsum
-       if (xnsum.gt.1.01*fsum(k)) print *,'N too big',k,fsum(k),xnsum
+     xnsum=0.
+     do jt=1,nkt
+        xnsum=xnsum+Np(jt)
+     enddo
+     if (xnsum.lt..99*fsum(k)) print *,'N too small',k,fsum(k),xnsum
+     if (xnsum.gt.1.01*fsum(k)) print *,'N too big',k,fsum(k),xnsum
 
 
-      enddo                     ! k
+  enddo                     ! k
 
 ! 100  format(3i4,4d16.8)
 
-      end subroutine oneD_dist_new
+end subroutine oneD_dist_new
+
+
+!
+!----------------------------------------------------------------
+!
+
+subroutine oneD_dist_jjb
+!  calculate 1D size distribution of 2D particles dist.
+
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       nf, &
+       n, &
+       nka, &
+       nkt
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  integer :: ia, ij, jt, k
+  real (kind=dp) :: xnsum
+  real (kind=dp) :: ff1D(nka-1)
+
+! Common blocks:
+  common /cb50/ enw(nka),ew(nkt),rn(nka),rw(nkt,nka),en(nka), &
+                e(nkt),dew(nkt),rq(nkt,nka)
+  double precision enw,ew,rn,rw,en,e,dew,rq
+
+  common /cb52/ ff(nkt,nka,n),fsum(n),nar(n)
+  real (kind=dp) :: ff, fsum
+  integer :: nar
+
+  common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+  real (kind=dp) :: rpw, part1D
+
+! == End of declarations =======================================================
+
+
+! map 2D spectrum on 1D spectrum
+  do k=2,nf
+     ff1D(:) = 0._dp
+     do ia = 1, nka
+        ij=1 ! initialisation within ia loop is not a mistake:
+             !  for a given ia, rq is strictly increasing when jt increases
+             !  thus once the first ij has been updated for a given (ia,1), the next ij
+             !  will be at least equal to the previous ij
+        do jt = 1,nkt
+           do while (rq(jt,ia) > rpw(ij+1))
+              ij = ij+1
+           end do
+           ff1D(ij) = ff1D(ij) + ff(jt,ia,k)
+        enddo           !jt
+     enddo              !ia
+
+     part1D(:,k) = ff1D(:)
+
+! check if bins were "missed":
+     xnsum = sum(ff1D(:))
+     if (xnsum.lt..99*fsum(k)) print *,'N too small',k,fsum(k),xnsum
+     if (xnsum.gt.1.01*fsum(k)) print *,'N too big',k,fsum(k),xnsum
+
+  enddo                  ! k
+
+end subroutine oneD_dist_jjb
 
 
 !
@@ -7228,3 +7694,205 @@ end function p21
 !
 !--------------------------------------------------------------------------
 !
+
+subroutine chamb_init (n_bl)
+! initialisation for chamber models runs
+
+  USE config, ONLY : &
+! Imported Parameters:
+       cinpdir_phot
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout, jpfunJchamb
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n, &
+       nf, &
+       nphrxn
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
+
+  integer, intent(in) :: n_bl
+  character (len=110) :: clpath
+  integer :: k
+  logical :: lights
+  real (kind=dp) :: zp21
+  real (kind=dp) :: freep(n)
+  real (kind=dp), external :: p21
+
+! Common blocks:
+  common /boxdat/ t0,rh0
+  real(kind=dp) :: t0,rh0
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
+  common /kinv_i/ kinv
+  integer :: kinv
+
+
+! initialize kinv (needed in SR kpp_driver)
+  kinv=nf
+! important for restart only: call init_konc only to start with "fresh" aerosol
+!      call init_konc
+
+! get chamber initial conditions from file
+  clpath=trim(cinpdir_phot)//'chamber.dat'
+  open (jpfunJchamb,file=trim(clpath),status='old')
+  read (jpfunJchamb,5101) t0
+  read (jpfunJchamb,5101) rh0
+  close(jpfunJchamb)
+ 5101 format (f6.0)
+
+  t(n_bl)  = t0
+  feu(n_bl)= rh0*1.0d-2
+  zp21 = p21(t(n_bl))
+  xm1(n_bl)=(0.62198*feu(n_bl)*zp21)/(p(n_bl)-0.37802*feu(n_bl)*zp21)
+
+  write(jpfunout,*)"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
+
+! photolysis rates
+! start chamber run with lights off (typical experiment, otherwise set lights=TRUE)
+! model run start at midday as set in SR initm
+  lights = .false.
+  if (lights) then
+     call photol_chamber
+  else
+     ph_rat_chamber(:) = 0.0_dp
+  endif
+
+!! comment this to turn off aerosol chemistry in the chamber
+! free path length (lambda=freep):
+  do k=2,n
+     freep(k)=2.28e-5 * t(k) / p(k)
+  enddo
+
+  call cw_rc (nf)
+
+  call v_mean_a  (t,nf)
+  call henry_a (t,nf)
+  call fast_k_mt_a(freep,.false.,nf)
+  call equil_co_a (t,nf)
+  call activ (.false.,nf)
+  call dry_cw_rc (nf)
+  call dry_rates_g (t,freep,n)
+  call dry_rates_a (freep,nf)
+
+  call equil (1,n_bl)
+
+!     if smogchamber run: adjust roughness length z0 z0 = to be
+!     determined; maybe scale with the decline of the particle
+!     population in the chamber; make sure that this value is not
+!     overwritten later during the run
+
+!     also make sure for smogchamber that deposition occurs also to the
+!     sidewalls of the chamber
+
+
+end subroutine chamb_init
+
+!
+!-------------------------------------------------------
+!
+
+subroutine chamb_update (n_bl,ij)
+! turn on and off photolysis rates. if lights are not OFF at the beginning of
+! the experiment change SR chamb_init
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n, &
+       nf, &
+       nphrxn
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
+
+  integer, intent(in) :: ij, n_bl
+  integer :: k
+  logical :: lights
+  real (kind=dp) :: on_hr, on_min, off_hr, off_min, on_time, off_time
+  real (kind=dp) :: freep(n)
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
+
+
+
+! model time in chamber mode starts at 12:00 (set in SR initm)
+! time since beginning of experiment when lights are turned ON
+  on_hr = 0._dp
+  on_min = 15._dp
+  on_time = (on_hr*3600.)+(on_min*60.)
+
+! time since beginning of experiment when lights are turned OFF
+  off_hr = 2._dp
+  off_min = 0._dp
+  off_time = (off_hr*3600.)+(off_min*60.)
+
+  lights=.false.
+  if (time.ge.on_time) then
+     lights=.true.
+  endif
+  if (time.ge.off_time) then
+     lights=.false.
+  endif
+
+! if lights are ON calculate photolysis rates, otherwise set photolysis rates to zero
+  if (lights) then
+     call photol_chamber
+  else
+     ph_rat_chamber(:) = 0.0_dp
+  endif
+
+!! comment this to turn off aerosol chemistry in the chamber
+  if (lmin.eq.1.and.ij.eq.1) then
+!    free path length (lambda=freep):
+     do k=2,n
+        freep(k)=2.28e-5 * t(k) / p(k)
+     enddo
+
+     call cw_rc (nf)
+
+     call v_mean_a  (t,nf)
+     call henry_a (t,nf)
+     call fast_k_mt_a(freep,.false.,nf)
+     call equil_co_a (t,nf)
+     call activ (.false.,nf)
+     call dry_cw_rc (n)
+     call dry_rates_g (t,freep,n)
+     call dry_rates_a (freep,nf)
+
+     call equil (1,n_bl)
+  endif
+
+end subroutine chamb_update

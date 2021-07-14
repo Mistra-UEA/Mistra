@@ -27,12 +27,12 @@ c supplemented by Susanne Marquart, Sep 2004
 !    - implicit none everywhere
 !    - headers and declaration blocks
 
-      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
+      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, box, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, chamber, nuc
 
       logical :: true
 
@@ -59,7 +59,7 @@ c      if (chem)  call open_chem_aq(n_bln,halo,iod) ! aqueous phase
 !     if (chem)  call open_chem_gas(n_bln,true,iod,nuc) ! gas phase ! jjb halo(=.true.), iod & nud are no longer used
       if (chem)  call open_chem_gas(n_bln)              ! gas phase ! jjb removed
       if (chem)  call open_chem_aq(n_bln,true,iod,nuc) ! aqueous phase
-      if (chem)  call open_jrate (n_bln)            ! photolysis rates
+      if (chem)  call open_jrate (n_bln, chamber)   ! photolysis rates
       if (chem)  call open_rxn                      ! reaction rates
       if (nuc)   call open_nuc                      ! nucleation
       call open_grid ! writes information on grid that is not f(t)
@@ -72,12 +72,12 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine write_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
+      subroutine write_netcdf (n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, box, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, chamber, nuc
 
       logical :: true
 
@@ -88,9 +88,9 @@ c write netCDF-files
       if (mic.and..not.box) call write_mic            ! microphysics
 c      if (chem)  call write_chem_aq (n_bln,halo,iod) ! aqueous phase
 
-      if (chem)  call write_chem_gas (n_bln)              ! gas phase
+      if (chem)  call write_chem_gas (n_bln)             ! gas phase
       if (chem)  call write_chem_aq (n_bln,true,iod,nuc) ! aqueous phase
-      if (chem)  call write_jrate (n_bln)             ! photolysis rates
+      if (chem)  call write_jrate (n_bln,chamber)     ! photolysis rates
       if (chem)  call write_rxn                       ! reaction rates
       if (nuc)   call write_nuc                       ! nucleation
 
@@ -411,7 +411,7 @@ c flux divergences
       k=nf_put_att_text(idfile,idvar(30),'long_name',15,
      &     'd(K_h dq/dz)/dz')
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idfile,idvar(30),'units',13,'kg kg-1 s-1')
+      k=nf_put_att_text(idfile,idvar(30),'units',11,'kg kg-1 s-1')
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       k=nf_def_var(idfile,'fd_theta',nf_float,4,jddim1,idvar(31))
@@ -656,6 +656,9 @@ c open netCDF file for microphysics
      &     nka,
      &     nkt
 
+      USE precision, ONLY :
+     &     dp
+
       implicit none
 
 ! Include statements:
@@ -664,10 +667,12 @@ c open netCDF file for microphysics
 ! Local parameters:
       character (len=*), parameter :: fname = 'mic.nc'
       integer, parameter :: x=1, x2=2, y=1, noz=1
-      integer, parameter :: nat=nkt
+      !integer, parameter :: nat=nkt
+      integer, parameter :: n1d=nka-1
 ! Local scalars:
       integer :: id_nf,id_n10
-      integer :: id_nka,id_nkt,id_nat
+      integer :: id_nka,id_nkt  !,id_nat
+      integer :: id_n1d,id_nka2
       integer :: id_noz,id_x,id_x2,id_y
       integer :: k
       integer :: n10
@@ -678,6 +683,8 @@ c open netCDF file for microphysics
       common /cdf_var_mic/ id_mic_rec,idvar_mic(6),idmicfile,
      & imiccount,jddim_mic(4)
       integer :: id_mic_rec, idvar_mic, idmicfile, imiccount, jddim_mic
+      common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+      real (kind=dp) :: rpw, part1D
 !- End of header ---------------------------------------------------------------
 
       imiccount=0
@@ -693,9 +700,13 @@ c open netCDF file for microphysics
 c dimensions
       k=nf_def_dim(idmicfile,'nka',nka,id_nka)
       if (k.ne.nf_noerr) call ehandle(k,fname)
+      k=nf_def_dim(idmicfile,'nka2',nka,id_nka2)
+      if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_def_dim(idmicfile,'nkt',nkt,id_nkt)
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_def_dim(idmicfile,'nat',nat,id_nat)
+      !k=nf_def_dim(idmicfile,'nat',nat,id_nat)
+      !if (k.ne.nf_noerr) call ehandle(k,fname)
+      k=nf_def_dim(idmicfile,'n1d',n1d,id_n1d)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_def_dim(idmicfile,'n',n10,id_n10)
       if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -746,32 +757,49 @@ c time variables
      & 'part cm-3')
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      jddim1(1)=id_x2
-      jddim1(2)=id_nat
-      jddim1(3)=id_nf
-
-      k=nf_def_var(idmicfile,'partN',nf_float,4,jddim1,idvar_mic(5))
+c constant variables
+      jddim1(1)=id_nka2 ! this must be passed as an array, even if dimension is one
+      k=nf_def_var(idmicfile,'rpw',nf_float,1,jddim1(1:1),idvar_mic(5))
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idmicfile,idvar_mic(5),'long_name',23,
-     & '1D particle spectrum: N')
+      k=nf_put_att_text(idmicfile,idvar_mic(5),'long_name',14,
+     & '1D radius wall')
       if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idmicfile,idvar_mic(5),'units',9,
-     & 'part cm-3')
-      if (k.ne.nf_noerr) call ehandle(k,fname)
-
-      jddim1(1)=id_x
-
-      k=nf_def_var(idmicfile,'partr',nf_float,4,jddim1,idvar_mic(6))
-      if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idmicfile,idvar_mic(6),'long_name',9,
-     & '1D radius')
-      if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_put_att_text(idmicfile,idvar_mic(6),'units',2,
+      k=nf_put_att_text(idmicfile,idvar_mic(5),'units',2,
      & 'um')
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
+
+      jddim1(1)=id_n1d
+      jddim1(2)=id_nf
+      jddim1(3)=id_mic_rec
+
+      k=nf_def_var(idmicfile,'part1D',nf_float,3,jddim1(1:3),
+     &     idvar_mic(6))
+      if (k.ne.nf_noerr) call ehandle(k,fname)
+      k=nf_put_att_text(idmicfile,idvar_mic(6),'long_name',23,
+     & '1D particle spectrum: N')
+      if (k.ne.nf_noerr) call ehandle(k,fname)
+      k=nf_put_att_text(idmicfile,idvar_mic(6),'units',9,
+     & 'part cm-3')
+      if (k.ne.nf_noerr) call ehandle(k,fname)
+
+!      jddim1(1)=id_x
+
+!      k=nf_def_var(idmicfile,'partr',nf_float,4,jddim1,idvar_mic(6))
+!      if (k.ne.nf_noerr) call ehandle(k,fname)
+!      k=nf_put_att_text(idmicfile,idvar_mic(6),'long_name',9,
+!     & '1D radius')
+!      if (k.ne.nf_noerr) call ehandle(k,fname)
+!      k=nf_put_att_text(idmicfile,idvar_mic(6),'units',2,
+!     & 'um')
+!      if (k.ne.nf_noerr) call ehandle(k,fname)
+
 c end define mode
       k=nf_enddef(idmicfile)
+      if (k.ne.nf_noerr) call ehandle(k,fname)
+
+c write constant variable
+      k=nf_put_var_double(idmicfile, idvar_mic(5),rpw)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
       end subroutine open_mic
@@ -2603,7 +2631,7 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine open_jrate (n_bln)
+      subroutine open_jrate (n_bln, chamber)
 
 ! jjb work done
 !     - use module (and solve inconsistency in ph_rates numbers
@@ -2620,6 +2648,7 @@ c
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
       integer, intent(in) :: n_bln
+      logical, intent(in) :: chamber
 
 ! Local parameters:
       character (len=*), parameter :: fname = "jrate.nc"
@@ -2692,7 +2721,11 @@ c photolysis jrates
 
       jddim1(1)=id_x
       jddim1(2)=id_y
-      jddim1(3)=id_n
+      if (.not.chamber) then
+         jddim1(3)=id_n
+      else
+         jddim1(3)=id_noz
+      end if
       jddim1(4)=idjrat_rec
 
       do ispec=1,n_jrates
@@ -3530,8 +3563,8 @@ c
       integer :: ia, ik, ind, jt, k
 ! Local arrays:
       integer ifield(1,1,1), idimcount(4), idimstart(4), indlist(nf/10)
-      real (kind=dp) :: field(nka,nkt,nf/10), field2(2,nkt,nf),
-     &   field3(1,nkt,nf)
+      real (kind=dp) :: field(nka,nkt,nf/10)!, field2(2,nkt,nf),
+      !&   field3(1,nkt,nf)
 
 ! Common blocks
       common /cdf_var_mic/ id_mic_rec,idvar_mic(6),idmicfile,
@@ -3548,6 +3581,8 @@ c
 
       common /oneDs/ partN(n,nkt,2),partr(n,nkt),drp(nkt)
       real (kind=dp) :: partN, partr, drp
+      common /oneDsj/ rpw(nka), part1D(nka-1,nf)
+      real (kind=dp) :: rpw, part1D
 
 ! == End of declarations =======================================================
 
@@ -3614,28 +3649,34 @@ c time variables
       k=nf_sync(idmicfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      do k=2,nf
-         do jt=1,nkt
-            field2(1,jt,k)=partN(k,jt,1)
-            field2(2,jt,k)=partN(k,jt,2)
-            field3(1,jt,k)=partr(k,jt)
-         enddo
-      enddo
+      ! initialise to avoid being trapped in debuging option checking uninitialised arrays
+!      field2(:,:,1) = 0._dp
+!      field3(:,:,1) = 0._dp
+!      do k=2,nf
+!         do jt=1,nkt
+!            field2(1,jt,k)=partN(k,jt,1)
+!            field2(2,jt,k)=partN(k,jt,2)
+!            field3(1,jt,k)=partr(k,jt)
+!         enddo
+!      enddo
 
-      idimcount(1)=2
-      idimcount(2)=nkt
-      idimcount(3)=nf
+!      idimcount(1)=2
+!      idimcount(2)=nkt
+!      idimcount(3)=nf
 
-      k=nf_put_vara_double(idmicfile,idvar_mic(5),idimstart,
-     & idimcount,field2)
-      if (k.ne.nf_noerr) call ehandle(k,fname)
-      k=nf_sync(idmicfile)
-      if (k.ne.nf_noerr) call ehandle(k,fname)
+!      k=nf_put_vara_double(idmicfile,idvar_mic(5),idimstart,
+!     & idimcount,field2)
+!      if (k.ne.nf_noerr) call ehandle(k,fname)
+!      k=nf_sync(idmicfile)
+!      if (k.ne.nf_noerr) call ehandle(k,fname)
 
-      idimcount(1)=1
+      idimcount(1)=nka-1
+      idimcount(2)=nf
+      idimcount(3)=1
+      idimstart(3)=imiccount
 
-       k=nf_put_vara_double(idmicfile,idvar_mic(6),idimstart,
-     & idimcount,field3)
+       k=nf_put_vara_double(idmicfile,idvar_mic(6),idimstart(1:3),
+     & idimcount(1:3),part1D)
       if (k.ne.nf_noerr) call ehandle(k,fname)
       k=nf_sync(idmicfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
@@ -4033,13 +4074,14 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine write_jrate (n_bln)
+      subroutine write_jrate (n_bln,chamber)
 
 ! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
 
       USE global_params, ONLY :
 ! Imported Parameters:
-     &     n
+     &     n,
+     &     nphrxn
 
       USE precision, ONLY :
 ! Imported Parameters:
@@ -4051,6 +4093,7 @@ c
       include 'netcdf.inc'
 
       integer, intent(in) :: n_bln
+      logical, intent(in) :: chamber
 ! Local parameters:
       character (len=*), parameter :: fname = "jrate.nc"
 ! Local scalars:
@@ -4067,8 +4110,10 @@ c
       real (kind=dp) :: time
       integer :: lday, lst, lmin, it, lcl, lct
 
-      common /band_rat/ photol_j(47,n)
+      common /band_rat/ photol_j(nphrxn,n)
       real (kind=dp) :: photol_j
+      common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+      real (kind=dp) :: ph_rat_chamber
 
       ijratcount=ijratcount+1
 
@@ -4100,7 +4145,11 @@ c chemical species
 
       idimcount(1)=1
       idimcount(2)=1
-      idimcount(3)=n_bln
+      if (.not.chamber) then
+         idimcount(3)=n_bln
+      else
+         idimcount(3)=1
+      end if
       idimcount(4)=1
 
       idimstart(1)=1
@@ -4108,13 +4157,21 @@ c chemical species
       idimstart(3)=1
       idimstart(4)=ijratcount
 
-!     do ispec=1,46 ! jjb has to be increased
-      do ispec=1,47 ! jjb increased
-         field(1,1,:)=photol_j(ispec,1:n_bln)
-         k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),idimstart,
-     &        idimcount,field)
-         if (k.ne.nf_noerr) call ehandle(k,fname)
-      enddo
+      if (.not.chamber) then
+         do ispec=1,nphrxn
+            field(1,1,:)=photol_j(ispec,1:n_bln)
+            k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),
+     &           idimstart,idimcount,field)
+            if (k.ne.nf_noerr) call ehandle(k,fname)
+         enddo
+      else
+         do ispec=1,nphrxn
+            field(1,1,1)=ph_rat_chamber(ispec)
+            k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),
+     &           idimstart,idimcount,field(1:1,1:1,1:1))
+            if (k.ne.nf_noerr) call ehandle(k,fname)
+         enddo
+      end if
 
       k=nf_sync(idjratfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)

@@ -2583,7 +2583,7 @@ subroutine kurzw(ib,u0)
                  emomf = 1._dp - omf
 
                  u02   = u0**2
-                 ueps2 = u02*eps2
+                 ueps2 = u02 * eps2
                  emu   = emomf**2 - ueps2
 
                  ! First initialisation of u0red, used in resonance case

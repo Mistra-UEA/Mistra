@@ -251,8 +251,8 @@ subroutine outc
   real (kind=dp) :: conv2
   common /blck17/ sl1(j2,nkc,n),sion1(j6,nkc,n)
   real (kind=dp) :: sl1, sion1
-  common /blck78/ sa1(nka,j2),sac1(nka,j2)
-  real (kind=dp) :: sa1, sac1
+  common /blck78/ sa1(j2,nka)
+  real (kind=dp) :: sa1
   common /budg/ bg(2,nrxn,nlev),il(nlev)
   real (kind=dp) :: bg
   integer :: il
@@ -265,7 +265,7 @@ subroutine outc
   real (kind=dp) :: xcryssulf,xcrysss,xdelisulf,xdeliss
   common /kpp_l1/ cloudt(nkc,n)
   logical :: cloudt
-  common /kpp_mol/ xgamma(nf,j6,nkc)
+  common /kpp_mol/ xgamma(j6,nkc,nf)
   real (kind=dp) :: xgamma
   common /kpp_vt/ vt(nkc,nf),vd(nkt,nka),vdm(nkc)
   real (kind=dp) :: vt, vd, vdm
@@ -297,7 +297,7 @@ subroutine outc
   write (jpfunrstc) &
 ! double precision arrays
        am3,cm,cm3,conv2,cw,es1,photol_j,rc,s1,s3,sa1, &
-       sac1,sl1,sion1,vd,vdm,vt,xgamma, &
+       sl1,sion1,vd,vdm,vt,xgamma, &
 ! double precision, single values
        xcryssulf,xcrysss,xdelisulf,xdeliss, &
 ! logicals
@@ -1658,8 +1658,8 @@ subroutine constm
 6230 format (6x,'current program evaluation: ','   chem: ',l1, &
           ' mic: ',l1,'   rst: ',l1,//)
   xxsum=0._dp
+  xsum(:)=0._dp
   do k=2,nf
-     xsum(k)=0._dp
      do ia=1,nka
         do jt=1,nkt
            xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
@@ -1668,6 +1668,7 @@ subroutine constm
      xsum(k)=xsum(k)*1.e+09
      xxsum=xxsum+xsum(k)*detw(k)
   enddo
+
   write (jpfunprofm,6240)
 6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
   write (jpfunprofm,6250) xsum
@@ -1711,30 +1712,22 @@ subroutine constc
   USE gas_common, ONLY : &
 ! Imported Parameters:
        j1, &
-       j5
+       j5, &
+       nadvmax, nindadv, xadv ! for Eulerian advection
 
   USE global_params, ONLY : &
 ! Imported Parameters:
        j2
-
-  USE precision, ONLY : &
-! Imported Parameters:
-       dp
 
   implicit none
 
 ! Local scalars:
   integer :: j
 
-! Common blocks:
-  common /kpp_eul/ xadv(10),nspec(10)
-  real (kind=dp) :: xadv
-  integer :: nspec
-
 ! == End of declarations =======================================================
 
   write (jpfunprofc,5900) neula
-  write (jpfunprofc,5910) (nspec(j),xadv(j),j=1,10)
+  write (jpfunprofc,5910) (nindadv(j),xadv(j),j=1,nadvmax)
 5900 format ('euler (=0) or lagrangean view (=1): ',i3,' the following' &
           ,' species are advected only if neula=0')
 5910 format (i3,d12.3)
@@ -1755,6 +1748,9 @@ subroutine profm (dt)
 
 ! Declarations:
 ! Modules used:
+
+  USE config, ONLY : &
+       isurf
 
   USE data_surface, ONLY : &
        ustern, z0                  ! frictional velocity, roughness length
@@ -1871,18 +1867,22 @@ subroutine profm (dt)
 6080 format (1x,'surface heat fluxes'/, &
           10x,'ground heat: ',e11.4,3x,'latent heat: ',e11.4,3x, &
           'sensible heat: ',e11.4,3x,'net radiation: ',e11.4)
-  write (jpfunprofm,6090)
+
+  if (isurf == 1) then
+     write (jpfunprofm,6090)
 6090 format (/,1x,'temperature and volumetric moisture content in', &
           ' ground:')
-  write (jpfunprofm,6100) (zb(k),k=1,nb)
-  write (jpfunprofm,6110) (tb(k)-273.15_dp,k=1,nb)
-  write (jpfunprofm,6120) (eb(k),k=1,nb)
+     write (jpfunprofm,6100) (zb(k),k=1,nb)
+     write (jpfunprofm,6110) (tb(k)-273.15_dp,k=1,nb)
+     write (jpfunprofm,6120) (eb(k),k=1,nb)
 6100 format (4x,'zb:',/,10f10.3,/,10f10.3)
 6110 format (4x,'tb:',/,10f10.3,/,10f10.3)
 6120 format (4x,'eb:',/,10f10.3,/,10f10.3)
+  end if
+
   xxsum=0._dp
+  xsum(:)=0._dp
   do k=2,nf
-     xsum(k)=0._dp
      do ia=1,nka
         do jt=1,nkt
            xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
@@ -1898,18 +1898,18 @@ subroutine profm (dt)
   write (jpfunprofm,6260) xxsum
 6260 format(6x,'total aerosol mass in ug m**-2 of layers 2 - nf',f12.3)
 
+  call ion_mass (srname)
+
 ! 141  format (2i3,9d12.4)
 ! 142  format (6x,9d12.4)
 
-  call ion_mass (srname)
-
-!      do k=2,nf
-!         do kc=1,nkc_l
-!            write (*,141) (k,kc,(dss(k,l,kc),l=1,lsp))
-!            write (*,142) (svc(k,kc,kkc),kkc=1,nkc_l)
-!c        write (*,142) (fss(k,kc,1),fss(k,kc,2),svc(k,kc,1),svc(k,kc,2))
-!         enddo
-!      enddo
+!  do k=2,nf
+!     do kc=1,nkc_l
+!        write (*,141) (k,kc,(dss(k,l,kc),l=1,lsp))
+!        write (*,142) (svc(k,kc,kkc),kkc=1,nkc_l)
+!!        write (*,142) (fss(k,kc,1),fss(k,kc,2),svc(k,kc,1),svc(k,kc,2))
+!     enddo
+!  enddo
 
 end subroutine profm
 ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2202,8 +2202,7 @@ subroutine profr
        mbs
 
   USE precision, ONLY : &
-       dp                   ! kind double precision real
-
+       dp
 
   implicit none
 

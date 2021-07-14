@@ -80,12 +80,16 @@ logical :: &
   iod,     & ! iod      : iodine chemistry on/off
   box,     & ! box      : box model run
   BL_box,  & ! BL_box   : box only, average init cond over BL and/or mean of J-values over BL
+  chamber, & ! chamber  : chamber model run
   nuc,     & ! nuc      : nucleation on/off
   Napari,  & ! Napari   : nuc only, Napari = ternary H2SO4-H2O-NH3 nucleation
   Lovejoy, & ! Lovejoy  : nuc only, Lovejoy = homogeneous OIO nucleation
-  ltwcst     ! ltwcst   : constant tw (if not, ntwopt must be set)
+  ltwcst,  & ! ltwcst   : constant tw (if not, ntwopt must be set)
+  lpmona,  & ! lpmona   : activate Monahan scheme for particle emission (see SR aer_source)
+  lpsmith    ! lpsmith  : activate Smith scheme for particle emission (see SR aer_source)
 
 integer :: &
+  jpPartDistSet, &      ! Whole set of particle distributions (for one or several aerosol types)
   iaertyp, & ! iaertyp  : type of aerosol; 1=urban, 2=rural, 3=ocean, 4=background
   ifeed,   & ! ifeed    : retroaction over microphysics, and/or chemistry. See manual.
   isurf,   & ! isurf    : type of surface, (0) for water or snow, (1) for bare soil
@@ -106,7 +110,8 @@ real (kind=dp) :: &
      alat           ! latitude (in degree)
 
 integer :: &
-     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=
+     nuvProfOpt,  & ! Option for the profile of geostrophic wind components, 0 = cst except layers 1-3, 3=linearly decreasing
+     nwProfOpt      ! Option for the profile of subsidence, 1=BTZ96, 2=default, 3=linearly decreasing (Bott2000)
 real (kind=dp) :: &
      rhMaxBL,     & ! Maximum relative humidity in the boundary layer (model initialisation)
      rhMaxFT,     & ! Maximum relative humidity above inversion = in the free troposphere
@@ -135,6 +140,8 @@ real (KIND=dp) :: &
 integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
 
 ! Special runs switchs
+logical :: lpBuxmann15alph ! Switch on some special configuration to reproduce Buxmann et al 2015 (alpha case)
+logical :: lpBuys13_0D ! Switch on some special configuration of Buys et al 2013 (0D case)
 logical :: lpJoyce14bc ! Switch on some special configuration of Joyce et al 2014 (base case)
 
 character (len=100) :: cnmlfile
@@ -158,23 +165,25 @@ namelist /mistra_cfg/ &
 ! timing and geography
      nday, nmonth, nyear, nhour, alon, alat,  &
 ! meteorological data
-     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nwProfOpt, &
+     rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, ug, vg, wmin, wmax, nuvProfOpt, nwProfOpt, &
 ! Surface setings
      isurf, tw, ltwcst, ntwopt, rhsurf, z0, jpAlbedoOpt, &
      mic,             &
-     iaertyp,         &
+     jpPartDistSet, iaertyp,      &
 ! Chemistry setings
-     chem, halo, iod, nkc_l,   &
+     chem, halo, iod, nkc_l,      &
      cgaslistfile, cradlistfile,  &
+     lpmona, lpsmith, &
      neula,           &
-     box,             &
-     bl_box,          &
-     nlevbox,         &
-     z_box,           &
-     nuc, ifeed,      &
+! Box settings
+     box, bl_box, nlevbox, z_box, &
+! Chamber settings
+     chamber, &
+! Nucleation settings
+     nuc, ifeed, Napari, Lovejoy, &
      scaleo3_m,       &
 ! Special configuration
-     lpJoyce14bc
+     lpBuxmann15alph, lpBuys13_0D, lpJoyce14bc
 
 contains
 
@@ -221,7 +230,7 @@ subroutine read_config
   use file_unit, only : &
 ! Imported Parameters:
        jpfunnam,        &
-       jpfunout,        &
+       jpfunerr, jpfunout, &
        jpfuncfgout
 
   use precision, only : &
@@ -289,6 +298,7 @@ zinv = 700._dp
 dtinv = 6._dp
 ug = 6._dp
 vg = 6._dp
+nuvProfOpt = 0
 nwProfOpt = 2
 wmin = 0._dp
 wmax = -0.006_dp
@@ -301,24 +311,36 @@ rhsurf = 1._dp
 z0 = 0.01_dp
 jpAlbedoOpt = 0
 mic = .false.
+jpPartDistSet = 0
 iaertyp = 3
 ! Chemistry setings
-chem = .false.
-halo = .false.
-iod = .false.
+chem = .true.
+halo = .true.
+iod = .true.
 nkc_l = 4
 cgaslistfile='gas_species.csv'
 cradlistfile='gas_radical_species.csv'
+lpmona = .true.
+lpsmith = .false.
 neula = 1
+! Box settings
 box = .false.
 bl_box = .false.
 nlevbox = 2
 z_box = 700._dp
+! Chamber settings
+chamber = .false.
+! Nucleation settings
 nuc = .false.
 ifeed = 0
+Napari = .true.
+Lovejoy = .true.
+! Ozone column (only for photolysis rates)
 scaleo3_m = 300._dp
 
 ! Special configuration
+lpBuxmann15alph = .false.
+lpBuys13_0D = .false.
 lpJoyce14bc = .false.
 
 call getenv ('NAMELIST',cnmlfile)
@@ -340,11 +362,43 @@ end if
 ! ======================================================
 if (nuc.and..not.chem) then
    nuc = .false.
-   write(jpfunout,'(a)') 'Warning: nuc has been set to false since chemistry is off'
+   write(jpfunout,*) 'Warning: nuc has been set to false since chemistry is off'
 end if
 if (.not.nuc) then
    ifeed = 0
    ! do not display warning message in this case
+end if
+if (nuc.and.(.not.Napari).and.(.not.Lovejoy)) then
+   write(jpfunerr,*) 'Error: Napari or Lovejoy must be true is nuc is used'
+   call abortM ('Stopped by SR read_config')
+end if
+
+if (lpmona .and. lpsmith) then
+   write (jpfunerr,*) 'Error in namelist settings: choose either lpmona or lpsmith for aer emission scheme'
+   call abortM ('Stopped by SR read_config')
+end if
+
+if (chamber .and. box) then
+   write (jpfunerr,*) 'Error in namelist settings: choose either chamber or box'
+   call abortM ('Stopped by SR read_config')
+end if
+if (chamber .and. neula==0) then
+   write (jpfunerr,*) 'Error in namelist settings: neula=0 is not possible in chamber mode'
+   call abortM ('Stopped by SR read_config')
+end if
+
+if (BL_box.and..not.box) then
+   BL_box = .false.
+   write(jpfunout,*) 'Warning: BL_box has been set to false since box is off'
+end if
+
+if (chamber .and. jpPartDistSet.ne.4) then
+   jpPartDistSet = 4
+   write(jpfunout,*) 'Warning: jpPartDistSet has been set to 4, only possible choice for chamber version'
+end if
+if (chamber) then
+   alat = 45
+   write(jpfunout,*) 'Warning: alat has been set to 45 for chamber version'
 end if
 
 ! =====================================================

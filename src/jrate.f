@@ -109,13 +109,14 @@
 !       - update of subroutine calls after arguments removal
 !       - explicit definition of SW* switches (were assumed as real, when implicit DP was used)
 !       - reorganisation of SRs band, lookup and photo_cal:
-!            the former remover, the last 2 directly called by this SR
+!            the first removed, the last 2 directly called by this SR
 !            see more comments below
 !       - implicit none
 !
 
       USE global_params, ONLY :
      &     n_m=>n,
+     &     nphrxn,
      &     nrlay
 
       IMPLICIT NONE
@@ -133,11 +134,11 @@ c top layer in  MISTRA is already "infinity" in Jochens code "infinity" is layer
      $     PRESS(0:MAXLAY),  !pressure at model levels [hPa]
      $     RELO3(0:MAXLAY),  !O3 volumn mixing ratio [ppm]
      $     ALBEDO(MAXWAV),   !shortwave albedo
-     $     U0,              !cosine of solar zenith angle
-     $     SCALEO3              !total vert. ozone column for scaling
+     $     U0,               !cosine of solar zenith angle
+     $     SCALEO3           !total vert. ozone column for scaling
 
-      INTEGER
-     $     ITYPE(MAXLAY)         !aerosol type
+!      INTEGER
+!     $     ITYPE(MAXLAY)         !aerosol type
 
       DOUBLE PRECISION
      $     V2(0:MAXLAY),    !O2 column density [part./cm^2]
@@ -148,7 +149,7 @@ c top layer in  MISTRA is already "infinity" in Jochens code "infinity" is layer
      $     DV3(MAXLAY),     !diff. O3 column density [part./cm^2]
      $     V3S(0:MAXLAY),   !slant O3 column density [part./cm^2]
      $     DV3S(MAXLAY),    !diff. slant O2 column density [part./cm^2]
-     $     DENS(0:MAXLAY)   !densety of air molecules [part./cm^3]
+     $     DENS(0:MAXLAY)   !density of air molecules [part./cm^3]
 
 c     actinic fluxes
 
@@ -230,7 +231,7 @@ c     photolysis rates
       INTEGER K,L ! indexes of do loops
 
 c jrates for MISTRA
-      common /band_rat/ photol_j(47,n_m)
+      common /band_rat/ photol_j(nphrxn,n_m)
       double precision photol_j
 
       INTEGER SW2, SW4, SW7, SW12, SW13 ! jjb added 18/07/2015 for correct use below. Such integer definition was probably in Swich.dat (commented below) but was missing here.
@@ -255,8 +256,11 @@ c----------------------------------------------------------------------
 
       WRITE(*,'(8I4)')NWS
 
+!      CALL READ_DATA(TEMP,  PRESS,   RELO3,
+!     $               ITYPE, ALBEDO,  U0,    SCALEO3,
+!     $               SW4)
       CALL READ_DATA(TEMP,  PRESS,   RELO3,
-     $               ITYPE, ALBEDO,  U0,    SCALEO3,
+     $                      ALBEDO,  U0,    SCALEO3,
      $               SW4)
 
       CALL COLUMN(
@@ -390,8 +394,11 @@ c         photol_j(45,MAXLAY-k+1)= ??? !CHBr2I
 
 
 *******************************************************************
+!     SUBROUTINE READ_DATA(TEMP,    PRESS,  RELO3,
+!    $                     ITYPE,   ALBEDO,  U0,      SCALEO3,
+!    $                     SW4)
       SUBROUTINE READ_DATA(TEMP,    PRESS,  RELO3,
-     $                     ITYPE,   ALBEDO,  U0,      SCALEO3,
+     $                              ALBEDO,  U0,      SCALEO3,
      $                     SW4)
 
 ! Description:
@@ -451,8 +458,8 @@ C     OUTPUTS
      $     U0,               !cosine of solar zenith angle
      $     SCALEO3,          !total vert. ozone column for scaling
      $     Z(MAXLAY)         !hight of levels [m]                      ! jjb for output purpose only
-      INTEGER
-     $     ITYPE(MAXLAY)     !aerosol type
+!     INTEGER
+!    $     ITYPE(MAXLAY)     !aerosol type
 
 c commom blocks from MISTRA:
       common /cb02/ t_m(nrlev),p_m(nrlev),rho_m(nrlev),xm1_m(nrlev),ts_m
@@ -530,14 +537,16 @@ C----------------------------------------------------------------------
 C     CHECK DATA
 C----------------------------------------------------------------------
 
-      IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+!     IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+      IF(SW4.EQ.1) CALL ATM_OUT(ALBEDO,PRESS,TEMP,Z,RELO3)
 
       END SUBROUTINE READ_DATA
 *******************************************************************
 
 
 ********************************************************************
-      subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+!     subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3,ITYPE)
+      subroutine atm_out(ALBEDO,PRESS,TEMP,Z,RELO3)
 
 ! This SR writes atmospheric profiles after importing them from Mistra in the previous SR (read_data)
 ! In SR photol, this can be switched on/off using SW4
@@ -553,7 +562,14 @@ C----------------------------------------------------------------------
 !
 ! 23/10/2016 jjb
 !     removed FRAC, which was initialised to 0 in READ_DATA, and used nowhere
+!
+! 05/06/2021 jjb
+!     commented out ITYPE output, this variable is not linked to actual mistra aerosol type in jrate
 
+
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     fun=>jpfunprofj   ! file unit number
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -571,11 +587,10 @@ C----------------------------------------------------------------------
      $     Z(MAXLAY),        !hight of levels [m]
      $     RELO3(0:MAXLAY)   !O3 volumn mixing ratio [1]
 
-      INTEGER
-     $     ITYPE(MAXLAY)     !aerosol type
+!      INTEGER
+!     $     ITYPE(MAXLAY)     !aerosol type
 
-      INTEGER K,FUN
-      PARAMETER ( FUN = 7 ) ! file unit number
+      INTEGER K
 
 
  11   FORMAT(5(1P,E9.2))
@@ -599,9 +614,9 @@ C----------------------------------------------------------------------
       WRITE(FUN,*)'MIXING RATIO OF OZON [1]'
       WRITE(FUN,13)(RELO3(K), K=1,MAXLAY)
 
-      WRITE(FUN,*)'AEROSOL TYPE '//
-     $          '(1=rural,2=maritime,3=urban,4=free troposphere)'
-      WRITE(FUN,'(10I2)')(ITYPE(K),K=1,MAXLAY)
+!      WRITE(FUN,*)'AEROSOL TYPE '//
+!     $          '(1=rural,2=maritime,3=urban,4=free troposphere)'
+!      WRITE(FUN,'(10I2)')(ITYPE(K),K=1,MAXLAY)
 
       CLOSE(FUN)
 
@@ -766,23 +781,38 @@ C     DIFFERENTIAL O2 AND O3 COLUMNS AND SLANT COLUMNS
 
       USE config, ONLY : cinpdir_phot ! input directory for photolysis data files
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunflx,
+     &     jpfunsig,
+     &     jpfuncheb
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY,MAXWAV
       PARAMETER(MAXLAY=nrlay, MAXWAV=176)
+
+      CHARACTER (LEN=14) :: CLFMT    ! format for read
+      CHARACTER (LEN=130) :: CLPATH  ! path to input files
+      INTEGER :: I, L                ! running indexes
+      REAL (KIND=DP) :: sk, WL, X
 
       COMMON/WL/WAVE(MAXWAV),  !wavelength in the middle of the interval [cm]
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
       COMMON/FL/FLUX(MAXWAV)   !extraterrestic flux per interval
 c                               [photons/(cm^2 s)]
-      DOUBLE PRECISION FLUX
+      REAL (KIND=DP) :: FLUX, WAVE, DWAVE
 
       COMMON/RAY_J/CS_RAY(MAXWAV)!Rayleigh scattering cross section [cm^2/part.]
-      DOUBLE PRECISION CS_RAY
+      REAL (KIND=DP) :: CS_RAY
 
       COMMON/CROSS_SEC/        !cross sections [cm^2/part.]
      $     CS_H2O(MAXWAV),    CS_HNO3(MAXWAV),    CS_HNO4(MAXWAV),
@@ -806,6 +836,28 @@ c                               [photons/(cm^2 s)]
      $     CS_HONO(MAXWAV),
      $     CS_NO2m(MAXWAV),   CS_dumm23(MAXWAV),
      $     CS_dumm24(MAXWAV),  CS_dumm25(MAXWAV),   CS_dumm26(MAXWAV)
+      REAL (KIND=DP) ::
+     $     CS_H2O,    CS_HNO3,    CS_HNO4,
+     $     CS_SO2,    CS_HCl,     CS_HOCl,
+     $     CS_BrNO3,  CS_CF3Cl,   CS_CCl3F,
+     $     CS_CCl4,   CS_CCl2O,   CS_F115,
+     $     CS_F114,   CS_F113,    CS_CF2O,
+     $     CS_CClFO,  CS_O2,      CS_CH3OH,
+     $     CS_H2O2,   CS_F22,     CS_F13B1,
+     $     CS_F12B1,  CS_CH3Br,   CS_CCl2F2,
+     $     CS_CH3OOH, CS_Cl2,     CS_CHBr3,
+     $     CS_Cl2O2,  CS_N2O5,    CS_O4,
+     $     CS_NO3n,   CS_O3H2O,   CS_HOI_Jen91,
+     $     CS_HOCH2OOH,CS_HOBr_JPL,CS_HOBr,
+     $     CS_BrCl,   CS_BrCl_noT,   CS_ClNO2,
+     $     CS_BrNO2,  CS_Br2,     CS_IO,
+     $     CS_INO3,   CS_CH3I,    CS_I2,
+     $     CS_ICl,    CS_IBr,     CS_C3H7I,
+     $     CS_CH2ClI, CS_CH2I2,   CS_INO2,
+     $     CS_BrO_noT, CS_OClO_noT, CS_Cl2_noT,
+     $     CS_HONO,
+     $     CS_NO2m,   CS_dumm23,
+     $     CS_dumm24,  CS_dumm25,   CS_dumm26
 
 c     cross sections CS_X at temperature T_X (X=specie)
       COMMON/CROSS_SEC_T/
@@ -817,12 +869,18 @@ c     cross sections CS_X at temperature T_X (X=specie)
      $     T_OCS(2),          T_ClONO2(3),        T_CH3CCl3(3),
      $     T_CO2(3),          T_HOI(3),           T_CH2O(2),
      $     T_CH3Cl(3)
+      REAL (KIND=DP) ::
+     $     CS_O3, CS_NO3, CS_NO2, CS_OCS, CS_ClONO2, CS_CH3CCl3, CS_CO2,
+     $     COEFF_HNO3, CS_HOI, CS_CH2O, CS_CH3Cl,
+     $     T_O3, T_NO3, T_NO2, T_OCS, T_ClONO2, T_CH3CCl3, T_CO2,
+     $     T_HOI, T_CH2O, T_CH3Cl
 
 C     coefficients for Koppers and Murtagh  parameterization of CS_O2 in
 C     Schuhmann-Runge band
 
       COMMON/CHEB_COEFF/CHEB_COEFF_A(20,13),
      $                  CHEB_COEFF_B(20,13)
+      REAL (KIND=DP) :: CHEB_COEFF_A, CHEB_COEFF_B
 
 
 
@@ -862,214 +920,218 @@ C---------------------------------------------------------------------
 
       DO  L=1,176
         WL=WAVE(L)*1.E4
-        X=0.389D0 *WL+0.09426D0 /WL-0.3228D0 
+        X=0.389D0 *WL+0.09426D0 /WL-0.3228D0
         CS_RAY(L)=4.02D-28/WL**(4.D0 +X)
       ENDDO
 
-      OPEN(UNIT=1, FILE=trim(cinpdir_phot)//'flux.dat',STATUS='OLD')
-      READ(1,10) FLUX
+      CLPATH = trim(cinpdir_phot)//'flux.dat'
+      OPEN(UNIT=jpfunflx, FILE=trim(CLPATH),STATUS='OLD')
+      READ(jpfunflx,10) FLUX
 
-      CLOSE(1)
+      CLOSE(jpfunflx)
 
  10   FORMAT(1P,7E10.2)
 
-      OPEN(UNIT=2, FILE=trim(cinpdir_phot)//'sig0900.dat', STATUS='OLD')
+      CLPATH = trim(cinpdir_phot)//'sig0900.dat'
+      OPEN(UNIT=jpfunsig, FILE=trim(CLPATH), STATUS='OLD')
 
-      READ(2,*)
-      READ(2,101)CS_H2O
-      READ(2,*)
-      READ(2,101)CS_HNO3
-      READ(2,*)
-      READ(2,101)CS_HNO4
-      READ(2,*)
-      READ(2,101)CS_SO2
-      READ(2,*)
-      READ(2,101)CS_HCl
-      READ(2,*)
-      READ(2,101)CS_HOCl
-      READ(2,*)
-      READ(2,101)CS_BrNO3
-      READ(2,*)
-      READ(2,101)CS_CF3Cl
-      READ(2,*)
-      READ(2,101)CS_CCl3F
-      READ(2,*)
-      READ(2,101)CS_CCl4
-      READ(2,*)
-      READ(2,101)CS_CCl2O
-      READ(2,*)
-      READ(2,101)CS_F115
-      READ(2,*)
-      READ(2,101)CS_F114
-      READ(2,*)
-      READ(2,101)CS_F113
-      READ(2,*)
-      READ(2,101)CS_CF2O
-      READ(2,*)
-      READ(2,101)CS_CClFO
-      READ(2,*)
-      READ(2,101)CS_O2
-      READ(2,*)
-      READ(2,101)CS_CH3OH
-      READ(2,*)
-      READ(2,101)CS_H2O2
-      READ(2,*)
-      READ(2,101)CS_F22
-      READ(2,*)
-      READ(2,101)CS_F13B1
-      READ(2,*)
-      READ(2,101)CS_F12B1
-      READ(2,*)
-      READ(2,101)CS_CH3Br
-      READ(2,*)
-      READ(2,101)CS_CCl2F2
-      READ(2,*)
-      READ(2,101)CS_CH3OOH
-      READ(2,*)
-      READ(2,101)CS_Cl2
-      READ(2,*)
-      READ(2,101)CS_CHBr3
-      READ(2,*)
-      READ(2,101)CS_Cl2O2
-      READ(2,*)
-      READ(2,101)CS_N2O5
-      READ(2,*)
-      READ(2,101)CS_O4
-      READ(2,*)
-      READ(2,101)CS_NO3n
-      READ(2,*)
-      READ(2,101)CS_O3H2O
-      READ(2,*)
-      READ(2,101)CS_HOI_Jen91
-      READ(2,*)
-      READ(2,101)CS_HOCH2OOH
-      READ(2,*)
-      READ(2,101)CS_HOBr_JPL
-      READ(2,*)
-      READ(2,101)CS_HOBr
-      READ(2,*)
-c      READ(2,101)CS_BrCl
-c      READ(2,*)
-      READ(2,101)CS_BrCl_noT
-      READ(2,*)
-      READ(2,101)CS_ClNO2
-      READ(2,*)
-      READ(2,101)CS_BrNO2
-      READ(2,*)
-      READ(2,101)CS_Br2
-      READ(2,*)
-      READ(2,101)CS_IO
-      READ(2,*)
-      READ(2,101)CS_INO3
-      READ(2,*)
-      READ(2,101)CS_CH3I
-      READ(2,*)
-      READ(2,101)CS_I2
-      READ(2,*)
-      READ(2,101)CS_ICl
-      READ(2,*)
-      READ(2,101)CS_IBr
-      READ(2,*)
-      READ(2,101)CS_C3H7I
-      READ(2,*)
-      READ(2,101)CS_CH2ClI
-      READ(2,*)
-      READ(2,101)CS_CH2I2
-      READ(2,*)
-      READ(2,101)CS_INO2
-      READ(2,*)
-      READ(2,101)CS_BrO_noT
-      READ(2,*)
-      READ(2,101)CS_OClO_noT
-      READ(2,*)
-      READ(2,101)CS_Cl2_noT
-      READ(2,*)
-      READ(2,101)CS_HONO
-      READ(2,*)
-      READ(2,101)CS_NO2m
-      READ(2,*)
-      READ(2,101)CS_dumm23
-      READ(2,*)
-      READ(2,101)CS_dumm24
-      READ(2,*)
-      READ(2,101)CS_dumm25
-      READ(2,*)
-      READ(2,101)CS_dumm26
-      READ(2,*)
-      READ(2,201)T_O3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_H2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HNO4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_SO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HCl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOCl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CF3Cl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl3F
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F115
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F114
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F113
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CF2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CClFO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3OH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_H2O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F22
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F13B1
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_F12B1
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3Br
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CCl2F2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3OOH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CHBr3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2O2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_N2O5
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O4
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_NO3n
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_O3H2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOI_Jen91
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOCH2OOH
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOBr_JPL
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HOBr
+      READ(jpfunsig,*)
+c      READ(jpfunsig,101)CS_BrCl
+c      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrCl_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_ClNO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrNO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Br2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_IO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_INO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH3I
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_I2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_ICl
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_IBr
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_C3H7I
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH2ClI
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_CH2I2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_INO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_BrO_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_OClO_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_Cl2_noT
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_HONO
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_NO2m
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm23
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm24
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm25
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)CS_dumm26
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_O3
       DO I=1,3
-         READ(2,101)(CS_O3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_O3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_NO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_NO3
       DO I=1,2
-         READ(2,101)(CS_NO3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_NO3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_NO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_NO2
       DO I=1,2
-         READ(2,101)(CS_NO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_NO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_OCS
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_OCS
       DO I=1,2
-         READ(2,101)(CS_OCS(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_OCS(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_ClONO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_ClONO2
       DO I=1,3
-         READ(2,101)(CS_ClONO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_ClONO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH3CCl3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH3CCl3
       DO I=1,3
-         READ(2,101)(CS_CH3CCl3(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH3CCl3(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CO2
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CO2
       DO I =1,3
-         READ(2,101)(CS_CO2(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CO2(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,101)COEFF_HNO3
-      READ(2,*)
-      READ(2,201)T_HOI
+      READ(jpfunsig,*)
+      READ(jpfunsig,101)COEFF_HNO3
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_HOI
       DO I =1,3
-         READ(2,101)(CS_HOI(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_HOI(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH2O
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH2O
       DO I =1,2
-         READ(2,101)(CS_CH2O(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH2O(L,I),L=1,MAXWAV)
       ENDDO
-      READ(2,*)
-      READ(2,201)T_CH3Cl
+      READ(jpfunsig,*)
+      READ(jpfunsig,201)T_CH3Cl
       DO I=1,3
-         READ(2,101)(CS_CH3Cl(L,I),L=1,MAXWAV)
+         READ(jpfunsig,101)(CS_CH3Cl(L,I),L=1,MAXWAV)
       ENDDO
 
  101  FORMAT(7E10.2)
  201  FORMAT(4F5.0)
 
-      CLOSE(2)
+      CLOSE(jpfunsig)
+
 
 C     CEBESHEV COEFFICIENT A AND B FOR KOPPER MURTG. PARAMETERIZATION
 
+      CLPATH = trim(cinpdir_phot)//'cheb_coeff.dat'
+      CLFMT = '(17(E23.6,1X))'
+      OPEN(jpfuncheb,file=trim(CLPATH),status='old')
 
-      OPEN(3,file=trim(cinpdir_phot)//'cheb_coeff.dat',status='old')
-
-      READ(3,*)
-      READ(3,*)
+      READ(jpfuncheb,*)
+      READ(jpfuncheb,*)
       DO I=1,20
-         READ(3,'(17(E23.6,1X))')sk,sk,(CHEB_COEFF_A(I,L),L=1,13),sk,sk ! sk = skip
+         READ(jpfuncheb,CLFMT)sk,sk,(CHEB_COEFF_A(I,L),L=1,13),sk,sk ! sk = skip
       ENDDO
 
-      READ(3,*)
-      READ(3,*)
+      READ(jpfuncheb,*)
+      READ(jpfuncheb,*)
       DO I=1,20
-         READ(3,'(17(E23.6,1X))')sk,sk,(CHEB_COEFF_B(I,L),L=1,13),sk,sk ! sk = skip
+         READ(jpfuncheb,CLFMT)sk,sk,(CHEB_COEFF_B(I,L),L=1,13),sk,sk ! sk = skip
       ENDDO
-      CLOSE(3)
+      CLOSE(jpfuncheb)
 
       END SUBROUTINE CROSS_INIT
 *****************************************************************
@@ -1184,13 +1246,18 @@ c     coefficients for optical depth of Schumann-Runge band above TOA
 !        - most CST_* deleted, as unused, except CST_O3 and CST_O2
 !        - removal of all relevant parts (common blocks, internal functions, calculations)
 !        - re-indexing of CST_O3 for CPU efficiency
+! 25/06/2021 jjb: all missing declarations and implicit none
 
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY,MAXWAV
       PARAMETER(MAXLAY=nrlay, MAXWAV=176)
@@ -1234,6 +1301,28 @@ c     cross section initzialization
      $     CS_HONO(MAXWAV),
      $     CS_NO2m(MAXWAV),   CS_dumm23(MAXWAV),
      $     CS_dumm24(MAXWAV),  CS_dumm25(MAXWAV),   CS_dumm26(MAXWAV)
+      REAL (KIND=DP) ::
+     $     CS_H2O,    CS_HNO3,    CS_HNO4,
+     $     CS_SO2,    CS_HCl,     CS_HOCl,
+     $     CS_BrNO3,  CS_CF3Cl,   CS_CCl3F,
+     $     CS_CCl4,   CS_CCl2O,   CS_F115,
+     $     CS_F114,   CS_F113,    CS_CF2O,
+     $     CS_CClFO,  CS_O2,      CS_CH3OH,
+     $     CS_H2O2,   CS_F22,     CS_F13B1,
+     $     CS_F12B1,  CS_CH3Br,   CS_CCl2F2,
+     $     CS_CH3OOH, CS_Cl2,     CS_CHBr3,
+     $     CS_Cl2O2,  CS_N2O5,    CS_O4,
+     $     CS_NO3n,   CS_O3H2O,   CS_HOI_Jen91,
+     $     CS_HOCH2OOH,CS_HOBr_JPL,CS_HOBr,
+     $     CS_BrCl,   CS_BrCl_noT,   CS_ClNO2,
+     $     CS_BrNO2,  CS_Br2,     CS_IO,
+     $     CS_INO3,   CS_CH3I,    CS_I2,
+     $     CS_ICl,    CS_IBr,     CS_C3H7I,
+     $     CS_CH2ClI, CS_CH2I2,   CS_INO2,
+     $     CS_BrO_noT, CS_OClO_noT, CS_Cl2_noT,
+     $     CS_HONO,
+     $     CS_NO2m,   CS_dumm23,
+     $     CS_dumm24,  CS_dumm25,   CS_dumm26
 
 c     cross sections CS_X at temperature T_X (X=specie)
       COMMON/CROSS_SEC_T/
@@ -1245,6 +1334,11 @@ c     cross sections CS_X at temperature T_X (X=specie)
      $     T_OCS(2),          T_ClONO2(3),        T_CH3CCl3(3),
      $     T_CO2(3),          T_HOI(3),           T_CH2O(2),
      $     T_CH3Cl(3)
+      REAL (KIND=DP) ::
+     $     CS_O3, CS_NO3, CS_NO2, CS_OCS, CS_ClONO2, CS_CH3CCl3, CS_CO2,
+     $     COEFF_HNO3, CS_HOI, CS_CH2O, CS_CH3Cl,
+     $     T_O3, T_NO3, T_NO2, T_OCS, T_ClONO2, T_CH3CCl3, T_CO2,
+     $     T_HOI, T_CH2O, T_CH3Cl
 
       COMMON/WL/WAVE(MAXWAV), !wavelength in the middle of the interval [cm]
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
@@ -1257,6 +1351,11 @@ c     local arrays
 
       DOUBLE PRECISION
      $     SRO2(13,0:MAXLAY)
+
+c     local scalars
+      INTEGER K, L
+      REAL (KIND=DP) :: A_O1D, B_O1D, C1_O3, C2_O3, C3_O3,
+     $     DWAVE, TEMPER, WAVE
 
 C--------------------------------------------------------------------
 C temperature dependent cross section
@@ -1357,7 +1456,7 @@ c$$$* ALLEN M, FREDERICK JE, J. ATMOS. SCI. 39, 2066 FF               *
 c$$$* SPECTRAL RANGE: 179.4 - 201.0 NM,  WMO(1985) intervals          *
 c$$$*******************************************************************
 c$$$
-c$$$      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+c$$$      IMPLICIT NONE
 c$$$C     INPUTS
 c$$$
 c$$$      INTEGER MAXLAY,MJ
@@ -1378,6 +1477,10 @@ c$$$
 c$$$C     COEFFICIENTS AK(L,I), BK(L,I)
 c$$$
 c$$$      COMMON/C_O2/ AK(13,9),  BK(13,5)
+c$$$      DOUBLE PRECISION AK, BK
+c$$$
+c$$$      INTEGER I, J, K, L
+c$$$      DOUBLE PRECISION ALP, ALV2, CLN, SF, SLN, XL
 c$$$
 c$$$C----------------------------------------------------------------
 c$$$
@@ -1435,7 +1538,7 @@ c$$$      END SUBROUTINE SR_O2_AF
 * Koppers GAA, Murtagh DP, Ann. Geophysicae 14, 68-79          *
 ****************************************************************
 
-      IMPLICIT DOUBLE PRECISION (A-H,O-Z)
+      IMPLICIT NONE
 
 C     INPUTS
 
@@ -1455,6 +1558,7 @@ C     CEBESHEV COEFFICIENT A AND B
 
       COMMON/CHEB_COEFF/CHEB_COEFF_A(20,13),
      $                  CHEB_COEFF_B(20,13)
+      DOUBLE PRECISION CHEB_COEFF_A, CHEB_COEFF_B
 
       DOUBLE PRECISION
      $                 COEFF_A(20),
@@ -1462,7 +1566,11 @@ C     CEBESHEV COEFFICIENT A AND B
 
 C     EXTERNAL FUNCTIONS
 
-      EXTERNAL CHEBEV
+      DOUBLE PRECISION, EXTERNAL :: CHEBEV
+
+C     LOCAL SCALARS
+      INTEGER I, K, L
+      DOUBLE PRECISION A, B, DL_O2
 
 c-----------------------------------------------------------------
 
@@ -1753,7 +1861,7 @@ C****************************************************************
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
       INTEGER MAXLAY,NMOM,NW,SW13
       PARAMETER(MAXLAY=nrlay, NMOM =4,NW=7)
@@ -1778,7 +1886,6 @@ c     inputs
      $     FLX(NW),                   !extraterrestic flux
      $     U0                     !cosine of solar zenith angle
 
-
       DOUBLE PRECISION
      $     FACT(MAXLAY+1,NW)      !actinic flux
 
@@ -1796,6 +1903,9 @@ c     inputs
      $     FFD(MAXLAY+1),            !downward diffuse flux
      $     FFU(MAXLAY+1),            !upward diffuse flux
      $     UAV(MAXLAY+1)             !actinic flux
+
+      INTEGER I, K, L, NRFL, NP
+      DOUBLE PRECISION AS, FF0, PI, TAUSCAT, TAUTOT, UU0, XX
 
 C-------------------------------------------------------------------
       PI=2.D0*DASIN(1.0D0)
@@ -1896,6 +2006,7 @@ c     actinic flux
       ENDIF
  100  CONTINUE
 
+! jjb: it the following block is uncommented, make sure that the unit number is not already open
 c      OPEN(22,FILE='result/fact_four.dat',STATUS='UNKNOWN')
 
 c      DO J=1,MJ
@@ -1921,56 +2032,67 @@ c      CLOSE(22)
 !        - little cleaning
 
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunchk4
+
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
+
+      IMPLICIT NONE
 
       INTEGER MAXLAY
       PARAMETER(MAXLAY=nrlay)
 
-      DOUBLE PRECISION
+      REAL (KIND=DP), INTENT(IN) ::
      $     TT(MAXLAY),
      $     WC(MAXLAY),
      $     WW1(MAXLAY),
      $     WW2(MAXLAY),
      $     WW3(MAXLAY),
      $     WW4(MAXLAY)
+      REAL (KIND=DP), INTENT(IN) :: U0, ALB, FLX
 
-      PI=2.*DASIN(1.0D0)
+      REAL (KIND=DP), PARAMETER :: PI = 2._dp * ASIN(1._dp)
+
+      INTEGER :: K
 
 C-----------------------------------------------------------
-      OPEN(8,FILE='check_four.out',STATUS='UNKNOWN')
+      OPEN(jpfunchk4,FILE='check_four.out',STATUS='UNKNOWN')
 
-      WRITE(8,*)'total extinction optical depth'
-            WRITE(8,'(1P,6E12.4)')(TT(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'total extinction optical depth'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(TT(K),K=1,MAXLAY)
 
-      WRITE(8,*)'single scattering albedo (not delta scaled)'
-            WRITE(8,'(1P,6E12.4)')(WC(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'single scattering albedo (not delta scaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WC(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=1 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW1(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=1 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW1(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=2 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW2(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=2 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW2(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=3 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW3(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=3 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW3(K),K=1,MAXLAY)
 
-      WRITE(8,*)'phase fn. exp. coeff  I=4 (unscaled)'
-            WRITE(8,'(1P,6E12.4)')(WW4(K),K=1,MAXLAY)
+      WRITE(jpfunchk4,*)'phase fn. exp. coeff  I=4 (unscaled)'
+      WRITE(jpfunchk4,'(1P,6E12.4)')(WW4(K),K=1,MAXLAY)
 
-      WRITE(8,*)'solar cosine'
-            WRITE(8,'(1P,6E12.4)') U0
+      WRITE(jpfunchk4,*)'solar cosine'
+      WRITE(jpfunchk4,'(1P,6E12.4)') U0
 
-      WRITE(8,*)'surface albedo'
-            WRITE(8,'(1P,6E12.4)') ALB
+      WRITE(jpfunchk4,*)'surface albedo'
+      WRITE(jpfunchk4,'(1P,6E12.4)') ALB
 
-      WRITE(8,*)'extraterrestrial flux'
-            WRITE(8,'(1P,6E12.4)') FLX*PI
+      WRITE(jpfunchk4,*)'extraterrestrial flux'
+      WRITE(jpfunchk4,'(1P,6E12.4)') FLX*PI
 
-      CLOSE(8)
+      CLOSE(jpfunchk4)
 
       END SUBROUTINE CHECK_FOUR
 *************************************************************
@@ -2001,13 +2123,14 @@ c **********************************************************************
 !        - USE global_params for vertical grid parameters
 !        - removal of unused parameters and common blocks
 !        - cleaning, more DP declaration
+! 25/06/2021 jjb: all missing declarations and implicit none
 
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs,mdfs
       PARAMETER (MAXLAY=nrlay)
@@ -2021,10 +2144,15 @@ c input
      1                 t(ndfs), u0a(ndfs), f0a(ndfs)
       double precision fk1(ndfs), fk2(ndfs), a4(4,4,ndfs),
      1                 z4(4,ndfs), g4(4,ndfs)
+      double precision as
 c output
       double precision ffu(mdfs), ffd(mdfs), fsd(mdfs), uav(mdfs)
 c local
       double precision x(4), fi(4)
+      integer i, ii, jj, k, n, np, nrfl, m
+      double precision asbs, f0, fourpi, fw1, fw2, fw3, fw4,
+     $     pi, u0, y, y1
+
       n = nrfl
       m = np
       asbs = as
@@ -2166,7 +2294,7 @@ c **********************************************************************
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs,ndfs4
       PARAMETER (MAXLAY=nrlay)
@@ -2190,6 +2318,11 @@ c **********************************************************************
       double precision ab(13,ndfs4), bx(ndfs4), xx(ndfs4)
 c local
       double precision fu(4,4), wu(4)
+      double precision b1, c1, f0n, fk1t, fk2t, fw1, fw2, t0n, t1n,
+     $     u0n, v1, v2, v3, w1n, w2n, w3n, wn
+      integer i, i1, i2, i3, i8, j, j1, j2, j3, k, kf,
+     $     m1, m2, m18, m28, n, n4
+
       n = nrfl
       n4 = n*4
       do 333 i = 1, n4
@@ -2532,17 +2665,21 @@ c **********************************************************************
 !                 removal of unused parameters
 !                 cleaning.
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
 c input
       double precision b(4,3)
       double precision a(2,2,2)
       double precision z(4)
+      double precision b1, c1, f0, t0, t1, u0
 
 c output
-
       double precision aa(4,4,2), zz(4,2), a1(4,4), z1(4)
+      double precision fk1, fk2
 
+c local
+      integer i
+      double precision a2, b2, dt, fq0, fq1, fw, fw1, fw2, x, y, zx
 c--------------------------------------------------------------
       dt = t1 - t0
       x = sqrt ( b1 * b1 + 4.0D0 * c1 )
@@ -2614,14 +2751,17 @@ c **********************************************************************
 !                 removal of 2 unused argument,
 !                 removal of unused parameters and common block,
 !                 cleaning
+! 25/06/2021 jjb: all missing declarations and implicit none
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
+! input
+      double precision t0, t1
 ! output
       double precision z1(4), fk1, fk2, a1(4,4), zz(4,2), aa(4,4,2)
 ! Local scalars:
-      integer i, j
-      double precision dt, y
+      integer i, j, k
+      double precision dt, x, y
 
       fk1 = 4.7320545D0
       fk2 = 1.2679491D0
@@ -2689,12 +2829,13 @@ c **********************************************************************
 !        - USE global_params for vertical grid parameters
 !        - removal of unused parameters
 !        - cleaning
+! 25/06/2021 jjb: all missing declarations and implicit none
 
       USE global_params, ONLY :
 ! Imported Parameters:
      &     nrlay
 
-      implicit double precision (a-h,o-z)
+      implicit none
 
       INTEGER MAXLAY,ndfs4
       PARAMETER (MAXLAY=nrlay)
@@ -2702,6 +2843,12 @@ c **********************************************************************
 
 c input/output
       double precision ab(13,ndfs4), b(ndfs4), x(ndfs4)
+c local
+      integer i, i0, i0f, i0m1, ifq, im1, j, k, k44, l,
+     $     m, m1, m18, m1f, m2, m28, m3, m38, m4, m48,
+     $     n, n1, n2, n3, n4, n44, nrfl
+      double precision p, t, xx, yy
+
       n = nrfl
       n4 = n*4
       do 5 k = 1, n - 1
@@ -2848,6 +2995,9 @@ c input/output
 !        - little cleaning
 !        - implicit none
 
+      USE file_unit, ONLY :
+! Imported Parameters:
+     &     jpfunf4st
 
       USE global_params, ONLY :
 ! Imported Parameters:
@@ -2868,7 +3018,7 @@ c input/output
      $          DWAVE(MAXWAV)  !width of the wavelength intervals [cm]
       DOUBLE PRECISION WAVE,DWAVE
 
-      CHARACTER FILEN*4
+      CHARACTER (LEN=4) FILEN
 
       INTEGER
      $     NWS(NW)             !specification of interval: 1 < NWS(L) < MAXWAV
@@ -2878,7 +3028,7 @@ c input/output
 c-------------------------------------------------------------------
 
 
-      OPEN(9,FILE=FILEN//'.out',STATUS='UNKNOWN')
+      OPEN(jpfunf4st,FILE=FILEN//'.out',STATUS='UNKNOWN')
 
       DO L  = 1,NW
          DO K=0,MAXLAY
@@ -2888,13 +3038,13 @@ c-------------------------------------------------------------------
                TP(K)=FACT(K,L)/(DWAVE(NWS(L))*1.D7) !-> [photons/(cm^2 s nm)]
             ENDIF
          ENDDO
-         WRITE(9,'(1p,6E12.4)')TP
+         WRITE(jpfunf4st,'(1p,6E12.4)')TP
       ENDDO
-      WRITE(9,'(1p,6E12.4)')(FLX(L)/(DWAVE(NWS(L))*1.D7),L=1,NW)
+      WRITE(jpfunf4st,'(1p,6E12.4)')(FLX(L)/(DWAVE(NWS(L))*1.D7),L=1,NW)
 
-      CLOSE(9)
+      CLOSE(jpfunf4st)
 
-      END
+      END SUBROUTINE FLUX_OUT
 ********************************************************************
 
 
@@ -2914,16 +3064,14 @@ c-------------------------------------------------------------------
 !                 cleaning
 ! 05/11/2017 jjb: replaced directories by config
 
-      USE config, ONLY : cinpdir_phot ! input directory for photolysis data files
+      USE config, ONLY : cinpdir_phot     ! input directory for photolysis data files
+      USE file_unit, ONLY : nlt=>jpfunnlt ! unit to open and read lookup table ('lookt0900.dat')
+      USE precision, ONLY : dp
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
-
-! Local parameter:
-      integer nlt
-      parameter ( nlt = 4 ) ! unit to open and read lookup table ('lookt0900.dat')
+      IMPLICIT NONE
 
 ! Local scalar:
-      integer i, j, k
+      INTEGER i, j, k
 
 *--------------------------------------------------------------------*
 *     LOOK-UP TABLE                                                  *
@@ -2954,7 +3102,15 @@ c-------------------------------------------------------------------
      $              CS_dumm24(58,2,2),
      $              CS_dumm25(58,2,2),
      $              CS_dumm26(58,2,2)
-
+      REAL (KIND=DP) ::
+     $     CS_O2, FS_O2, CS_O3, FS_O3, CS_N2O, FS_N2O,
+     $     CS_CFC11, FS_CFC11, CS_CFC12, FS_CFC12,
+     $     CS_H2O2, FS_H2O2, CS_HNO3, FS_HNO3, CS_HNO4, FS_HNO4,
+     $     CS_ClONO2, FS_ClONO2, CS_BrNO3, CS_Cl2O2, CS_HOCl,
+     $     CS_N2O5, FS_N2O5, CS_HO2, FS_HO2, CS_HO3, FS_HO3,
+     $     CS_BrCl_noT, CS_ClNO2, CS_BrNO2, CS_Br2, CS_CH3I,
+     $     CS_NO3n, FS_NO3n, CS_dumm23, CS_dumm24, CS_dumm25, CS_dumm26
+      
       COMMON/LOOK/
      $          TAUA1(55,3),     TAUB1(55,3),
      $          A1_O3(55,3),     B1_O3(55,3),
@@ -3067,6 +3223,50 @@ c-------------------------------------------------------------------
      $          A3_dumm24(55),   B3_dumm24(55),
      $          A3_dumm25(55),   B3_dumm25(55),
      $          A3_dumm26(55),   B3_dumm26(55)
+      REAL (KIND=DP) ::
+     $     TAUA1, TAUB1, A1_O3, B1_O3, A1_O2, B1_O2, A1_H2O2, B1_H2O2,
+     $     A1_HNO3, B1_HNO3, A1_HNO4, B1_HNO4, A1_N2O5, B1_N2O5,
+     $     A1_CH3OOH, B1_CH3OOH, A1_N2O, B1_N2O, A1_CFC11, B1_CFC11,
+     $     A1_CFC12, B1_CFC12, A1_ClONO2, B1_ClONO2, A1_BrNO3, B1_BrNO3,
+     $     A1_Cl2O2, B1_Cl2O2, A1_HOCl, B1_HOCl, A1_H_O2, B1_H_O2,
+     $     A1_H_O3, B1_H_O3, A1_BrCl_noT, B1_BrCl_noT,
+     $     A1_ClNO2, B1_ClNO2, A1_BrNO2, B1_BrNO2, A1_Br2, B1_Br2,
+     $     A1_CH3I, B1_CH3I, A1_ICl, B1_ICl, A1_IBr, B1_IBr,
+     $     A1_C3H7I, B1_C3H7I, A1_CH2ClI, B1_CH2ClI, A1_CH2I2, B1_CH2I2,
+     $     A1_INO2, B1_INO2, A1_Cl2_noT, B1_Cl2_noT, A1_NO3n, B1_NO3n,
+     $     A1_dumm23, B1_dumm23, A1_dumm24, B1_dumm24,
+     $     A1_dumm25, B1_dumm25, A1_dumm26, B1_dumm26,
+     $     TAUA2, TAUB2,
+     $     A2_TO3, B2_TO3, A2_O1D, B2_O1D, A2_O3P, B2_O3P,
+     $     A2_H2O2, B2_H2O2, A2_HNO3, B2_HNO3, A2_HNO4, B2_HNO4,
+     $     A2_N2O5, B2_N2O5, A2_CH3OOH, B2_CH3OOH, A2_NO2, B2_NO2,
+     $     A2_ClONO2, B2_ClONO2, A2_BrNO3, B2_BrNO3, A2_Cl2O2, B2_Cl2O2,
+     $     A2_HOCl, B2_HOCl, A2_H_O3, B2_H_O3, A2_H_NO2, B2_H_NO2,
+     $     A2_BrCl_noT, B2_BrCl_noT, A2_ClNO2, B2_ClNO2,
+     $     A2_BrNO2, B2_BrNO2, A2_Br2, B2_Br2, A2_INO3, B2_INO3,
+     $     A2_CH3I, B2_CH3I, A2_ICl, B2_ICl, A2_IBr, B2_IBr,
+     $     A2_C3H7I, B2_C3H7I, A2_CH2ClI, B2_CH2ClI, A2_CH2I2, B2_CH2I2,
+     $     A2_INO2, B2_INO2, A2_OClO_noT, B2_OClO_noT,
+     $     A2_Cl2_noT, B2_Cl2_noT, A2_HOBr, B2_HOBr, A2_NO3n, B2_NO3n,
+     $     A2_dumm23, B2_dumm23, A2_dumm24, B2_dumm24,
+     $     A2_dumm25, B2_dumm25, A2_dumm26, B2_dumm26,
+     $     TAUA3, TAUB3,
+     $     A3_TO3, B3_TO3, A3_O1D, B3_O1D, A3_O3P, B3_O3P,
+     $     A3_H2O2, B3_H2O2, A3_HNO3, B3_HNO3, A3_HNO4, B3_HNO4,
+     $     A3_N2O5, B3_N2O5, A3_CH3OOH, B3_CH3OOH, A3_NO2, B3_NO2,
+     $     A3_COH2, B3_COH2, A3_CHOH, B3_CHOH, A3_ClONO2, B3_ClONO2,
+     $     A3_BrNO3, B3_BrNO3, A3_Cl2O2, B3_Cl2O2, A3_HOCl, B3_HOCl,
+     $     A3_H_O3, B3_H_O3, A3_H_NO2, B3_H_NO2,
+     $     A3_BrCl_noT, B3_BrCl_noT, A3_ClNO2, B3_ClNO2,
+     $     A3_BrNO2, B3_BrNO2, A3_Br2, B3_Br2, A3_INO3, B3_INO3,
+     $     A3_CH3I, B3_CH3I, A3_ICl, B3_ICl, A3_IBr, B3_IBr,
+     $     A3_C3H7I, B3_C3H7I, A3_CH2ClI, B3_CH2ClI, A3_CH2I2, B3_CH2I2,
+     $     A3_INO2, B3_INO2, A3_BrO_noT, B3_BrO_noT,
+     $     A3_OClO_noT, B3_OClO_noT, A3_Cl2_noT, B3_Cl2_noT,
+     $     A3_HOI_jen91, B3_HOI_jen91,
+     $     A3_HOBr, B3_HOBr, A3_NO2m, B3_NO2m, A3_NO3n, B3_NO3n,
+     $     A3_dumm23, B3_dumm23, A3_dumm24, B3_dumm24,
+     $     A3_dumm25, B3_dumm25, A3_dumm26, B3_dumm26
 
       COMMON/C_POLY/
      $   C4_TAU(4),     C5_TAU(3),                    C7_TAU(2),
@@ -3118,7 +3318,55 @@ c-------------------------------------------------------------------
      $   C4_dumm24(2),   C5_dumm24(2),   C6_dumm24(1),   C7_dumm24(2),
      $   C4_dumm25(2),   C5_dumm25(2),   C6_dumm25(1),   C7_dumm25(2),
      $   C4_dumm26(2),   C5_dumm26(2),   C6_dumm26(1),   C7_dumm26(2)
-
+      REAL (KIND=DP)
+     $   C4_TAU,     C5_TAU,                 C7_TAU,
+     $   C4_T_O3,    C5_T_O3,                C7_T_O3,
+     $   C4_O1D,     C5_O1D,
+     $   C4_O3P,     C5_O3P,     C6_O3P,     C7_O3P,
+     $   C4_H2O2,    C5_H2O2,    C6_H2O2,
+     $   C4_HNO3,    C5_HNO3,    C6_HNO3,
+     $   C4_HNO4,    C5_HNO4,
+     $   C4_N2O5,    C5_N2O5,    C6_N2O5,
+     $   C4_CH3OOH,  C5_CH3OOH,  C6_CH3OOH,
+     $   C4_NO2,     C5_NO2,     C6_NO2,
+     $   C4_COH2,    C5_COH2,    C6_COH2,
+     $   C4_CHOH,    C5_CHOH,    C6_CHOH,
+     $                           C6_NO2O,    C7_NO2O,
+     $                                       C7_NOO2,
+     $   C4_ClONO2,  C5_ClONO2,  C6_ClONO2,
+     $   C4_BrNO3,   C5_BrNO3,   C6_BrNO3,   C7_BrNO3,
+     $   C4_Cl2O2,   C5_Cl2O2,   C6_Cl2O2,
+     $   C4_HOCl,    C5_HOCl,    C6_HOCl,
+     $   C4_H_O3,    C5_H_O3,    C6_H_O3,    C7_H_O3,
+     $                                       C7_H_O2,
+     $   C4_H_NO2,   C5_H_NO2,   C6_H_NO2,   C7_H_NO2,
+     $                           C6_H_O4,    C7_H_O4,
+     $   C4_BrCl_noT,C5_BrCl_noT,C6_BrCl_noT,C7_BrCl_noT,
+     $   C4_ClNO2,   C5_ClNO2,   C6_ClNO2,
+     $   C4_BrNO2,   C5_BrNO2,   C6_BrNO2,   C7_BrNO2,
+     $   C4_Br2,     C5_Br2,     C6_Br2,     C7_Br2,
+     $                           C6_IO,      C7_IO,
+     $   C4_INO3,    C5_INO3,    C6_INO3,    C7_INO3,
+     $   C4_CH3I,    C5_CH3I,    C6_CH3I,
+     $                           C6_I2,      C7_I2,
+     $   C4_ICl,     C5_ICl,     C6_ICl,     C7_ICl,
+     $   C4_IBr,     C5_IBr,     C6_IBr,     C7_IBr,
+     $   C4_C3H7I,   C5_C3H7I,   C6_C3H7I,
+     $   C4_CH2ClI,  C5_CH2ClI,  C6_CH2ClI,
+     $   C4_CH2I2,   C5_CH2I2,   C6_CH2I2,
+     $   C4_INO2,    C5_INO2,    C6_INO2,
+     $   C4_BrO_noT, C5_BrO_noT, C6_BrO_noT,
+     $   C4_OClO_noT,C5_OClO_noT,C6_OClO_noT,C7_OClO_noT,
+     $   C4_Cl2_noT, C5_Cl2_noT, C6_Cl2_noT, C7_Cl2_noT,
+     $   C4_HOI_jen91,C5_HOI_jen91,C6_HOI_jen91,C7_HOI_jen91,
+     $   C4_HOBr,    C5_HOBr,    C6_HOBr,   C7_HOBr,
+     $   C4_HONO,    C5_HONO,    C6_HONO,
+     $   C4_NO2m,    C5_NO2m,    C6_NO2m,
+     $   C4_NO3n,    C5_NO3n,    C6_NO3n,
+     $   C4_dumm23,  C5_dumm23,  C6_dumm23,  C7_dumm23,
+     $   C4_dumm24,  C5_dumm24,  C6_dumm24,  C7_dumm24,
+     $   C4_dumm25,  C5_dumm25,  C6_dumm25,  C7_dumm25,
+     $   C4_dumm26,  C5_dumm26,  C6_dumm26,  C7_dumm26
 
 c-------------------------------------------------------------------
 
@@ -4276,8 +4524,11 @@ c-------------------------------------------------------------------
 ! Imported Parameters:
      &     nrlay
 
+      USE precision, ONLY :
+! Imported Parameters:
+     &     dp
 
-      IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+      IMPLICIT NONE
 
       INTEGER MAXLAY,NW
       PARAMETER(MAXLAY=nrlay, NW=7)
@@ -4313,6 +4564,14 @@ c-------------------------------------------------------------------
      $              CS_dumm24(58,2,2),
      $              CS_dumm25(58,2,2),
      $              CS_dumm26(58,2,2)
+      REAL (KIND=DP) ::
+     $     CS_O2, FS_O2, CS_O3, FS_O3, CS_N2O, FS_N2O,
+     $     CS_CFC11, FS_CFC11, CS_CFC12, FS_CFC12,
+     $     CS_H2O2, FS_H2O2, CS_HNO3, FS_HNO3, CS_HNO4, FS_HNO4,
+     $     CS_ClONO2, FS_ClONO2, CS_BrNO3, CS_Cl2O2, CS_HOCl,
+     $     CS_N2O5, FS_N2O5, CS_HO2, FS_HO2, CS_HO3, FS_HO3,
+     $     CS_BrCl_noT, CS_ClNO2, CS_BrNO2, CS_Br2, CS_CH3I,
+     $     CS_NO3n, FS_NO3n, CS_dumm23, CS_dumm24, CS_dumm25, CS_dumm26
 
       COMMON/LOOK/
      $          TAUA1(55,3),     TAUB1(55,3),
@@ -4426,6 +4685,50 @@ c-------------------------------------------------------------------
      $          A3_dumm24(55),   B3_dumm24(55),
      $          A3_dumm25(55),   B3_dumm25(55),
      $          A3_dumm26(55),    B3_dumm26(55)
+      REAL (KIND=DP) ::
+     $     TAUA1, TAUB1, A1_O3, B1_O3, A1_O2, B1_O2, A1_H2O2, B1_H2O2,
+     $     A1_HNO3, B1_HNO3, A1_HNO4, B1_HNO4, A1_N2O5, B1_N2O5,
+     $     A1_CH3OOH, B1_CH3OOH, A1_N2O, B1_N2O, A1_CFC11, B1_CFC11,
+     $     A1_CFC12, B1_CFC12, A1_ClONO2, B1_ClONO2, A1_BrNO3, B1_BrNO3,
+     $     A1_Cl2O2, B1_Cl2O2, A1_HOCl, B1_HOCl, A1_H_O2, B1_H_O2,
+     $     A1_H_O3, B1_H_O3, A1_BrCl_noT, B1_BrCl_noT,
+     $     A1_ClNO2, B1_ClNO2, A1_BrNO2, B1_BrNO2, A1_Br2, B1_Br2,
+     $     A1_CH3I, B1_CH3I, A1_ICl, B1_ICl, A1_IBr, B1_IBr,
+     $     A1_C3H7I, B1_C3H7I, A1_CH2ClI, B1_CH2ClI, A1_CH2I2, B1_CH2I2,
+     $     A1_INO2, B1_INO2, A1_Cl2_noT, B1_Cl2_noT, A1_NO3n, B1_NO3n,
+     $     A1_dumm23, B1_dumm23, A1_dumm24, B1_dumm24,
+     $     A1_dumm25, B1_dumm25, A1_dumm26, B1_dumm26,
+     $     TAUA2, TAUB2,
+     $     A2_TO3, B2_TO3, A2_O1D, B2_O1D, A2_O3P, B2_O3P,
+     $     A2_H2O2, B2_H2O2, A2_HNO3, B2_HNO3, A2_HNO4, B2_HNO4,
+     $     A2_N2O5, B2_N2O5, A2_CH3OOH, B2_CH3OOH, A2_NO2, B2_NO2,
+     $     A2_ClONO2, B2_ClONO2, A2_BrNO3, B2_BrNO3, A2_Cl2O2, B2_Cl2O2,
+     $     A2_HOCl, B2_HOCl, A2_H_O3, B2_H_O3, A2_H_NO2, B2_H_NO2,
+     $     A2_BrCl_noT, B2_BrCl_noT, A2_ClNO2, B2_ClNO2,
+     $     A2_BrNO2, B2_BrNO2, A2_Br2, B2_Br2, A2_INO3, B2_INO3,
+     $     A2_CH3I, B2_CH3I, A2_ICl, B2_ICl, A2_IBr, B2_IBr,
+     $     A2_C3H7I, B2_C3H7I, A2_CH2ClI, B2_CH2ClI, A2_CH2I2, B2_CH2I2,
+     $     A2_INO2, B2_INO2, A2_OClO_noT, B2_OClO_noT,
+     $     A2_Cl2_noT, B2_Cl2_noT, A2_HOBr, B2_HOBr, A2_NO3n, B2_NO3n,
+     $     A2_dumm23, B2_dumm23, A2_dumm24, B2_dumm24,
+     $     A2_dumm25, B2_dumm25, A2_dumm26, B2_dumm26,
+     $     TAUA3, TAUB3,
+     $     A3_TO3, B3_TO3, A3_O1D, B3_O1D, A3_O3P, B3_O3P,
+     $     A3_H2O2, B3_H2O2, A3_HNO3, B3_HNO3, A3_HNO4, B3_HNO4,
+     $     A3_N2O5, B3_N2O5, A3_CH3OOH, B3_CH3OOH, A3_NO2, B3_NO2,
+     $     A3_COH2, B3_COH2, A3_CHOH, B3_CHOH, A3_ClONO2, B3_ClONO2,
+     $     A3_BrNO3, B3_BrNO3, A3_Cl2O2, B3_Cl2O2, A3_HOCl, B3_HOCl,
+     $     A3_H_O3, B3_H_O3, A3_H_NO2, B3_H_NO2,
+     $     A3_BrCl_noT, B3_BrCl_noT, A3_ClNO2, B3_ClNO2,
+     $     A3_BrNO2, B3_BrNO2, A3_Br2, B3_Br2, A3_INO3, B3_INO3,
+     $     A3_CH3I, B3_CH3I, A3_ICl, B3_ICl, A3_IBr, B3_IBr,
+     $     A3_C3H7I, B3_C3H7I, A3_CH2ClI, B3_CH2ClI, A3_CH2I2, B3_CH2I2,
+     $     A3_INO2, B3_INO2, A3_BrO_noT, B3_BrO_noT,
+     $     A3_OClO_noT, B3_OClO_noT, A3_Cl2_noT, B3_Cl2_noT,
+     $     A3_HOI_jen91, B3_HOI_jen91,
+     $     A3_HOBr, B3_HOBr, A3_NO2m, B3_NO2m, A3_NO3n, B3_NO3n,
+     $     A3_dumm23, B3_dumm23, A3_dumm24, B3_dumm24,
+     $     A3_dumm25, B3_dumm25, A3_dumm26, B3_dumm26
 
       COMMON/C_POLY/
      $   C4_TAU(4),     C5_TAU(3),                    C7_TAU(2),
@@ -4477,6 +4780,55 @@ c-------------------------------------------------------------------
      $   C4_dumm24(2),   C5_dumm24(2),   C6_dumm24(1),   C7_dumm24(2),
      $   C4_dumm25(2),   C5_dumm25(2),   C6_dumm25(1),   C7_dumm25(2),
      $   C4_dumm26(2),   C5_dumm26(2),   C6_dumm26(1),   C7_dumm26(2)
+      REAL (KIND=DP)
+     $   C4_TAU,     C5_TAU,                 C7_TAU,
+     $   C4_T_O3,    C5_T_O3,                C7_T_O3,
+     $   C4_O1D,     C5_O1D,
+     $   C4_O3P,     C5_O3P,     C6_O3P,     C7_O3P,
+     $   C4_H2O2,    C5_H2O2,    C6_H2O2,
+     $   C4_HNO3,    C5_HNO3,    C6_HNO3,
+     $   C4_HNO4,    C5_HNO4,
+     $   C4_N2O5,    C5_N2O5,    C6_N2O5,
+     $   C4_CH3OOH,  C5_CH3OOH,  C6_CH3OOH,
+     $   C4_NO2,     C5_NO2,     C6_NO2,
+     $   C4_COH2,    C5_COH2,    C6_COH2,
+     $   C4_CHOH,    C5_CHOH,    C6_CHOH,
+     $                           C6_NO2O,    C7_NO2O,
+     $                                       C7_NOO2,
+     $   C4_ClONO2,  C5_ClONO2,  C6_ClONO2,
+     $   C4_BrNO3,   C5_BrNO3,   C6_BrNO3,   C7_BrNO3,
+     $   C4_Cl2O2,   C5_Cl2O2,   C6_Cl2O2,
+     $   C4_HOCl,    C5_HOCl,    C6_HOCl,
+     $   C4_H_O3,    C5_H_O3,    C6_H_O3,    C7_H_O3,
+     $                                       C7_H_O2,
+     $   C4_H_NO2,   C5_H_NO2,   C6_H_NO2,   C7_H_NO2,
+     $                           C6_H_O4,    C7_H_O4,
+     $   C4_BrCl_noT,C5_BrCl_noT,C6_BrCl_noT,C7_BrCl_noT,
+     $   C4_ClNO2,   C5_ClNO2,   C6_ClNO2,
+     $   C4_BrNO2,   C5_BrNO2,   C6_BrNO2,   C7_BrNO2,
+     $   C4_Br2,     C5_Br2,     C6_Br2,     C7_Br2,
+     $                           C6_IO,      C7_IO,
+     $   C4_INO3,    C5_INO3,    C6_INO3,    C7_INO3,
+     $   C4_CH3I,    C5_CH3I,    C6_CH3I,
+     $                           C6_I2,      C7_I2,
+     $   C4_ICl,     C5_ICl,     C6_ICl,     C7_ICl,
+     $   C4_IBr,     C5_IBr,     C6_IBr,     C7_IBr,
+     $   C4_C3H7I,   C5_C3H7I,   C6_C3H7I,
+     $   C4_CH2ClI,  C5_CH2ClI,  C6_CH2ClI,
+     $   C4_CH2I2,   C5_CH2I2,   C6_CH2I2,
+     $   C4_INO2,    C5_INO2,    C6_INO2,
+     $   C4_BrO_noT, C5_BrO_noT, C6_BrO_noT,
+     $   C4_OClO_noT,C5_OClO_noT,C6_OClO_noT,C7_OClO_noT,
+     $   C4_Cl2_noT, C5_Cl2_noT, C6_Cl2_noT, C7_Cl2_noT,
+     $   C4_HOI_jen91,C5_HOI_jen91,C6_HOI_jen91,C7_HOI_jen91,
+     $   C4_HOBr,    C5_HOBr,    C6_HOBr,   C7_HOBr,
+     $   C4_HONO,    C5_HONO,    C6_HONO,
+     $   C4_NO2m,    C5_NO2m,    C6_NO2m,
+     $   C4_NO3n,    C5_NO3n,    C6_NO3n,
+     $   C4_dumm23,  C5_dumm23,  C6_dumm23,  C7_dumm23,
+     $   C4_dumm24,  C5_dumm24,  C6_dumm24,  C7_dumm24,
+     $   C4_dumm25,  C5_dumm25,  C6_dumm25,  C7_dumm25,
+     $   C4_dumm26,  C5_dumm26,  C6_dumm26,  C7_dumm26
 
 
       COMMON /T_COEFF/   TJ_O1D(4,7),   TJ_O3P(3,7),  TJ_NO2(2,7),
@@ -4623,18 +4975,28 @@ C     change the units (Part./cm^2 -> Dobson Units)
 C     Boltzmann constant K=1.38D-23 [J/K], normal conditions T0=273 [K],
 C     P0=1000 [mbar], so CONST=K*T0/P0=3.767e-20 cm^3
 
-      DATA CONSTANT / 3.767D-20 /
+      REAL (KIND=DP), PARAMETER :: CONSTANT = 3.767E-20_dp
+      REAL (KIND=DP), PARAMETER :: BOLTZ = 1.381D-23
+      REAL (KIND=DP), PARAMETER :: RELO2 = 0.2095D0
 
 C     arrays to calculate TAU_0
 
       DOUBLE PRECISION
+     $     P1, P2, P3, C0, C1, C2, C3, X, ! internal functions
      $     SIGI_O2,
      $     SIGI_O3,
      $     TEMP1(MAXLAY),
      $     TEMP2(MAXLAY)
 
+      REAL (KIND=DP)
+     $     DENS, DLV2I, DTAU_0,
+     $     P2_O1D, P3_O1D, P4_O1D, P5_O1D,
+     $     P2_O3P, P3_O3P, P4_O3P, P5_O3P, P6_O3P, P7_O3P,
+     $     SO2, SO3, TAU3_LIM, TAU4_LIM,
+     $     V3DU_3L, V3DU_4L, V3S_DU, V3_3L, V3_DU
+
       INTEGER
-     $     II
+     $     I, II, K
 
 c-------------------------------------------------------------------
 
@@ -4647,8 +5009,6 @@ C     internal functions
 
 **********************************************************************
 
-      BOLTZ=1.381D-23
-      RELO2 = 0.2095D0
 
 c      Do first the calculation of the optical depth TAU_0
 
