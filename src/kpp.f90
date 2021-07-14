@@ -30,7 +30,7 @@
 ! =======================================================================
 ! =======================================================================
 
-subroutine initc (box,n_bl)
+subroutine initc (n_bl)
 
 ! Description :
 ! -----------
@@ -47,9 +47,11 @@ subroutine initc (box,n_bl)
 ! Modules used:
   USE config, ONLY : &
        binout,       &
+       box, chamber, &
        cmechdir,     &
        iaertyp,      &
        iod,          &
+       lpBuxmann15alph, &
        lpBuys13_0D,  &
        lpJoyce14bc,  &
        neula
@@ -113,7 +115,6 @@ subroutine initc (box,n_bl)
 
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
-  logical, intent(in) :: box
   integer, intent(in) :: n_bl
 
 ! Local scalars:
@@ -381,6 +382,17 @@ subroutine initc (box,n_bl)
                                                  ! according to #2210: 0.27*[Br-]; enriched compared to ocean water ratio
         endif
 
+        if (lpBuxmann15alph) then
+           ! set back to 0
+           sa1(:,ia) = 0._dp
+           if (rn(ia).ge.0.1_dp) then
+              xbrm = 4.76e-2_dp
+              xclm = 1._dp - xbrm
+              sa1(14,ia) = xclm*x0    ! Cl-
+              sa1(24,ia) = xbrm*x0    ! Br-
+           end if
+        end if
+
      else if (iaertyp == 1) then
 !! urban aerosol:
 !! 2/3*xm = mole mass nh4no3; 1/3*xm = mole mass (nh4)2so4;
@@ -438,7 +450,7 @@ subroutine initc (box,n_bl)
 
 ! levels for  rate output
   il(1) =  5
-  if (box) il(1)=n_bl
+  if (box.or.chamber) il(1)=n_bl
   il(2) = 15
   il(3) = 25
   il(4) = 35
@@ -669,6 +681,7 @@ subroutine st_coeff_t
 
   USE config, ONLY : &
 ! Imported Parameters:
+       lpBuxmann15alph, &
        lpJoyce14bc
 
   USE constants, ONLY : &
@@ -801,8 +814,13 @@ subroutine st_coeff_t
      alpha(ind_I2,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
      alpha(ind_IO,k) = 1./(1._dp +1./(1./(1./ 5.0d-1 -1._dp) * zexp2))!06.04.00
      alpha(ind_I2O2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
-     alpha(ind_ICl,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
-     alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     if (.not.lpBuxmann15alph) then
+        alpha(ind_ICl,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+        alpha(ind_IBr,k) = 1./(1._dp +1./(1./(1./ 1.0d-2 -1._dp) * zexp2))!06.04.00
+     else
+        alpha(ind_ICl,k) = 1.8e-2_dp
+        alpha(ind_IBr,k) = 1.8e-2_dp
+     end if
      alpha(ind_INO2,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)* zexp2))!06.04.00
 !     alpha(ind_ClCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
 !     alpha(ind_BrCHOk,k) = 1./(1._dp +1./(1./(1./ 1.0d-1 -1._dp)*zexp2))!06.04.00
@@ -3304,7 +3322,7 @@ subroutine equil_co_a (tt,nmaxf)
            xkeb(ind_HIO3,kc,k) = 1.0D5 * cv2
 
 ! mercury; no activity coefficients; forward not faster than 1.d14
-!   
+!
 !           xkef(ind_HgOHpl1,kc,k)    = 4.27d14 * cv2           ! #493,  K_eq = 4.27d10
 !           xkeb(ind_HgOHpl1,kc,k)    = 1.d4
 !           xkef(ind_HgOH2l1,kc,k)    = 2.6d14 * cv2            ! #4174, K_eq = 2.6d11
@@ -4178,6 +4196,7 @@ subroutine kpp_driver (box,dd_ch,n_bl)
 ! ------------
 ! Modules used:
   USE config, ONLY : &
+       chamber, &
        halo, &
        iod, &
        neula, &
@@ -4249,6 +4268,8 @@ subroutine kpp_driver (box,dd_ch,n_bl)
   integer :: kinv
   common /cb_1/ air_cc,te,h2oppm,pk
   real (kind=dp) :: air_cc,te,h2oppm,pk
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
   common /kpp_l1/ cloud(nkc,n)
   logical :: cloud
 
@@ -4261,7 +4282,6 @@ subroutine kpp_driver (box,dd_ch,n_bl)
   zeit=lst*3600.+real(lmin-1,dp)*60.
 !      zeit=zeit+dtg  !quite exact, but photolysis rates are calculated in
 ! greater intervals and variable dtg is known only in the old chemical module
-!      horang=7.272205d-05*zeit-3.1415927
   horang=7.272205d-05*zeit-pi
   u00=cos(rdec)*cos(rlat)*cos(horang)+sin(rdec)*sin(rlat)
   ru0=6371.*u00
@@ -4277,6 +4297,9 @@ subroutine kpp_driver (box,dd_ch,n_bl)
      n_max=n_bl
      n_min=n_bl
   endif
+  if (chamber) then
+     n_max=n_bl
+  end if
 
 ! eliminate negative values
   where (s1 < 0.d0) s1=0._dp
@@ -4311,6 +4334,10 @@ subroutine kpp_driver (box,dd_ch,n_bl)
 !        cvv3=0.
 !        cvv4=0.
 !     endif
+        if (chamber) then
+           cvv3=0.
+           cvv4=0.
+        end if
 
 ! photolysis rates
      if (lpBuys13_0D) then
@@ -4320,16 +4347,18 @@ subroutine kpp_driver (box,dd_ch,n_bl)
         u0min = 3.48d-2
      end if
 
-     if (u0.ge.3.48d-2) then
-        do i=1,nphrxn
-           !ph_rat(i)=photol_j(i,k)
-           ph_rat(i)=(photol_j(i,k-1)+photol_j(i,k)) / 2._dp ! jjb photol_j defined for levels, not for layers
-        enddo
+     if (.not. chamber) then
+        if (u0.ge.u0min) then
+           do i=1,nphrxn
+              !ph_rat(i)=photol_j(i,k)
+              ph_rat(i)=(photol_j(i,k-1)+photol_j(i,k)) / 2._dp ! jjb photol_j defined for levels, not for layers
+           enddo
 ! end of prelim j rates
+        else
+           ph_rat(:)=0._dp
+        end if
      else
-        do i=1,nphrxn
-           ph_rat(i)=0._dp
-        enddo
+        ph_rat = ph_rat_chamber
      end if
 
 ! set halogen rates to zero (if wanted)
@@ -4340,51 +4369,73 @@ subroutine kpp_driver (box,dd_ch,n_bl)
         xiod=0._dp
      endif
      if (.not.iod) xiod=0._dp
+
+     if (.not. chamber) then
 ! set liquid rates to zero
-     xliq1=1._dp
-     xliq2=1._dp
-     xliq3=1._dp
-     xliq4=1._dp
+        xliq1 = 1._dp
+        xliq2 = 1._dp
+        xliq3 = 1._dp
+        xliq4 = 1._dp
 ! cm is switch now (not cw)
 ! avoid index out of bounds in cm:
-     if (k.ge.nf) then
-        xliq1=0._dp
-        xliq2=0._dp
-        xliq3=0._dp
-        xliq4=0._dp
-     else
-        if (cm(1,k).eq.0.) xliq1=0._dp
-        if (cm(2,k).eq.0.) xliq2=0._dp
-        if (cm(3,k).eq.0.) xliq3=0._dp
-        if (cm(4,k).eq.0.) xliq4=0._dp
-     endif
+        if (k.ge.nf) then
+           xliq1 = 0._dp
+           xliq2 = 0._dp
+           xliq3 = 0._dp
+           xliq4 = 0._dp
+        else
+           if (cm(1,k).eq.0.) xliq1 = 0._dp
+           if (cm(2,k).eq.0.) xliq2 = 0._dp
+           if (cm(3,k).eq.0.) xliq3 = 0._dp
+           if (cm(4,k).eq.0.) xliq4 = 0._dp
+        endif
 
-     if (xliq1.eq.1..and..not.cloud(1,k)) then
-        cloud(1,k)=.true.
-        print *,'new aerosol layer,l1 : ',k
-     endif
-     if (xliq2.eq.1..and..not.cloud(2,k)) then
-        cloud(2,k)=.true.
-        print *,'new aerosol layer,l2 : ',k
-     endif
-     if (xliq3.eq.1..and..not.cloud(3,k)) then
-        cloud(3,k)=.true.
-        print *,'new cloud layer,l3 : ',k
-     endif
-     if (xliq4.eq.1..and..not.cloud(4,k)) then
-        cloud(4,k)=.true.
-        print *,'new cloud layer,l4 : ',k
-     endif
-     if (xliq1.eq.0..and.cloud(1,k))  cloud(1,k)=.false.
-     if (xliq2.eq.0..and.cloud(2,k))  cloud(2,k)=.false.
-     if (xliq3.eq.0..and.cloud(3,k))  cloud(3,k)=.false.
-     if (xliq4.eq.0..and.cloud(4,k))  cloud(4,k)=.false.
+        if (xliq1.eq.1..and..not.cloud(1,k)) then
+           cloud(1,k) = .true.
+           print *,'new aerosol layer,l1 : ',k
+        endif
+        if (xliq2.eq.1..and..not.cloud(2,k)) then
+           cloud(2,k) = .true.
+           print *,'new aerosol layer,l2 : ',k
+        endif
+        if (xliq3.eq.1..and..not.cloud(3,k)) then
+           cloud(3,k) = .true.
+           print *,'new cloud layer,l3 : ',k
+        endif
+        if (xliq4.eq.1..and..not.cloud(4,k)) then
+           cloud(4,k) = .true.
+           print *,'new cloud layer,l4 : ',k
+        endif
+        if (xliq1.eq.0..and.cloud(1,k))  cloud(1,k) = .false.
+        if (xliq2.eq.0..and.cloud(2,k))  cloud(2,k) = .false.
+        if (xliq3.eq.0..and.cloud(3,k))  cloud(3,k) = .false.
+        if (xliq4.eq.0..and.cloud(4,k))  cloud(4,k) = .false.
+
+     else ! chamber mode
+        xliq1 = 1._dp
+        xliq2 = 1._dp
+        xliq3 = 0._dp    ! bin 3 inactive in chamber mode
+        xliq4 = 0._dp    ! bin 4 inactive in chamber mode
+! in chamber mode, only bin 1 and 2 are used.
+! bin 3 is redefined to include only a limited set of reactions and
+! used only in lowest active layer (2) to simulate the salt pan
+        if (k.eq.2) then
+           xliq1 = 1._dp
+           xliq2 = 1._dp
+           xliq3 = 0._dp
+        else
+           xliq1 = 0._dp
+           xliq2 = 0._dp
+           xliq3 = 0._dp
+        endif
+     end if
+
 
 ! set heterogeneous rates to zero
-     xhet1=1._dp
-     xhet2=1._dp
-     if (xliq1.eq.1.) xhet1=0._dp
-     if (xliq2.eq.1.) xhet2=0._dp
+     xhet1 = 1._dp
+     xhet2 = 1._dp
+     if (xliq1.eq.1.) xhet1 = 0._dp
+     if (xliq2.eq.1.) xhet2 = 0._dp
 
 ! advection if eulerian view (neula=0), xadv in mol/(mol*day)
      if (neula.eq.0) then
@@ -4419,8 +4470,8 @@ subroutine kpp_driver (box,dd_ch,n_bl)
   enddo ! k
 
 ! eliminate negative values
-  where (s1 < 0.d0) s1=0._dp
-  where (s3 < 0.d0) s3=0._dp
+  where (s1 < 0.d0) s1 = 0._dp
+  where (s3 < 0.d0) s3 = 0._dp
 
   sl1(:,:,:) = max(0._dp,sl1(:,:,:))
   sion1(:,:,:) = max(0._dp,sion1(:,:,:))
@@ -4482,7 +4533,7 @@ subroutine ionbalance (box,n_bl)
   open (unit=jpfuniba, file=trim(clpath), status='unknown', position='append')
   clpath = trim(coutdir)//fnamed
   open (unit=jpfunibd, file=trim(clpath), status='unknown', position='append')
-  
+
   write (jpfuniba,*) lday,lst,lmin,' aerosol'
   write (jpfunibd,*) lday,lst,lmin,' droplet'
 
@@ -5183,7 +5234,7 @@ subroutine activ (box,n_bl)
 
   USE precision, ONLY : &
 ! Imported Parameters:
-       dp
+       dp, tiny_dp
 
   implicit none
 
@@ -5231,8 +5282,11 @@ subroutine activ (box,n_bl)
      nmax=n_bl
   endif
 
-! Initialise gammas
+! Initialise gammas and other arrays
   xgamma(:,:,:) = 1._dp
+  xip(:,:) = 0._dp
+  xit(:,:) = 0._dp
+  wa(:,:)  = 0._dp
 
   do k=nmin,nmax
      do kc=1,nkc
@@ -5330,7 +5384,7 @@ subroutine activ (box,n_bl)
                 cm(kc,kk(k)),cw(kc,kk(k)),xm2(kk(k))*1.d-3
 
            ! Skip next 'write' instructions if cm too small
-           if (cm(kc,kk(k)) <= tiny(0.d0)) then
+           if (cm(kc,kk(k)) <= tiny_dp) then
               write(jpfungam,*)' -> cm too small, xgamma set equal to 1.'
               cycle
            end if
@@ -5759,8 +5813,8 @@ subroutine gasdrydep (xra,tt,rho,freep)
 !  f0() = 0.3_dp  !CH3OOH, methylhydroperoxide
 
 ! calculate vg from rb and rc for each species
-!  rb_fact=5./ustern*(xnu*freep(k)/3.)**(2./3.) ! jjb mistake ?
-  rb_fact=5./ustern*(3.*xnu/freep(k))**(2./3.)
+  rb_fact=5./ustern*(xnu*freep(k)/3.)**(2./3.) ! jjb mistake ?
+!  rb_fact=5./ustern*(3.*xnu/freep(k))**(2./3.)
 !  rc_fact=2.54d+4/(tt(k)*ustern)  !Sehmel, 1980
 !  print *,rb_fact,rc_fact
   do i=1,j1
@@ -5808,7 +5862,7 @@ subroutine gasdrydep (xra,tt,rho,freep)
               end if
            endif
            if (hs(ind_gas(i)).eq.(-1./FCT)) &
-                vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1)     ! "infinite solubility" ! jjb need to check +.1
+                vg(i)=1./(xra+(rb_fact/(vm(ind_gas(i))**(2./3.)))+.1_dp)     ! "infinite solubility" ! jjb need to check +.1
 
 ! ======= SPECIAL CASE =========
         else if (lpJoyce14bc) then
@@ -8440,4 +8494,194 @@ end function a_n2o5
 !-----------------------------------------------------------------------------
 
 
+! Functions added for chamber mode
 
+!----------------------------------------------------------------------------
+
+
+function fbck2b (a1,a2,b1,b2,ak,bk,ck)
+! calculate thermal decomposition rate from forward and
+! equilibrium rate (used for INO and INO2 decomposition)
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real(kind=dp) :: fbck2b
+  real(kind=dp), intent(in) :: a1,a2,b1,b2,ak,bk,ck
+  real(kind=dp) :: a0,b0,fc,x1,x2
+  common /cb_1/ aircc,te,h2oppm,pk
+  real(kind=dp) :: aircc,te,h2oppm,pk
+
+! parameters to calculate K_eq in atm-1
+  fc = 0.6_dp
+  a0=a1*aircc*(te/300.)**a2
+  b0=b1*(te/300.)**b2
+  x2=fc
+
+  x1=(a0/(1+a0/b0))*(x2**(1/(1+log10(a0/b0)*log10(a0/b0))))
+  fbck2b = 0.d0
+  if (ck.ne.0.d0) fbck2b=x1/(ak*exp(bk/te)*8.314/101325.*te/ck)
+end function fbck2b
+
+!----------------------------------------------------------------------------
+
+
+function het_uptake (gcoeff,molarm)
+!c calculate the aerosol uptake rate of a molecule using the equation:
+!c       k = gcoeff asa molecvel/4
+!c where:
+!c       gcoeff is the uptake coefficient (gamma)
+!c       molarm is the molar mass (g/mol)
+!c       asa is the aerosol surface area (cm2/cm3)
+
+  USE constants, ONLY : &
+! Imported Parameters:
+       pi,              &
+       rgas => gas_const
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real(kind=dp) :: het_uptake
+  real(kind=dp), intent(in) :: gcoeff, molarm
+
+  real(kind=dp), parameter :: asa = 3.0e-6_dp
+  real(kind=dp) :: molecvel
+  common /cb_1/ aircc,te,h2oppm,pk
+  real(kind=dp) :: aircc,te,h2oppm,pk
+
+
+  molecvel = sqrt((8.0d0*rgas*te)/(pi*molarm*1.0d-3))
+!      print *, (molecvel*1.0d2)/(4.0d0*sqrt(te))
+
+  het_uptake = gcoeff*asa*(molecvel*1.0d+2)/4.0d0
+!      print *, het_uptake
+
+end function het_uptake
+
+
+!-----------------------------------------------------------------------------
+
+function surf_uptake (gcoeff,molarm)
+!c calculate the aerosol uptake rate of a molecule using the equation:
+!c       k = gcoeff sa molarm/6
+!c where:
+!c       gcoeff is the uptake coefficient (gamma)
+!c       molarm is the molar mass (g/mol)
+!c       sa is the surface area (cm2/cm3)
+
+  USE constants, ONLY : &
+! Imported Parameters:
+       pi,              &
+       rgas => gas_const
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  real(kind=dp) :: surf_uptake
+  real(kind=dp), intent(in) :: gcoeff, molarm
+  real(kind=dp), parameter :: sa = 5.7e-3_dp
+  real(kind=dp) :: molecvel
+  common /cb_1/ aircc,te,h2oppm,pk
+  real(kind=dp) :: aircc,te,h2oppm,pk
+
+
+  molecvel = sqrt((8.0d0*rgas*te)/(pi*molarm*1.0e-3_dp))
+  surf_uptake = gcoeff*sa*(molecvel*1.0e+2_dp) / 6.0_dp
+
+end function surf_uptake
+
+
+!-----------------------------------------------------------------------------
+
+subroutine photol_chamber
+! set photolysis rates for chamber model runs
+
+  USE config, ONLY : &
+! Imported Parameters:
+       cinpdir_phot
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunerr, jpfunJchamb
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n, &
+       nphrxn
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  integer, parameter :: fhd=4    ! n. lines in chamber.dat before photolysis rates
+
+  character (len=110) :: clpath
+  integer :: i, ios, jnn
+  integer :: jnumb(nphrxn)
+  real (kind=dp) :: jph,jphot(nphrxn),jratio
+
+  common /band_rat/ photol_j(nphrxn,n)
+  real (kind=dp) :: photol_j
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
+
+  ! initialise
+  jnumb(:) = 0
+  jphot(:) = 0._dp
+
+! read photolysis rates from file, skipping the first 'fhd' lines
+! which contain info (temperature, RH) used in chamb_init subroutine
+  i=0
+  clpath=trim(cinpdir_phot)//'chamber.dat'
+  open (jpfunJchamb,file=trim(clpath),status='old')
+  do
+     read (jpfunJchamb,5102,iostat=ios) jnn,jph
+     i=i+1
+     if (ios.lt.0) then
+        write(jpfunerr,*)"Error when reading cahmber.dat"
+        exit
+     else if (i.gt.fhd) then
+        jnumb(jnn) = jnn
+        jphot(jnn) = jph
+     endif
+  enddo
+  close (jpfunJchamb)
+ 5102 format (i3,t4,d9.2)
+
+! ratio between the measured (from chamber.dat) and modelled (from band model)
+! NO2 photolysis rate (jNO2)
+! this assumes that jNO2 is always measured in chamber studies (most common)
+! and that model run starts at midday (as set in SR initm)
+  jratio = jphot(1)/photol_j(1,2)
+
+
+  do i=1,nphrxn
+! photolysis rate was measured
+     if (jnumb(i).ne.0) then
+        ph_rat_chamber(i)=jphot(i)
+! photolysis rate was not measured -> scale using jNO2
+     else
+        ph_rat_chamber(i)=photol_j(i,2)*jratio
+     endif
+  enddo
+
+!$$$      print *,"===",jratio
+!$$$      do i=1,nphrxn
+!$$$         if (i.eq.2.or.i.eq.21.or.i.eq.41) then
+!$$$            print *,i,jphot(i),photol_j(i,2),ph_rat(i)
+!$$$         endif
+!$$$      enddo
+
+end subroutine photol_chamber

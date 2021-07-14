@@ -103,4 +103,6 @@ module file_unit
   integer, parameter :: jpfunaerrad  = 51 ! units used: 51-56
   integer, parameter :: jpfundatarad = 57
 
+  integer, parameter :: jpfunJchamb = 58
+
 end module file_unit

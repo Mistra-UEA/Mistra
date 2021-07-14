@@ -80,6 +80,7 @@ logical :: &
   iod,     & ! iod      : iodine chemistry on/off
   box,     & ! box      : box model run
   BL_box,  & ! BL_box   : box only, average init cond over BL and/or mean of J-values over BL
+  chamber, & ! chamber  : chamber model run
   nuc,     & ! nuc      : nucleation on/off
   Napari,  & ! Napari   : nuc only, Napari = ternary H2SO4-H2O-NH3 nucleation
   Lovejoy, & ! Lovejoy  : nuc only, Lovejoy = homogeneous OIO nucleation
@@ -139,6 +140,7 @@ real (KIND=dp) :: &
 integer :: jpAlbedoOpt ! albedo of the surface (set related configuration in radinit.f90)
 
 ! Special runs switchs
+logical :: lpBuxmann15alph ! Switch on some special configuration to reproduce Buxmann et al 2015 (alpha case)
 logical :: lpBuys13_0D ! Switch on some special configuration of Buys et al 2013 (0D case)
 logical :: lpJoyce14bc ! Switch on some special configuration of Joyce et al 2014 (base case)
 
@@ -175,11 +177,13 @@ namelist /mistra_cfg/ &
      neula,           &
 ! Box settings
      box, bl_box, nlevbox, z_box, &
+! Chamber settings
+     chamber, &
 ! Nucleation settings
      nuc, ifeed, Napari, Lovejoy, &
      scaleo3_m,       &
 ! Special configuration
-     lpBuys13_0D, lpJoyce14bc
+     lpBuxmann15alph, lpBuys13_0D, lpJoyce14bc
 
 contains
 
@@ -324,6 +328,8 @@ box = .false.
 bl_box = .false.
 nlevbox = 2
 z_box = 700._dp
+! Chamber settings
+chamber = .false.
 ! Nucleation settings
 nuc = .false.
 ifeed = 0
@@ -333,6 +339,7 @@ Lovejoy = .true.
 scaleo3_m = 300._dp
 
 ! Special configuration
+lpBuxmann15alph = .false.
 lpBuys13_0D = .false.
 lpJoyce14bc = .false.
 
@@ -369,6 +376,29 @@ end if
 if (lpmona .and. lpsmith) then
    write (jpfunerr,*) 'Error in namelist settings: choose either lpmona or lpsmith for aer emission scheme'
    call abortM ('Stopped by SR read_config')
+end if
+
+if (chamber .and. box) then
+   write (jpfunerr,*) 'Error in namelist settings: choose either chamber or box'
+   call abortM ('Stopped by SR read_config')
+end if
+if (chamber .and. neula==0) then
+   write (jpfunerr,*) 'Error in namelist settings: neula=0 is not possible in chamber mode'
+   call abortM ('Stopped by SR read_config')
+end if
+
+if (BL_box.and..not.box) then
+   BL_box = .false.
+   write(jpfunout,*) 'Warning: BL_box has been set to false since box is off'
+end if
+
+if (chamber .and. jpPartDistSet.ne.4) then
+   jpPartDistSet = 4
+   write(jpfunout,*) 'Warning: jpPartDistSet has been set to 4, only possible choice for chamber version'
+end if
+if (chamber) then
+   alat = 45
+   write(jpfunout,*) 'Warning: alat has been set to 45 for chamber version'
 end if
 
 ! =====================================================

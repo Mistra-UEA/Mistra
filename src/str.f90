@@ -79,6 +79,7 @@ program mistra
        binout,       &
        BL_box,       &
        box,          &
+       chamber,      &
        nlevbox,      &
        z_box,        &
        chem,         &
@@ -89,7 +90,6 @@ program mistra
        netCDF,       &
        nuc, Napari, Lovejoy, &
        rst,          &
-       iaertyp,      &
        lstmax,       &
        lpBuys13_0D,  &
        lpJoyce14bc
@@ -106,7 +106,6 @@ program mistra
        nka,                 &
        nkt,                 &
        nphrxn,              &
-       nmax_chem_aer,       &
        mbs
 
   USE precision, ONLY : &
@@ -126,9 +125,9 @@ program mistra
   real (kind=dp), parameter :: dt = 60._dp       ! timestep for slowly varying processes
   real (kind=dp), parameter :: dd = 10._dp       ! fractional timestep for faster processes
   character (len=10) :: fname
-  integer :: ilmin, it0, itmax, i, ia, ij, jt, k
+  integer :: ilmin, it0, itmax, ia, ij, jt, k
   integer :: n_bl, n_bln, n_bl8, nz_box
-  logical :: llnucboth
+  logical :: llboxch, llnucboth
   logical :: llinit, llcallphotol, llsetjrates0
   real (kind=dp) :: atmax, tkemax, xm2max, xra
   real (kind=dp) :: box_switch, u0min
@@ -170,13 +169,26 @@ program mistra
   ! Read namelist
   call read_config
 
-  if (box) print *,'box model run'
+  if (box) then
+     write(jpfunout,*)'box model run'
+  elseif (chamber) then
+     write(jpfunout,*)'chamber model run'
+  else
+     write(jpfunout,*)'1-D model run'
+  endif
+  llboxch = box.or.chamber
+
 ! it's important to keep this n_bl = 2 for box runs as loops are designed that way
 ! (especially output)
   if (box) then
      n_bl  = 2
      n_bln = 2
      n_bl8 = 1
+  else if (chamber) then
+     n_bl  = 2 ! 3
+     n_bln = 2 ! 3
+     n_bl8 = 1
+     xra = 0._dp ! initialise since partdep will not be called
   else
      n_bl  = nf
      n_bln = n
@@ -198,9 +210,9 @@ program mistra
   end if
 
 ! netCDF output
-  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+  if (netCDF) call open_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
-  if (box) call get_n_box (z_box,nz_box)
+  if (box.or.chamber) call get_n_box (z_box,nz_box)
   call write_grid ! writes information on grid that is not f(t)
 
   if (.not.rst) then
@@ -209,7 +221,7 @@ program mistra
 ! --------------------------------------------
 ! initial meteorological and chemical input
      call initm (fogtype,rst)
-     if (chem) call initc(box,n_bl)
+     if (chem) call initc(n_bl)
 
 ! number of iterations
      it0=0
@@ -268,7 +280,7 @@ program mistra
 ! initial output for plotting
   if (binout) then
      call ploutm (fogtype,n_bln)
-     if (mic.and..not.box) call ploutp (fogtype)
+     if (mic.and..not.llboxch) call ploutp (fogtype)
      call ploutr (fogtype,n_bln)
      call ploutt (fogtype,n_bln)
      if (chem) then
@@ -278,7 +290,7 @@ program mistra
   endif
 
   if (chem) call out_mass
-  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+  if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
   time = dt * real(it0,dp)
 ! local time: day (lday), hours (lst), minutes (lmin)
@@ -292,6 +304,8 @@ program mistra
 
   if (box) call box_init (nlevbox,nz_box,n_bl,BL_box)
   if (box) box_switch=1._dp
+  if (chamber) call chamb_init (n_bl)
+  if (chamber) box_switch=0._dp
 
   ! initialisation switch
   llinit = .false.
@@ -303,7 +317,7 @@ program mistra
      u0min = 3.48e-2_dp
   end if
 
-  print*,'end initialisation str.f'
+  write(jpfunout,*)'end initialisation str.f'
 
 ! ====================integration in time=====================
 ! outer time loop: minutes
@@ -322,14 +336,14 @@ program mistra
      endif
 
 ! dry dep velocities
-     call partdep (xra)
+     if (.not.chamber) call partdep (xra)
 
 ! inner time loop: 10 sec
      do ij=1,6
         time=time+dd
 ! --------1D only start------------
-! skip dynamics, microphysics and radiation for box model run
-        if (.not.box) then
+! skip dynamics, microphysics and radiation for box and chamber model run
+        if (.not.llboxch) then
 
 ! if w-field variable in time call wfield
 !   WARNING: check this routine before using, it is not the same as latest version used by Bott
@@ -379,7 +393,7 @@ program mistra
 ! wet deposition of chemical species
               call sedl (dd)
 ! chemical reactions
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
+              call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
               if (nuc) then
                  if (llnucboth) then
                     call appnucl2 (dd,llnucboth)
@@ -390,30 +404,45 @@ program mistra
 !                    call nucout1
               endif
            endif
-        else                ! if .not.box
+        else                ! if .not.box .not.chamber
 ! --------1D only end------------
 ! --------box model version only start -------------------
+           if (box) then
 ! put aerosol into equilibrium with current rel hum
 !               if (.not.mic) call equil (1,n_bl)
 ! call u0, T, rh, J-values  .. update
            !call box_update(box_switch,ij,nlevbox,nz_box,n_bl,chem,halo,iod,BL_box) ! jjb 3 unused arguments
-           call box_update(box_switch,ij,nlevbox,nz_box,n_bl,BL_box)
+              call box_update(box_switch,ij,nlevbox,nz_box,n_bl,BL_box)
 ! gas phase emissions and deposition
-           call sedc_box (dd,z_box,n_bl)
+              call sedc_box (dd,z_box,n_bl)
 ! particle and aqueous phase deposition
-           call box_partdep (dd,z_box,n_bl)
+              call box_partdep (dd,z_box,n_bl)
 ! aerosol emission and chemical reactions
-           if (chem) then
-              call stem_kpp (dd,xra,z_box,n_bl,box,nuc)
-           endif
-        endif               ! if .not.box
+              if (chem) then
+                 call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
+              endif
+
+           else if (chamber) then
+! --------chamber model version only start -------------------
+! call u0, T, rh, J-values  .. update
+              call chamb_update (n_bl,ij)
+! aerosol emission and chemical reactions
+              if (chem) then
+                 call stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
+              endif
+! --------chamber model version only end -------------------
+           end if
+
+        endif               ! if .not.box .not.chamber
 ! --------box model version only end -------------------
      enddo                  ! ij-loop : end of fractional timestep loop
 
 ! radiative fluxes and heating rates
-     if (.not.box) call radiation (llinit)
+     if (.not.llboxch) call radiation (llinit)
 ! new photolysis rates
-     if (chem) then
+! for chamber mode photolysis rates are read by SR photol_chamber
+! from file chamber.dat (see SR chamb_init and chamb_update)
+     if (chem.and..not.chamber) then
 
         ! Condition to call photolysis code (may depend on configuration)
         if (lpJoyce14bc) then
@@ -442,17 +471,13 @@ program mistra
            call photol
            if (box.and.BL_box) call ave_j (nz_box,n_bl)
         else if (llsetjrates0) then
-           do k=1,n
-              do i=1,nphrxn
-                 photol_j(i,k)=0._dp
-              enddo
-           enddo
+           photol_j(:,:) = 0._dp
         endif
      endif
 
 ! output of meteorological and chemical variables ----------------------
      ilmin=15
-!    ilmin=1 !output every minute
+     if (chamber) ilmin=1 !output every minute
      if (lmin/ilmin*ilmin.eq.lmin) then
 ! calc 1D size distribution for output
         !call oneD_dist_new
@@ -460,7 +485,7 @@ program mistra
 ! binary output
         if (binout) then
            call ploutm (fogtype,n_bln)
-           if (lmin/30*30.eq.lmin.and.mic.and..not.box) call ploutp (fogtype)
+           if (lmin/30*30.eq.lmin.and.mic.and..not.llboxch) call ploutp (fogtype)
            call ploutr (fogtype,n_bln)
            call ploutt (fogtype,n_bln)
            if (chem) call ploutc (fogtype,mic,n_bl,n_bl8)
@@ -468,7 +493,7 @@ program mistra
         endif
 
 ! netCDF output
-        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,nuc)
+        if (netCDF) call write_netcdf(n_bln,chem,mic,halo,iod,box,chamber,nuc)
 ! output of data from nucleation
         if (chem.and.nuc) call nucout2
 ! output from mass balance
@@ -782,6 +807,7 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
        rp0, zinv, dtinv, xm1w, xm1i, rhMaxBL, rhMaxFT, &
        ug, vg, nuvProfOpt, wmin, wmax, nwProfOpt, &
        isurf, binout, coutdir, &
+       chamber, &
        lpBuys13_0D, lpJoyce14bc
 
 
@@ -893,6 +919,7 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
 
 ! Statement functions:
   real (kind=dp) :: dfdlogr, dfdlogr2, rr
+  real (kind=dp) :: dfdlogrch, dfdlogrch2 ! chamber version
 
 ! aerosol distribution; f=dfdlogr*dlogr=dfdlogr*dlgenw/3
   dfdlogr(rr,ka)=wn(ka,1)*exp(-ws(ka,1)*log10(rr/wr(ka,1))**2)+ &
@@ -906,6 +933,10 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
 !     &               6.6d-1/(0.1906*sqrt(2*pi))*exp(-log10(rr/1.7d0) &
 !     & **2/(2*0.1906**2))
 ! see below: call adjust_f
+
+  dfdlogrch(rr)=wn(2,3)/(ws(2,3)*sqrt(2*pi))*exp(-log10(rr/wr(2,3))**2/(2*ws(2,3)**2))+ &
+                wn(2,2)/(ws(2,2)*sqrt(2*pi))*exp(-log10(rr/wr(2,2))**2/(2*ws(2,2)**2))
+  dfdlogrch2 = 1.0e-100_dp
 
 ! == End of declarations =======================================================
 
@@ -1000,6 +1031,21 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
         call abortM ("Error in initm")
      end if
 
+  case (4)
+! special chamber case
+     wn(1:2,1:3) = reshape( &
+          (/   0.0_dp, 0.0_dp, 0.0_dp,        &
+          -0.17e+2_dp, 0.0_dp, 0.53e+02_dp/), &
+          shape=(/2,3/) )
+     wr(1:2,1:3) = reshape( &
+          (/ 0.0_dp, 0.0_dp, 0.0_dp,     &
+             1.4_dp, 0.0_dp, 0.357_dp/), &
+          shape=(/2,3/) )
+     ws(1:2,1:3) = reshape( &
+          (/ 0.0_dp, 0.0_dp, 0.0_dp,        &
+          -0.125_dp, 0.0_dp, 0.126_dp/), &
+          shape=(/2,3/) )
+
   case default
      write(jpfunerr,*) "Wrong choice for jpPartDistSet"
      call abortM ("Error in initm")
@@ -1026,6 +1072,7 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
      lday = 0
      lmin = 0
      lst = nhour
+     if (chamber) lst = 12
 
 ! equation of time:
      ! gamma is the day angle, also called fractional year, in radians
@@ -1045,6 +1092,7 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
           - 0.006758_dp * cos(2._dp * zgamma) + 0.000907_dp * sin(2._dp * zgamma)
      ! in cb16, declination is in degree, convert here
      declin = rdec / rad
+     if (chamber) declin = 18._dp
 
 ! Fill alat in cb16 with alat=zalat from config
      alat = zalat
@@ -1069,7 +1117,6 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
 6305 format ('Declination of the sun: ',f6.2,' deg')
 
   end if
-
 
 ! initialisation of temperature and humidity profile
 !---------------------------------------------------
@@ -1221,10 +1268,15 @@ subroutine initm (fogtype,rst) !change also SR surf0 !_aerosol_nosub
         end if
 
         do ia=1,nka
-           ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
-           ! special case: save the distribution to replenish (save only once, k==1)
-           if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
-           if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           if (.not.chamber) then
+              ff(1,ia,k)=dfdlogr(rn(ia),nar(k))*dlgenw/3.*x0
+              ! special case: save the distribution to replenish (save only once, k==1)
+              if (lpJoyce14bc.and.k==1) ff_0(ia)=dfdlogr(rn(ia),nar(k))*dlgenw/3.
+              if (k.gt.kinv) ff(1,ia,k)=dfdlogr2(rn(ia),nar(k))*dlgenw/3.*x0
+           else
+              ff(1,ia,k)=dfdlogrch(rn(ia))*dlgenw/3.*x0
+              if (k.gt.kinv) ff(1,ia,k)=dfdlogrch2*dlgenw/3.*x0
+           end if
            fsum(k) = fsum(k) + ff(1,ia,k)
         enddo
 !        write (199,*)"k,fsum",k,fsum(k)
@@ -1446,6 +1498,7 @@ subroutine grid
   USE config, ONLY : &
 ! External subroutine
        abortM, &
+       chamber, &
        isurf, &
        detamin, etaw1,       & ! atmospheric grid: constant height, and top of grid [m]
        rnw0, rnw1, rw0, rw1    ! microphysics grid: min/max dry aerosol, min/max particle radius [um]
@@ -1485,7 +1538,7 @@ subroutine grid
   real (kind=dp) :: rqmin, rqmax, rfact
   real (kind=dp) :: x0, x1, x2, x3
   real (kind=dp) :: xfac
-  real (kind=dp) :: zbw0, zbw
+  real (kind=dp) :: zbw0, zbw, zradthres
 ! Local arrays:
   real (kind=dp) :: rq1D(nkt*nka),rqcp(nkt,nka)
 
@@ -1829,8 +1882,16 @@ subroutine grid
 ! aerosol + cloud chemistry: partition into small and large aerosol  : ka
 !                       and small and large water content (aer-drop) : kw(nka)
   ka=-1
+
+  ! Radius threshold between small and large aerosol
+  if (.not. chamber) then
+     zradthres = 0.5_dp
+  else
+     zradthres = 0.1_dp
+  end if
+
   do ia=1,nka
-     if (rn(ia).gt..5_dp .and. ka.lt.0) ka=ia-1
+     if (rn(ia).gt.zradthres .and. ka.lt.0) ka=ia-1
      kw(ia)=-1
   enddo
   if (ka.lt.0) ka=nka
@@ -2285,7 +2346,7 @@ subroutine sedp (dt)
            psi(k) = ff(jt,ia,k) * detw(k)
            xsum   = xsum + psi(k)
         enddo
-        
+
 ! restrict sedimentation to classes with significant particle content
         if (xsum.gt.1.e-6_dp) then
            x0 = 0._dp
@@ -5499,7 +5560,7 @@ subroutine advsed0 (c, y)
 ! Subroutine arguments
   real (kind=dp), intent(in)    :: c(nf)
   real (kind=dp), intent(inout) :: y(nf)
-  
+
 ! Local scalars:
   integer :: i                      ! running index
 ! Local arrays:
@@ -5569,7 +5630,7 @@ subroutine advsed1 (c, y)
 ! Subroutine arguments
   real (kind=dp), intent(in)    :: c(nf)
   real (kind=dp), intent(inout) :: y(nf)
-  
+
 ! Local scalars:
   integer :: i                      ! running index
   real (kind=dp) :: cl, clm
@@ -5619,7 +5680,7 @@ subroutine advsed1 (c, y)
      w=y(i)/max(fmim+1.e-15_dp,y(i))
      fm(i-1)=fmim*w
   enddo
-      
+
 ! new values of y
   y(1) = y(1) + fm(1)
   do i=2,nf-1
@@ -5672,7 +5733,7 @@ subroutine advseda (c, y)
   real (kind=dp) :: flux(nf)
 
 ! == End of declarations =======================================================
-  
+
 ! initialisation
   flux(:) = 0._dp
 
@@ -5733,7 +5794,7 @@ end subroutine advseda
 !------------------------------------------------------------------------
 !
 
-subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
+subroutine stem_kpp (dd,xra,z_box,n_bl,box,chamber,nuc)
 ! chemical reactions
 ! aerosol mass change due to chemical reactions
 !
@@ -5784,14 +5845,15 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 
   real (kind=dp), intent(in) :: dd, xra, z_box
   integer, intent(in) :: n_bl
-  logical, intent(in) :: box, nuc
+  logical, intent(in) :: box, chamber, nuc
 
   integer, parameter :: lsp=9
   real (kind=dp), parameter :: fpi = 4._dp / 3._dp * pi
 
-  integer :: ia, ial, iau, ic, iend, iia, iinkr, istart, ix, jt, jtl, jtu, k, kc, kkc, l, ll
+  integer :: ia, ial, iau, iend, iia, iinkr, istart, ix, jt, jtl, jtu, k, kc, kkc, l, ll
   integer :: nfrom, nto, nmin, nmax
   integer tix,tixp
+  logical :: llboxch
   real (kind=dp) :: c0, den, vol_ch, x0, x1, xch, xfact
 
 ! Common blocks:
@@ -5828,15 +5890,18 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
   if (box) then
      nmin = n_bl
      nmax = n_bl
+  else if (chamber) then
+     nmax = n_bl
   endif
 
-  call aer_source (box,dd,z_box,n_bl)
+  if (.not.chamber) call aer_source (box,dd,z_box,n_bl)
 
-  call liq_parm (xra,box,n_bl)
+  llboxch = box.or.chamber
+  call liq_parm (xra,llboxch,n_bl)
 
 !*************************** no aerosol processing *****************
-!      call kpp_driver (box,dd,n_bl)
-!      return
+!   call kpp_driver (box,dd,n_bl)
+!   return
 !*************************** no aerosol processing *****************
 
 ! sion1 ion conc. [mole m**-3], sion1o old ion conc. [mole m**-3],
@@ -5847,15 +5912,15 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 
 !      if (.not.box) then
 
+! initialize variables
+  vc(:,:,:) = 0._dp
+  sap(:,:) = 0._dp
+  smp(:,:) = 0._dp
+
 ! loop over aqueous chemistry layers to get values of sion1, fs, smp, sap
 ! before chemistry integration (at t=t_0)
   do k=nmin,nmax
-     do kc=1,nkc_l          !initialize variables
-        do ic=1,nkc_l
-           vc(ic,kc,k) = 0._dp
-        enddo
-        sap(kc,k) = 0._dp
-        smp(kc,k) = 0._dp
+     do kc=1,nkc_l
         if (cm(kc,k).eq.0._dp) goto 900
 !       define upper and lower limits of ia loop
         if (kc.eq.1.or.kc.eq.3) then
@@ -5904,6 +5969,7 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
 ! chemistry SR
 
   call kpp_driver (box,dd,n_bl)
+
 !      if (box) return
 
 ! redistribution of particles along aerosol grid due to modified aerosol mass
@@ -6023,7 +6089,7 @@ subroutine stem_kpp (dd,xra,z_box,n_bl,box,nuc)
                     endif
 ! store change of volume for ix --> ix and ia --> ix+1
                     if (tix.ne.kc)  vc(tix,kc,k) =vc(tix,kc,k) +x1*c0*fpi*rq(jt,ia)**3
-                    if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1*(1.-c0)*fpi*rq(jt,ia)**3
+                    if (tixp.ne.kc) vc(tixp,kc,k)=vc(tixp,kc,k)+x1*(1._dp-c0)*fpi*rq(jt,ia)**3
                  endif
               enddo   ! jt loop
            enddo      ! ia loop
@@ -6252,7 +6318,7 @@ subroutine partdep (ra)
   ra=1./(kappa*ustern)*(log(z/z0)+phi)  !ra:aerodynamic resistance; kappa=0.4
 
   k=2 ! only in lowest model layer
-  xeta=1.8325e-5*(416.16/(t(k)+120.))*((t(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
+  xeta=1.8325e-5*(416.16/(t(k)+120._dp))*((t(k)/296.16)**1.5) !dynamic viscosity of air, Jacobsen p. 92
   xnu=xeta/rho(k)  !kinematic viscosity of air
 !  write (110,*) 'nu eta',xnu,xeta
 
@@ -6268,7 +6334,7 @@ subroutine partdep (ra)
      do jt=1,nkt
         rx=rq(jt,ia)*1.e-6
         vs=vterm(rx,t(k),p(k)) ! Stokes fall velocity incl Cc
-        Cc=1.+xlam/rx*(1.257+.4*exp(-1.1*rx/xlam)) ! Cunningham slip flow corr.
+        Cc=1.+xlam/rx*(1.257_dp+.4*exp(-1.1*rx/xlam)) ! Cunningham slip flow corr.
         xD=xk*t(k)*Cc/(6*pi*xeta*rx) ! aerosol diffusivity
         Sc=xnu/xD !Schmidt number
         St=vs*ustern**2/(g*xnu) !Stokes number
@@ -6413,8 +6479,8 @@ subroutine monin (phi)
         phi=4.7*(zeta-zeta0)
 ! unstable
      else if (xmo.lt.0) then
-        xeta0=(1.-15.*zeta0)**0.25
-        xeta=(1.-15.*zeta)**0.25
+        xeta0=(1._dp - 15.*zeta0)**0.25
+        xeta=(1._dp - 15.*zeta)**0.25
         phi=log( (xeta0**2+1.)*(xeta0+1.)**2 /((xeta**2+1.)*(xeta+1.)**2) )  &
              +2.*(atan(xeta)-atan(xeta0))
      else            ! jjb: note that the case xmo=0 is not explained in S & P
@@ -6662,7 +6728,6 @@ subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
        n, &
        nrlay, &
        nkc, &
-       nmax_chem_aer, &
        mbs
 
   USE precision, ONLY : &
@@ -6682,7 +6747,7 @@ subroutine box_update (box_switch,ij,nlevbox,nz_box,n_bl, &
   logical fa_lse,BL_box
   real (kind=dp) :: box_switch
   integer :: ij, nlevbox, n_bl, nz_box
-  
+
   real (kind=dp), external :: p21
 
   integer :: k
@@ -7431,7 +7496,7 @@ subroutine oneD_dist_new
 ! are no "empty" bins as when using the old radius 2D --> 1D mapping nka+nkt
 
 ! define 1D grid
-  rmin = rw(1,1) 
+  rmin = rw(1,1)
   rmax = rw(nkt,nka)
   rfact = 10**(log10(rmax/rmin)/(nkt-1))
   rp(0) = rmin/rfact
@@ -7629,3 +7694,205 @@ end function p21
 !
 !--------------------------------------------------------------------------
 !
+
+subroutine chamb_init (n_bl)
+! initialisation for chamber models runs
+
+  USE config, ONLY : &
+! Imported Parameters:
+       cinpdir_phot
+
+  USE file_unit, ONLY : &
+! Imported Parameters:
+       jpfunout, jpfunJchamb
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n, &
+       nf, &
+       nphrxn
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
+
+  integer, intent(in) :: n_bl
+  character (len=110) :: clpath
+  integer :: k
+  logical :: lights
+  real (kind=dp) :: zp21
+  real (kind=dp) :: freep(n)
+  real (kind=dp), external :: p21
+
+! Common blocks:
+  common /boxdat/ t0,rh0
+  real(kind=dp) :: t0,rh0
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /cb54/ xm1(n),xm2(n),feu(n),dfddt(n),xm1a(n)
+  real(kind=dp) :: xm1, xm2, feu, dfddt, xm1a
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
+  common /kinv_i/ kinv
+  integer :: kinv
+
+
+! initialize kinv (needed in SR kpp_driver)
+  kinv=nf
+! important for restart only: call init_konc only to start with "fresh" aerosol
+!      call init_konc
+
+! get chamber initial conditions from file
+  clpath=trim(cinpdir_phot)//'chamber.dat'
+  open (jpfunJchamb,file=trim(clpath),status='old')
+  read (jpfunJchamb,5101) t0
+  read (jpfunJchamb,5101) rh0
+  close(jpfunJchamb)
+ 5101 format (f6.0)
+
+  t(n_bl)  = t0
+  feu(n_bl)= rh0*1.0d-2
+  zp21 = p21(t(n_bl))
+  xm1(n_bl)=(0.62198*feu(n_bl)*zp21)/(p(n_bl)-0.37802*feu(n_bl)*zp21)
+
+  write(jpfunout,*)"box temp and hum: ",t(n_bl),xm1(n_bl),feu(n_bl)
+
+! photolysis rates
+! start chamber run with lights off (typical experiment, otherwise set lights=TRUE)
+! model run start at midday as set in SR initm
+  lights = .false.
+  if (lights) then
+     call photol_chamber
+  else
+     ph_rat_chamber(:) = 0.0_dp
+  endif
+
+!! comment this to turn off aerosol chemistry in the chamber
+! free path length (lambda=freep):
+  do k=2,n
+     freep(k)=2.28e-5 * t(k) / p(k)
+  enddo
+
+  call cw_rc (nf)
+
+  call v_mean_a  (t,nf)
+  call henry_a (t,nf)
+  call fast_k_mt_a(freep,.false.,nf)
+  call equil_co_a (t,nf)
+  call activ (.false.,nf)
+  call dry_cw_rc (nf)
+  call dry_rates_g (t,freep,n)
+  call dry_rates_a (freep,nf)
+
+  call equil (1,n_bl)
+
+!     if smogchamber run: adjust roughness length z0 z0 = to be
+!     determined; maybe scale with the decline of the particle
+!     population in the chamber; make sure that this value is not
+!     overwritten later during the run
+
+!     also make sure for smogchamber that deposition occurs also to the
+!     sidewalls of the chamber
+
+
+end subroutine chamb_init
+
+!
+!-------------------------------------------------------
+!
+
+subroutine chamb_update (n_bl,ij)
+! turn on and off photolysis rates. if lights are not OFF at the beginning of
+! the experiment change SR chamb_init
+
+  USE global_params, ONLY : &
+! Imported Parameters:
+       n, &
+       nf, &
+       nphrxn
+
+  USE precision, ONLY : &
+! Imported Parameters:
+       dp
+
+  implicit none
+
+  interface
+     subroutine equil (ncase,kk)
+       integer,           intent(in)  :: ncase
+       integer, optional, intent(in)  :: kk    ! model level for calculation
+     end subroutine equil
+  end interface
+
+  integer, intent(in) :: ij, n_bl
+  integer :: k
+  logical :: lights
+  real (kind=dp) :: on_hr, on_min, off_hr, off_min, on_time, off_time
+  real (kind=dp) :: freep(n)
+  common /cb40/ time,lday,lst,lmin,it,lcl,lct
+  real (kind=dp) :: time
+  integer :: lday, lst, lmin, it, lcl, lct
+  common /cb53/ theta(n),thetl(n),t(n),talt(n),p(n),rho(n)
+  real(kind=dp) :: theta, thetl, t, talt, p, rho
+  common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+  real (kind=dp) :: ph_rat_chamber
+
+
+
+! model time in chamber mode starts at 12:00 (set in SR initm)
+! time since beginning of experiment when lights are turned ON
+  on_hr = 0._dp
+  on_min = 15._dp
+  on_time = (on_hr*3600.)+(on_min*60.)
+
+! time since beginning of experiment when lights are turned OFF
+  off_hr = 2._dp
+  off_min = 0._dp
+  off_time = (off_hr*3600.)+(off_min*60.)
+
+  lights=.false.
+  if (time.ge.on_time) then
+     lights=.true.
+  endif
+  if (time.ge.off_time) then
+     lights=.false.
+  endif
+
+! if lights are ON calculate photolysis rates, otherwise set photolysis rates to zero
+  if (lights) then
+     call photol_chamber
+  else
+     ph_rat_chamber(:) = 0.0_dp
+  endif
+
+!! comment this to turn off aerosol chemistry in the chamber
+  if (lmin.eq.1.and.ij.eq.1) then
+!    free path length (lambda=freep):
+     do k=2,n
+        freep(k)=2.28e-5 * t(k) / p(k)
+     enddo
+
+     call cw_rc (nf)
+
+     call v_mean_a  (t,nf)
+     call henry_a (t,nf)
+     call fast_k_mt_a(freep,.false.,nf)
+     call equil_co_a (t,nf)
+     call activ (.false.,nf)
+     call dry_cw_rc (n)
+     call dry_rates_g (t,freep,n)
+     call dry_rates_a (freep,nf)
+
+     call equil (1,n_bl)
+  endif
+
+end subroutine chamb_update

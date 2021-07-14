@@ -27,12 +27,12 @@ c supplemented by Susanne Marquart, Sep 2004
 !    - implicit none everywhere
 !    - headers and declaration blocks
 
-      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
+      subroutine open_netcdf (n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, box, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, chamber, nuc
 
       logical :: true
 
@@ -59,7 +59,7 @@ c      if (chem)  call open_chem_aq(n_bln,halo,iod) ! aqueous phase
 !     if (chem)  call open_chem_gas(n_bln,true,iod,nuc) ! gas phase ! jjb halo(=.true.), iod & nud are no longer used
       if (chem)  call open_chem_gas(n_bln)              ! gas phase ! jjb removed
       if (chem)  call open_chem_aq(n_bln,true,iod,nuc) ! aqueous phase
-      if (chem)  call open_jrate (n_bln)            ! photolysis rates
+      if (chem)  call open_jrate (n_bln, chamber)   ! photolysis rates
       if (chem)  call open_rxn                      ! reaction rates
       if (nuc)   call open_nuc                      ! nucleation
       call open_grid ! writes information on grid that is not f(t)
@@ -72,12 +72,12 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine write_netcdf (n_bln,chem,mic,halo,iod,box,nuc)
+      subroutine write_netcdf (n_bln,chem,mic,halo,iod,box,chamber,nuc)
 
       implicit none
 
       integer, intent(in) :: n_bln
-      logical, intent(in) :: chem, mic, halo, iod, box, nuc
+      logical, intent(in) :: chem, mic, halo, iod, box, chamber, nuc
 
       logical :: true
 
@@ -87,9 +87,9 @@ c write netCDF-files
       if (mic.and..not.box) call write_mic            ! microphysics
 c      if (chem)  call write_chem_aq (n_bln,halo,iod) ! aqueous phase
 
-      if (chem)  call write_chem_gas (n_bln)              ! gas phase
+      if (chem)  call write_chem_gas (n_bln)             ! gas phase
       if (chem)  call write_chem_aq (n_bln,true,iod,nuc) ! aqueous phase
-      if (chem)  call write_jrate (n_bln)             ! photolysis rates
+      if (chem)  call write_jrate (n_bln,chamber)     ! photolysis rates
       if (chem)  call write_rxn                       ! reaction rates
       if (nuc)   call write_nuc                       ! nucleation
 
@@ -2629,7 +2629,7 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine open_jrate (n_bln)
+      subroutine open_jrate (n_bln, chamber)
 
 ! jjb work done
 !     - use module (and solve inconsistency in ph_rates numbers
@@ -2646,6 +2646,7 @@ c
 ! Subroutine arguments
 ! Scalar arguments with intent(in):
       integer, intent(in) :: n_bln
+      logical, intent(in) :: chamber
 
 ! Local parameters:
       character (len=*), parameter :: fname = "jrate.nc"
@@ -2718,7 +2719,11 @@ c photolysis jrates
 
       jddim1(1)=id_x
       jddim1(2)=id_y
-      jddim1(3)=id_n
+      if (.not.chamber) then
+         jddim1(3)=id_n
+      else
+         jddim1(3)=id_noz
+      end if
       jddim1(4)=idjrat_rec
 
       do ispec=1,n_jrates
@@ -4067,7 +4072,7 @@ c
 c----------------------------------------------------------------
 c
 
-      subroutine write_jrate (n_bln)
+      subroutine write_jrate (n_bln,chamber)
 
 ! 21-Sep-2020   Josue Bock   Minor bugfix: correct the third dimension of local array 'field': n_bln instead of n
 
@@ -4086,6 +4091,7 @@ c
       include 'netcdf.inc'
 
       integer, intent(in) :: n_bln
+      logical, intent(in) :: chamber
 ! Local parameters:
       character (len=*), parameter :: fname = "jrate.nc"
 ! Local scalars:
@@ -4104,6 +4110,8 @@ c
 
       common /band_rat/ photol_j(nphrxn,n)
       real (kind=dp) :: photol_j
+      common /chamber_ph_r/ ph_rat_chamber(nphrxn)
+      real (kind=dp) :: ph_rat_chamber
 
       ijratcount=ijratcount+1
 
@@ -4135,7 +4143,11 @@ c chemical species
 
       idimcount(1)=1
       idimcount(2)=1
-      idimcount(3)=n_bln
+      if (.not.chamber) then
+         idimcount(3)=n_bln
+      else
+         idimcount(3)=1
+      end if
       idimcount(4)=1
 
       idimstart(1)=1
@@ -4143,12 +4155,21 @@ c chemical species
       idimstart(3)=1
       idimstart(4)=ijratcount
 
-      do ispec=1,nphrxn
-         field(1,1,:)=photol_j(ispec,1:n_bln)
-         k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),idimstart,
-     &        idimcount,field)
-         if (k.ne.nf_noerr) call ehandle(k,fname)
-      enddo
+      if (.not.chamber) then
+         do ispec=1,nphrxn
+            field(1,1,:)=photol_j(ispec,1:n_bln)
+            k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),
+     &           idimstart,idimcount,field)
+            if (k.ne.nf_noerr) call ehandle(k,fname)
+         enddo
+      else
+         do ispec=1,nphrxn
+            field(1,1,1)=ph_rat_chamber(ispec)
+            k=nf_put_vara_double(idjratfile,idvar_jrat(ispec+3),
+     &           idimstart,idimcount,field(1:1,1:1,1:1))
+            if (k.ne.nf_noerr) call ehandle(k,fname)
+         enddo
+      end if
 
       k=nf_sync(idjratfile)
       if (k.ne.nf_noerr) call ehandle(k,fname)
