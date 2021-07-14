@@ -50,9 +50,9 @@ USE gas_common, ONLY :    &
      rad_m2k_a,rad_k2m_a, &
      rad_m2k_t,rad_k2m_t
 
-USE global_params, ONLY : &
-     j2,                  &
-     j3
+!USE global_params, ONLY : &
+!     j2,                  &
+!     j3
 
 USE kpp_gas_Global, ONLY : &
      nspec_g=>NSPEC,       &
@@ -1033,8 +1033,8 @@ integer, intent(in) :: nm ! Size for Mistra arrays
 integer, intent(in) :: nk ! Size for KPP names array
 
 ! Array arguments with intent(in):
-character(len=12), intent(in) :: m_name (nm)
-character(len=12), intent(in) :: k_name (nk)
+character(len=*), intent(in) :: m_name (nm)
+character(len=*), intent(in) :: k_name (nk)
 
 ! Array arguments with intent(out):
 integer, intent(out) :: k2m_table (nm)

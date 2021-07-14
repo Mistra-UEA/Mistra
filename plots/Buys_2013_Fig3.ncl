@@ -83,7 +83,7 @@ begin
   res@tmYLTickEndF      = 14.
   res@tmYLTickSpacingF  = 2.
   res@tmYLMinorPerMajor = 1
-  res@tiYAxisString     = "Br~B~2~N~ (pptv)"
+  res@tiYAxisString     = "Br~B~2~N~ (pmol mol~S~-1~N~)"
   ; Informations displayed on top
   res@gsnLeftString = ""
   res@gsnRightString = ""
@@ -99,7 +99,7 @@ begin
   res@tmYLTickEndF      = 3.
   res@tmYLTickSpacingF  = 0.5
   res@tmYLMinorPerMajor = 4
-  res@tiYAxisString     = "BrCl (pptv)"
+  res@tiYAxisString     = "BrCl (pmol mol~S~-1~N~)"
   plot(1) = gsn_csm_xy(wks,time,BrCl,res)
 
 ;************************************************

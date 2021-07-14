@@ -637,7 +637,7 @@ function gammann(T,N,NC,NA,mC,mA,ZC,ZA,ZI,I,I2,B0,B1,C0,C1,omega)
 
   USE precision, ONLY : &
 ! Imported Parameters:
-       dp
+       dp, tiny_dp
 
   implicit none
 
@@ -700,7 +700,7 @@ function gammann(T,N,NC,NA,mC,mA,ZC,ZA,ZI,I,I2,B0,B1,C0,C1,omega)
         xo=omega1*I2
         xo4 = xo*xo*xo*xo
 
-        if(abs(XO4) > tiny(0._dp)) then
+        if(abs(XO4) > tiny_dp) then
            !xhx=1._dp/xo**4*(6._dp-exp(-xo)*(6._dp+6._dp*xo+3._dp*xo**2+xo**3))
            xhx=1._dp/xo4*(6._dp-exp(-xo)*(6._dp+6._dp*xo+3._dp*xo**2+xo**3))
         else

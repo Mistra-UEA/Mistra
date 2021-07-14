@@ -1658,8 +1658,8 @@ subroutine constm
 6230 format (6x,'current program evaluation: ','   chem: ',l1, &
           ' mic: ',l1,'   rst: ',l1,//)
   xxsum=0._dp
+  xsum(:)=0._dp
   do k=2,nf
-     xsum(k)=0._dp
      do ia=1,nka
         do jt=1,nkt
            xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
@@ -1668,6 +1668,7 @@ subroutine constm
      xsum(k)=xsum(k)*1.e+09
      xxsum=xxsum+xsum(k)*detw(k)
   enddo
+
   write (jpfunprofm,6240)
 6240 format (/,6x,'aerosol mass in ug m**-3 in layers 2 - nf')
   write (jpfunprofm,6250) xsum
@@ -1880,8 +1881,8 @@ subroutine profm (dt)
   end if
 
   xxsum=0._dp
+  xsum(:)=0._dp
   do k=2,nf
-     xsum(k)=0._dp
      do ia=1,nka
         do jt=1,nkt
            xsum(k)=xsum(k)+ff(jt,ia,k)*en(ia)
