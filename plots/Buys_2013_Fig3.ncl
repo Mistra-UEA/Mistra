@@ -63,27 +63,31 @@ begin
   res@gsnMaximize                  = True            ; use full page
   res@gsnPaperOrientation          = "portrait"      ; prevent automatic rotation
   ; adjust plot to get same height and width
-  res@vpHeightF           = 0.4
-  res@vpWidthF            = 0.6
+  res@vpHeightF           = 0.44
+  res@vpWidthF            = 0.7
 
   ; X-Axis settings
-  ;res@trXMinF           = -3.
-  ;res@trXMaxF           = 26.
+  res@trXMinF           = -1.5
+  res@trXMaxF           = 27.
   res@tmXBMode          = "Manual"
   res@tmXBTickStartF    = 0.
   res@tmXBTickEndF      = 24.
   res@tmXBTickSpacingF  = 6.
   res@tmXBMinorPerMajor = 5
+  res@tmXTOn            = False
   res@tiYAxisString     = "Time (h)"
+  res@tiXAxisFontHeightF = 0.02
   ; Y-Axis settings
   ;res@trYMinF           = 0.
-  ;res@trYMaxF           = 15.
+  res@trYMaxF           = 15.
   res@tmYLMode          = "Manual"
   res@tmYLTickStartF    = 0.
   res@tmYLTickEndF      = 14.
   res@tmYLTickSpacingF  = 2.
   res@tmYLMinorPerMajor = 1
+  res@tmYROn            = False
   res@tiYAxisString     = "Br~B~2~N~ (pmol mol~S~-1~N~)"
+  res@tiYAxisFontHeightF = 0.02
   ; Informations displayed on top
   res@gsnLeftString = ""
   res@gsnRightString = ""
@@ -91,8 +95,11 @@ begin
   plot(0) = gsn_csm_xy(wks,time,Br2,res)
 
   ; Adjust plot settings for BrCl
+  ; X-Axis settings
+  res@trXMinF           = -2.5
+  res@trXMaxF           = 26.5
   ; Y-Axis settings
-  res@trYMinF           = 0.
+  res@trYMinF           = -0.05
   res@trYMaxF           = 3.
   res@tmYLMode          = "Manual"
   res@tmYLTickStartF    = 0.

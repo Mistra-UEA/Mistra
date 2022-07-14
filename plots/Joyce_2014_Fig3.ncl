@@ -20,8 +20,6 @@ begin
   GasFile = addfile(outdir+"gas.nc","r")
   AqFile = addfile(outdir+"aq.nc","r")
 
-  ntim=201 ; timesteps
-
 ; define bounds
 ; -------------
 ; plot up to ~600m: end at grid index 62 (remember index 1 is skipped (zero-height layer), index 2 middle of layer = 5m, index 62 = 605m)
@@ -41,6 +39,7 @@ begin
   nmin = GasFile->lmin(tidx:,0,0,0) ; file is (rec=, noz=1, y=1, x=1) ; units min
   time = nday*24. + nhour + nmin/60.
 
+  ntim=dimsizes(time) ; timesteps
 
 ; import data
 ; -----------
@@ -99,6 +98,8 @@ begin
   res@gsnFrame                     = False
   res@gsnMaximize                  = True            ; use full page
   res@gsnPaperOrientation          = "portrait"      ; prevent automatic rotation
+  res@gsnLeftStringFontHeightF     = 0.03
+  res@gsnRightStringFontHeightF    = 0.03
 
   ; adjust plot to get same height and width
   res@vpHeightF           = 0.6
@@ -110,15 +111,24 @@ begin
   res@cnLinesOn            = False
   res@cnLevelSelectionMode =  "ManualLevels"
   res@cnMinLevelValF       =  1.
-  res@cnMaxLevelValF       =  60.
+  res@cnMaxLevelValF       =  59.
   res@cnLevelSpacingF      =  4.
   res@lbOrientation        = "Vertical"  ; Default is horizontal
 
   ; Axis settings
-  res@trYMinF              = 0.
-  res@trYMaxF              = 600.
-  res@tiXAxisString     = "Time (h)"
-  res@tiYAxisString     = "Height (m)"
+  res@trYMinF = 5.
+  res@trYMaxF = 600.
+  res@tmXTOn               = False
+  res@tmXBLabelFontHeightF = 0.03
+  res@tmXBMinorOn          = False
+  res@tmYLMode             = "Explicit"
+  res@tmYLValues           = (/5,50,100,150,200,250,300,350,400,450,500,550/)
+  res@tmYLLabels           = "" + res@tmYLValues
+  res@tmYLLabelFontHeightF = 0.03
+  res@tiXAxisString      = "Time (h)"
+  res@tiYAxisString      = "Height (m)"
+  res@tiXAxisFontHeightF = 0.03
+  res@tiYAxisFontHeightF = 0.03
   ; Informations displayed on top
   res@gsnLeftString = "NO~B~x~N~ (nmol mol~S~-1~N~)"
   res@gsnRightString = "max = "+sprintf("%5.1f",max(NOx))
@@ -137,6 +147,8 @@ begin
 ;************************************************
 ; create panel
 ;************************************************
-  gsn_panel(wks,plot,(/2,1/),False)             ; now draw as one plot
+  resP = True
+  resP@gsnPanelYWhiteSpacePercent = 2
+  gsn_panel(wks,plot,(/2,1/),resP)             ; now draw as one plot
 
 end
