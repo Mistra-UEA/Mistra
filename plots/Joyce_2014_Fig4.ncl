@@ -135,6 +135,8 @@ begin
   res@gsnFrame                     = False
   res@gsnMaximize                  = True            ; use full page
   res@gsnPaperOrientation          = "portrait"      ; prevent automatic rotation
+  res@gsnLeftStringFontHeightF     = 0.03
+  res@gsnRightStringFontHeightF    = 0.03
 
   ; adjust plot to get same height and width
   res@vpHeightF           = 0.6
@@ -151,10 +153,19 @@ begin
   res@lbOrientation        = "Vertical"  ; Default is horizontal
 
   ; Axis settings
-  res@trYMinF              = 0.
+  res@tmXTOn               = False
+  res@tmXBLabelFontHeightF = 0.030
+  res@tmYLLabelFontHeightF = 0.030
+  res@tmXBMinorOn          = False
+  res@tmYLMode             = "Explicit"
+  res@tmYLValues           = (/5,50,100,150,200,250,300,350,400,450,500,550/)
+  res@tmYLLabels           = "" + res@tmYLValues
+  res@trYMinF              = 5.
   res@trYMaxF              = 600.
   res@tiXAxisString     = "Time (h)"
   res@tiYAxisString     = "Height (m)"
+  res@tiXAxisFontHeightF = 0.03
+  res@tiYAxisFontHeightF = 0.03
   ; Informations displayed on top
   res@gsnLeftString = "O~B~3~N~ (nmol mol~S~-1~N~)"
   res@gsnRightString = "max="+max(O3)
@@ -201,6 +212,9 @@ begin
 ;************************************************
 ; create panel
 ;************************************************
-  gsn_panel(wks,plot,(/3,2/),False)             ; now draw as one plot
+  resP = True
+  resP@gsnPanelXWhiteSpacePercent = 3
+  resP@gsnPanelYWhiteSpacePercent = 4
+  gsn_panel(wks,plot,(/3,2/),resP)             ; now draw as one plot
 
 end

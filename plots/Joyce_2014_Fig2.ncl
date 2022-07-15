@@ -94,10 +94,16 @@ begin
   res@lbOrientation        = "Vertical"  ; Default is horizontal
 
   ; Axis settings
-  res@trYMinF              = 0.
+  res@trYMinF              = 5.
   res@trYMaxF              = 600.
-  res@tiXAxisString     = "Time (h)"
-  res@tiYAxisString     = "Height (m)"
+  res@tiXAxisString = "Time (h)"
+  res@tiYAxisString = "Height (m)"
+  res@tiXAxisFontHeightF = 0.02
+  res@tmXBMinorOn = False
+  res@tmXTOn      = False
+  res@tmYLMode    = "Explicit"
+  res@tmYLValues  = (/5,50,100,150,200,250,300,350,400,450,500,550/)
+  res@tmYLLabels  = "" + res@tmYLValues
   ; Informations displayed on top: nothing in this plot
   res@gsnLeftString = ""
   res@gsnRightString = ""

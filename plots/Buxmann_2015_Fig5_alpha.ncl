@@ -13,24 +13,9 @@ begin
 ; read in netCDF file
 ;************************************************
 
-; Buys et al file  
-  if (True) then
-    outd = "/media/josue/BACKUP2/mafalda-backup/data/Joelle/"
-    outdir = outd+"alpha/" ; NOK
-    outdir = outd+"alphwlHOBr/" ; panel 1 roughly ok
-    ;;outdir = outd+"alphwl1HCHO20"
-    ;outdir = outd+"alphwlBr/"
-    ;outdir = outd+"alphwl1/"
-    ;outdir = outd+"alphaloss/"
-    ;outdir = outd+"alphwl1HCHO20_nA/"
-    ;outdir = outd+"alphaloss2/"
-    ;outdir = outd+"alphaloss1/"
-    ;outdir = outd+"alphaloss1HCHO/"
-    ;outdir = outd+"alphwl10HCHO20/"
-    ;outdir = outd+"alphaloss10/"
-  end if
+; Buys et al file
+  outdir = "~/Mistra_2019/out/Buxmann15_alpha/"
 
-  ;GridFile = addfile(outdir+"grid.nc","r")
   MeteoFile = addfile(outdir+"meteo.nc","r")
   GasFile = addfile(outdir+"gas.nc","r")
 
@@ -145,10 +130,12 @@ begin
   res@vpWidthF            = 0.75
 
   ; Axis settings
-  ;res@trYMinF              = 0.
-  ;res@trYMaxF              = 600.
+  res@tiXAxisOn         = False
   res@tiXAxisString     = "Time (min)"
-  res@tiYAxisString     = "Mixing ratio (ppt)"
+  res@tiYAxisString     = "l"   ; string of limited width, that will not overlap the gsn_text (see below)
+  res@tiYAxisFontColor  = 0     ; use white fonts for Y-axix titles (use gsn_text_ndc later)
+  ;res@tiYAxisOn        = False ; this option did not work well, since the alignment with/without Y-axis
+                                ; is very different once panelled.
   ; Informations displayed on top
   res@gsnLeftString = ""
   res@gsnRightString = ""
@@ -162,8 +149,14 @@ begin
   res@tmXBTickStartF = -20.
   res@tmXBTickEndF = 140.
   res@tmXBTickSpacingF = 20.
+  res@tmXMajorGrid = True
+  res@tmXBMinorOn = False
+  res@tmXMajorGridLineColor = "Grey70"
+  res@tmXMajorGridLineDashPattern = 2
   res@xyLineThicknessF = 3
 
+  res@tiYAxisOffsetXF = 0.012 ; even if not displayed directly, offset the Y-axis to the right to account
+                              ; for the wider labels (4 digits here, only 3 in the next two plots)
   res@trYMaxF     = 2200.
   res@tmYLMode = "Manual"
   res@tmYLTickStartF = 0.
@@ -173,27 +166,64 @@ begin
   res@xyDashPatterns = (/1,8,0/)
   plot(0) = gsn_csm_xy(wks,time,data1,res)
 
-  res@trYMaxF     = 900.
-  res@tmYLTickStartF = 0.
-  res@tmYLTickEndF = 800.
+  res@tiYAxisOffsetXF = 0. ; back to default value (see explanation above)
+  res@trYMaxF = 900.
+  res@tmYLTickStartF   = 0.
+  res@tmYLTickEndF     = 800.
   res@tmYLTickSpacingF = 200.
-  res@xyLineColors := (/"royalblue4","royalblue4"/)
+  res@xyLineColors   := (/"royalblue4","royalblue4"/)
   res@xyDashPatterns := (/1,2/)
   plot(1) = gsn_csm_xy(wks,time,data2,res)
 
-  res@tiYAxisString     = "Mixing ratio (ppb)"
-  res@trYMaxF     = 300.
-  res@tmYLTickStartF = 0.
-  res@tmYLTickEndF = 300.
+  res@tiXAxisOn = True
+  res@trYMinF = -20.
+  res@trYMaxF = 300.
+  res@tmYLTickStartF   = 0.
+  res@tmYLTickEndF     = 300.
   res@tmYLTickSpacingF = 50.
-  res@xyLineColors = (/"red2","black"/)
-  res@xyDashPatterns = (/2,0/)
+  res@xyLineColors   := (/"red2","black"/)
+  res@xyDashPatterns := (/2,0/)
   plot(2) = gsn_csm_xy(wks,time,data3,res)
 
+;************************************************
+; add shading for dark time
+;************************************************
+  xpt1 = (/-20,0,0,-20,-20/)
+  ypt1 = (/-20,-20,2500,2500,-20/)
+  xpt2 = (/110,150,150,110,110/)
+  ypt2 = ypt1
+  plgres = True
+  plgres@tfPolyDrawOrder = "PreDraw"
+  plgres@gsFillColor = "Grey90"
+  plg0a = gsn_add_polygon(wks,plot(0),xpt1,ypt1,plgres)
+  plg0b = gsn_add_polygon(wks,plot(0),xpt2,ypt2,plgres)
+  plg1a = gsn_add_polygon(wks,plot(1),xpt1,ypt1,plgres)
+  plg1b = gsn_add_polygon(wks,plot(1),xpt2,ypt2,plgres)
+  plg2a = gsn_add_polygon(wks,plot(2),xpt1,ypt1,plgres)
+  plg2b = gsn_add_polygon(wks,plot(2),xpt2,ypt2,plgres)
+
+;************************************************
+; add bommon y-axis title
+;************************************************
+  ; since these text are drawn before the panel, the individual titles of the three plots overlap these.
+  ; The solution found (see also the comments above) is to use a "l" (limited width) title, and white colour.
+  ; Last, the overlap is checked (by temporarily setting a visible colour) and the x/y positions are adjusted in the panel.
+  ; The y-axis of the third plot could have been kept, however using the same process allows perfect alignment of both titles.
+  txres = True
+  txres@txAngleF = 90
+  txres@txFontHeightF = 0.0214
+  gsn_text_ndc(wks,"Mixing ratio (pmol mol~S~-1~N~)",0.02,.70,txres)
+  gsn_text_ndc(wks,"Mixing ratio (nmol mol~S~-1~N~)",0.02,.222,txres)
 
 ;************************************************
 ; create panel
 ;************************************************
-  gsn_panel(wks,plot,(/3,1/),False)             ; now draw as one plot
+  ;drawNDCGrid(wks) ; used for adjustments
+  resP = True
+  ;resP@gsnPanelDebug = True ; used for adjustments
+  resP@gsnPanelBottom = 0.04 ; keep space for tiXAxis
+  resP@gsnPanelXF = (/0.128225,0.128225,0.128225/)
+  resP@gsnPanelYF = (/0.970522,0.650522,0.330522/)
+  gsn_panel(wks,plot,(/3,1/),resP)             ; now draw as one plot
 
 end
